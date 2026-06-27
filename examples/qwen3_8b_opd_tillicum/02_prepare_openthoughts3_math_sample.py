@@ -12,6 +12,8 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 from datasets import Dataset, load_dataset
 from transformers import AutoTokenizer
 
@@ -125,25 +127,95 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def write_parquet_rows(path: Path, rows: list[dict[str, Any]], batch_size: int = 1000) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    writer: pq.ParquetWriter | None = None
+    try:
+        for start in range(0, len(rows), batch_size):
+            end = min(start + batch_size, len(rows))
+            table = pa.Table.from_pylist(rows[start:end])
+            if writer is None:
+                writer = pq.ParquetWriter(str(path), table.schema)
+            writer.write_table(table)
+            if end % 5000 == 0 or end == len(rows):
+                print(f"Parquet rows: {end}/{len(rows)}", flush=True)
+    finally:
+        if writer is not None:
+            writer.close()
+
+
+def iter_dataset_rows(ds: Dataset, indices: list[int], label: str, batch_size: int = 1000):
+    selected = ds.select(indices)
+    total = len(indices)
+    seen = 0
+    for batch in selected.iter(batch_size=batch_size):
+        keys = list(batch.keys())
+        if not keys:
+            continue
+        for row_idx in range(len(batch[keys[0]])):
+            seen += 1
+            if seen % 5000 == 0 or seen == total:
+                print(f"{label}: {seen}/{total}", flush=True)
+            yield {key: batch[key][row_idx] for key in keys}
+
+
+def encode_lengths(tokenizer: Any, texts: list[str]) -> list[int]:
+    encoded = tokenizer(texts, add_special_tokens=False)
+    return [len(input_ids) for input_ids in encoded["input_ids"]]
+
+
+def flush_token_batch(
+    tokenizer: Any,
+    texts: list[str],
+    lengths: list[int],
+    label: str,
+    processed: int,
+    total: int,
+) -> int:
+    if not texts:
+        return processed
+    previous = processed
+    batch_size = len(texts)
+    lengths.extend(encode_lengths(tokenizer, texts))
+    processed += batch_size
+    texts.clear()
+    if processed // 5000 > previous // 5000 or processed == total:
+        print(f"{label} token stats: {processed}/{total}", flush=True)
+    return processed
+
+
 def token_lengths(tokenizer: Any, sft_rows: list[dict[str, Any]], opd_rows: list[dict[str, Any]]) -> dict[str, Any]:
     sft_lengths: list[int] = []
+    sft_text_batch: list[str] = []
+    sft_processed = 0
     for row in sft_rows:
         messages = row["messages"]
         try:
-            ids = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=False)
+            text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
         except Exception:
             text = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
-            ids = tokenizer(text, add_special_tokens=False)["input_ids"]
-        sft_lengths.append(len(ids))
+        sft_text_batch.append(text)
+        if len(sft_text_batch) >= 256:
+            sft_processed = flush_token_batch(
+                tokenizer, sft_text_batch, sft_lengths, "SFT", sft_processed, len(sft_rows)
+            )
+    sft_processed = flush_token_batch(tokenizer, sft_text_batch, sft_lengths, "SFT", sft_processed, len(sft_rows))
 
     opd_lengths: list[int] = []
+    opd_text_batch: list[str] = []
+    opd_processed = 0
     for row in opd_rows:
         messages = [{"role": "user", "content": row["prompt"]}]
         try:
-            ids = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True)
+            text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         except Exception:
-            ids = tokenizer(row["prompt"], add_special_tokens=False)["input_ids"]
-        opd_lengths.append(len(ids))
+            text = row["prompt"]
+        opd_text_batch.append(text)
+        if len(opd_text_batch) >= 256:
+            opd_processed = flush_token_batch(
+                tokenizer, opd_text_batch, opd_lengths, "OPD", opd_processed, len(opd_rows)
+            )
+    opd_processed = flush_token_batch(tokenizer, opd_text_batch, opd_lengths, "OPD", opd_processed, len(opd_rows))
 
     def stats(values: list[int]) -> dict[str, float | int]:
         return {
@@ -192,15 +264,16 @@ def main() -> None:
     rng = random.Random(args.seed)
     shuffled = list(range(len(math_ds)))
     rng.shuffle(shuffled)
-    sft_indices = shuffled[: args.sft_size]
-    opd_indices = shuffled[args.sft_size : required]
+    # Split membership is seeded by the shuffled order. Materialize in dataset
+    # order to avoid very slow random Arrow row reads on GPFS.
+    sft_indices = sorted(shuffled[: args.sft_size])
+    opd_indices = sorted(shuffled[args.sft_size : required])
 
     sft_rows: list[dict[str, Any]] = []
     opd_rows: list[dict[str, Any]] = []
 
     print(f"Building SFT rows: {len(sft_indices)}")
-    for idx in sft_indices:
-        row = math_ds[int(idx)]
+    for row in iter_dataset_rows(math_ds, sft_indices, "SFT rows"):
         messages = extract_messages(row)
         prompt = extract_prompt(row, messages)
         source_row_id = int(row["source_row_id"])
@@ -218,8 +291,7 @@ def main() -> None:
         )
 
     print(f"Building OPD rows: {len(opd_indices)}")
-    for idx in opd_indices:
-        row = math_ds[int(idx)]
+    for row in iter_dataset_rows(math_ds, opd_indices, "OPD rows"):
         messages = extract_messages(row)
         prompt = extract_prompt(row, messages)
         source_row_id = int(row["source_row_id"])
@@ -236,18 +308,19 @@ def main() -> None:
             }
         )
 
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, cache_dir=args.hf_home, trust_remote_code=True)
-    length_stats = token_lengths(tokenizer, sft_rows, opd_rows)
-
-    sft_out.parent.mkdir(parents=True, exist_ok=True)
-    Dataset.from_list(sft_rows).to_parquet(str(sft_out))
-    write_jsonl(opd_out, opd_rows)
-
     sft_source_ids = [row["metadata"]["source_row_id"] for row in sft_rows]
     opd_source_ids = [row["metadata"]["source_row_id"] for row in opd_rows]
     overlap = sorted(set(sft_source_ids).intersection(opd_source_ids))
     if overlap:
         raise RuntimeError(f"SFT/OPD row split overlap detected: first overlaps {overlap[:10]}")
+
+    write_parquet_rows(sft_out, sft_rows)
+    write_jsonl(opd_out, opd_rows)
+    print(f"Wrote {sft_out}")
+    print(f"Wrote {opd_out}")
+
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, cache_dir=args.hf_home, trust_remote_code=True)
+    length_stats = token_lengths(tokenizer, sft_rows, opd_rows)
 
     metadata = {
         "seed": args.seed,
@@ -258,6 +331,7 @@ def main() -> None:
             "value": args.math_value,
             "operation": "case-insensitive equality",
         },
+        "sample_materialization": "Seeded split membership, indices sorted within each split before row materialization.",
         "counts": {
             "source_rows_seen": len(ds),
             "math_rows_after_filter": len(math_ds),
@@ -283,8 +357,6 @@ def main() -> None:
     metadata_out.parent.mkdir(parents=True, exist_ok=True)
     metadata_out.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
-    print(f"Wrote {sft_out}")
-    print(f"Wrote {opd_out}")
     print(f"Wrote {metadata_out}")
 
 
