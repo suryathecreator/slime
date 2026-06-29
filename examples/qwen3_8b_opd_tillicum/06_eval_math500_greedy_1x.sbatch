@@ -68,6 +68,8 @@ write_combined_report() {
       --sft-total-samples "$((SFT_NUM_ROLLOUT * SFT_ROLLOUT_BATCH_SIZE))" \
       --sft-rollout-batch-size "${SFT_ROLLOUT_BATCH_SIZE}" \
       --opd-rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}" \
+      --sft-final-only \
+      --opd-final-only \
       --out-json "${COMBINED_EVAL_OUTPUT_DIR}/summary_all.json"
   else
     echo "No summaries available for combined report yet."
@@ -325,7 +327,7 @@ run_sft_curve() {
 run_opd_curve() {
   local rid samples dir stage
   for rid in ${OPD_MILESTONE_ROLLOUT_IDS}; do
-    samples="$(sample_count_for_rollout "${rid}" "${OPD_ROLLOUT_BATCH_SIZE}" "${OPD_SIZE}")"
+    samples="$(sample_count_for_rollout "${rid}" "${OPD_ROLLOUT_BATCH_SIZE}" "${OPD_TRAIN_SIZE}")"
     dir="$(hf_snapshot_dir "${OPD_HF_SNAPSHOT_DIR}" "${rid}")"
     stage="$(printf "opd_%06d" "${samples}")"
     run_eval "${stage}" "${dir}" "${samples}"

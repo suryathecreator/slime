@@ -30,6 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sft-total-samples", type=int, default=24832)
     parser.add_argument("--sft-rollout-batch-size", type=int, default=256)
     parser.add_argument("--opd-rollout-batch-size", type=int, default=128)
+    parser.add_argument("--sft-final-only", action="store_true")
+    parser.add_argument("--opd-final-only", action="store_true")
     parser.add_argument("--train-samples", type=int, default=None)
     return parser.parse_args()
 
@@ -210,6 +212,17 @@ def read_stage_summaries(root: Path, phase: str) -> list[dict[str, Any]]:
     return summaries
 
 
+def keep_final_summary(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not summaries:
+        return summaries
+    with_samples = [item for item in summaries if item.get("train_samples") is not None]
+    if not with_samples:
+        return summaries[-1:]
+    max_samples = max(int(item.get("train_samples") or 0) for item in with_samples)
+    finals = [item for item in with_samples if int(item.get("train_samples") or 0) == max_samples]
+    return sorted(finals, key=lambda item: str(item.get("stage")))[-1:]
+
+
 def rollout_label(phase: str, train_samples: int | None, batch_size: int) -> str:
     if phase == "base" or train_samples is None:
         return "base"
@@ -225,14 +238,22 @@ def combined_points(
     sft_total_samples: int,
     sft_rollout_batch_size: int,
     opd_rollout_batch_size: int,
+    sft_final_only: bool,
+    opd_final_only: bool,
 ) -> list[dict[str, Any]]:
     summaries: list[dict[str, Any]] = []
     if base_dir is not None:
         summaries.extend(read_stage_summaries(base_dir, "base"))
     if sft_dir is not None:
-        summaries.extend(read_stage_summaries(sft_dir, "sft"))
+        sft_summaries = read_stage_summaries(sft_dir, "sft")
+        if sft_final_only:
+            sft_summaries = keep_final_summary(sft_summaries)
+        summaries.extend(sft_summaries)
     if opd_dir is not None:
-        summaries.extend(read_stage_summaries(opd_dir, "opd"))
+        opd_summaries = read_stage_summaries(opd_dir, "opd")
+        if opd_final_only:
+            opd_summaries = keep_final_summary(opd_summaries)
+        summaries.extend(opd_summaries)
 
     points = []
     for item in summaries:
@@ -447,6 +468,8 @@ def write_combined_report(
     sft_total_samples: int,
     sft_rollout_batch_size: int,
     opd_rollout_batch_size: int,
+    sft_final_only: bool,
+    opd_final_only: bool,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     points = combined_points(
@@ -456,6 +479,8 @@ def write_combined_report(
         sft_total_samples=sft_total_samples,
         sft_rollout_batch_size=sft_rollout_batch_size,
         opd_rollout_batch_size=opd_rollout_batch_size,
+        sft_final_only=sft_final_only,
+        opd_final_only=opd_final_only,
     )
     if not points:
         raise RuntimeError("No per-stage summaries found for combined report")
@@ -471,6 +496,8 @@ def write_combined_report(
             "png": str(out_dir / "combined_accuracy_curve.png"),
         },
         "note": "Combined curve uses light blue shading for SFT and light purple shading for OPD.",
+        "sft_final_only": sft_final_only,
+        "opd_final_only": opd_final_only,
     }
 
 
@@ -617,6 +644,8 @@ def main() -> None:
             sft_total_samples=args.sft_total_samples,
             sft_rollout_batch_size=args.sft_rollout_batch_size,
             opd_rollout_batch_size=args.opd_rollout_batch_size,
+            sft_final_only=args.sft_final_only,
+            opd_final_only=args.opd_final_only,
         )
     else:
         if not args.stage or not args.debug_file:

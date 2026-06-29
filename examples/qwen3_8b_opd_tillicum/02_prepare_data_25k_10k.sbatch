@@ -27,7 +27,8 @@ fi
 
 echo "Preparing OpenThoughts3 math data at $(date)"
 echo "SFT rows: ${SFT_SIZE} -> ${SFT_PARQUET}"
-echo "OPD rows: ${OPD_SIZE} -> ${OPD_JSONL}"
+echo "OPD pool rows: ${OPD_POOL_SIZE} -> ${OPD_JSONL}"
+echo "OPD train rows: ${OPD_TRAIN_SIZE} (${OPD_EFFECTIVE_TRAIN_SAMPLES} effective)"
 echo "Metadata: ${SPLIT_METADATA}"
 
 "${SCRIPT_DIR}/container_exec.sh" bash -lc '
@@ -51,7 +52,7 @@ sft_path = Path(os.environ["SFT_PARQUET"])
 opd_path = Path(os.environ["OPD_JSONL"])
 metadata_path = Path(os.environ["SPLIT_METADATA"])
 sft_expected = int(os.environ["SFT_SIZE"])
-opd_expected = int(os.environ["OPD_SIZE"])
+opd_expected = int(os.environ["OPD_POOL_SIZE"])
 
 def count_jsonl(path: Path) -> int:
     with path.open("rb") as f:
@@ -87,7 +88,7 @@ sft_path = Path(os.environ["SFT_PARQUET"])
 opd_path = Path(os.environ["OPD_JSONL"])
 metadata_path = Path(os.environ["SPLIT_METADATA"])
 sft_expected = int(os.environ["SFT_SIZE"])
-opd_expected = int(os.environ["OPD_SIZE"])
+opd_expected = int(os.environ["OPD_POOL_SIZE"])
 
 def count_jsonl(path: Path) -> int:
     with path.open("rb") as f:

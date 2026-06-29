@@ -13,7 +13,9 @@ The wrappers intentionally reuse slime's existing paths:
 - `scripts/run-qwen3-4B-base-sft.sh` for the SFT rollout/training shape.
 - `examples/eval_multi_task/multi_task.sh` and `multi_task.yaml` for eval.
 
-No slime core code is modified.
+The reproduction branch also carries small runtime fixes needed for this run,
+including skipping entropy allocation when `--entropy-coef 0.00` and handling
+non-scalar rollout rewards in logging.
 
 ## Required environment
 
@@ -75,8 +77,22 @@ bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh
 Then launch only after explicit approval:
 
 ```bash
-bash examples/qwen3_8b_opd_tillicum/submit_25k_10k_chain.sh
+bash examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_chain.sh
 ```
+
+The current default chain preserves the completed SFT checkpoint/eval and runs
+only the downstream 1k OPD experiment:
+
+- OPD data pool: 10,000 row-disjoint OpenThoughts3 math prompts.
+- OPD training horizon: 1,024 effective samples, `8` rollouts of `128`
+  prompts each.
+- OPD response cap: `31744` generated tokens.
+- OPD actor/rollout/teacher GPUs: `6/1/1` on one 8xH200 node, with teacher on
+  physical GPU 7.
+- OPD actor parallelism: tensor parallel `2`, context parallel `3`,
+  `OPD_MAX_TOKENS_PER_GPU=11264`.
+- OPD eval: final checkpoint only, stage `opd_001024`.
+- Final report: base -> final SFT -> final OPD.
 
 ## Reproducing On Another Slurm Cluster
 
@@ -125,7 +141,7 @@ Submit the dependency chain, overriding the Tillicum `h200` gres embedded in
 the sbatch files:
 
 ```bash
-GPU_GRES=gpu:h200:8 bash examples/qwen3_8b_opd_tillicum/submit_25k_10k_chain.sh
+GPU_GRES=gpu:h200:8 bash examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_chain.sh
 ```
 
 If your cluster uses `--gpus-per-node` instead of `--gres`, replace the
@@ -148,6 +164,8 @@ Apptainer-specific layer.
 - OPD full optimizer checkpoint: `$OPD_SAVE_DIR`
 - SFT model-only eval snapshots: `$SFT_HF_SNAPSHOT_DIR`
 - OPD model-only eval snapshots: `$OPD_HF_SNAPSHOT_DIR`
+- OPD trained-data manifest: `$OPD_TRAINED_MANIFEST`, copied into the final
+  OPD HF snapshot as `opd_trained_manifest.json`
 - Eval summaries and curves: `$BASE_EVAL_OUTPUT_DIR`, `$SFT_EVAL_OUTPUT_DIR`,
   `$OPD_EVAL_OUTPUT_DIR`, `$COMBINED_EVAL_OUTPUT_DIR`
 - Checkpoint storage reports: `$CHECKPOINT_REPORT_DIR`
@@ -161,15 +179,14 @@ passed at submit time from the environment variables above.
 The intended wall-clock budget after model/data/container preparation is:
 
 - SFT 25k: 8 hours.
-- OPD 10k: 10 hours.
-- MATH-500 greedy eval: base 3 hours, full SFT curve 10 hours, SFT
-  continuation 8 hours, final OPD checkpoint 3 hours, OPD backfill 5 hours.
-- Report aggregation jobs: 30 minutes on the cluster-minimum `gpu:h200:1`.
+- OPD 1k/32k-cap: 18 hours.
+- MATH-500 greedy eval: final OPD checkpoint 3 hours, base 3 hours.
+- Report aggregation job: 30 minutes on the cluster-minimum `gpu:h200:1`.
 
 The main runtime risk is the Qwen3-32B teacher logprob server throughput during
-OPD. The current conservative chain runs SFT, completes the SFT eval curve,
-runs OPD, evaluates the final OPD checkpoint first, runs the fixed base eval,
-generates an interim combined curve, then backfills the earlier OPD milestones.
+OPD. The current conservative chain starts from the completed final SFT
+checkpoint, runs 1k OPD with the near-32k response cap, evaluates the final OPD
+checkpoint, runs the fixed base eval, then generates the combined final figure.
 
 MATH-500 summaries report `accuracy` with parse failures counted wrong,
 `accuracy_on_parseable` as a diagnostic over parseable responses only, and

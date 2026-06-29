@@ -21,6 +21,7 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh
   examples/qwen3_8b_opd_tillicum/submit_25k_10k_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_resume_sft_eval_then_opd_chain.sh
+  examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_chain.sh
   examples/qwen3_8b_opd_tillicum/02_prepare_data_25k_10k.sbatch
   examples/qwen3_8b_opd_tillicum/03_convert_models_if_needed.sbatch
   examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch

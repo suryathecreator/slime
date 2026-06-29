@@ -77,6 +77,8 @@ if has_any_stage_summary; then
     --sft-total-samples "$((SFT_NUM_ROLLOUT * SFT_ROLLOUT_BATCH_SIZE))" \
     --sft-rollout-batch-size "${SFT_ROLLOUT_BATCH_SIZE}" \
     --opd-rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}" \
+    --sft-final-only \
+    --opd-final-only \
     --out-json "${COMBINED_EVAL_OUTPUT_DIR}/summary_all.json"
 else
   echo "No per-stage summaries available for combined report yet."

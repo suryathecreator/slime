@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset", default=env.get("OT3_DATASET", "open-thoughts/OpenThoughts3-1.2M"))
     parser.add_argument("--split", default=env.get("OT3_SPLIT", "train"))
     parser.add_argument("--sft-size", type=int, default=int(env.get("SFT_SIZE", "100000")))
-    parser.add_argument("--opd-size", type=int, default=int(env.get("OPD_SIZE", "50000")))
+    parser.add_argument("--opd-size", type=int, default=int(env.get("OPD_POOL_SIZE", env.get("OPD_SIZE", "50000"))))
     parser.add_argument("--seed", type=int, default=int(env.get("DATA_SEED", "1234")))
     parser.add_argument("--math-field", default=env.get("DATA_MATH_FIELD", "domain"))
     parser.add_argument("--math-value", default=env.get("DATA_MATH_VALUE", "math"))

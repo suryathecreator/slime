@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=slime-qwen3-opd10k
+#SBATCH --job-name=slime-qwen3-opd1k32k
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=64
 #SBATCH --gres=gpu:h200:8
 #SBATCH --mem=0
-#SBATCH --time=10:00:00
+#SBATCH --time=18:00:00
 #SBATCH --mail-user=suryadv@cs.washington.edu
 #SBATCH --mail-type=END,FAIL
 
@@ -39,7 +39,16 @@ for required_path in \
 done
 
 echo "Starting OPD on $(hostname) at $(date)"
-echo "OPD data: ${OPD_JSONL}"
+echo "OPD data pool: ${OPD_JSONL}"
+echo "OPD pool rows: ${OPD_POOL_SIZE}"
+echo "OPD train rows requested: ${OPD_TRAIN_SIZE}"
+echo "OPD effective samples: ${OPD_EFFECTIVE_TRAIN_SAMPLES}"
+echo "OPD rollout batch/global batch/samples per prompt: ${OPD_ROLLOUT_BATCH_SIZE}/${OPD_GLOBAL_BATCH_SIZE}/${OPD_N_SAMPLES_PER_PROMPT}"
+echo "OPD rollout ids: 0-${OPD_FINAL_ROLLOUT_ID}"
+echo "OPD max response len: ${OPD_MAX_RESPONSE_LEN}"
+echo "OPD actor/rollout/ray GPUs: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/${OPD_RAY_GPUS}"
+echo "OPD TP/CP/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_MAX_TOKENS_PER_GPU}"
+echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
 echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
 echo "Save dir: ${OPD_SAVE_DIR}"
@@ -140,10 +149,10 @@ RM_ARGS=(
 )
 
 PERF_ARGS=(
-  --tensor-model-parallel-size 2
+  --tensor-model-parallel-size "${OPD_TENSOR_MODEL_PARALLEL_SIZE}"
   --sequence-parallel
   --pipeline-model-parallel-size 1
-  --context-parallel-size 1
+  --context-parallel-size "${OPD_CONTEXT_PARALLEL_SIZE}"
   --expert-model-parallel-size 1
   --expert-tensor-parallel-size 1
   --recompute-granularity full
@@ -176,7 +185,7 @@ OPTIMIZER_ARGS=(
 
 WANDB_ARGS=()
 if [[ "${WANDB_MODE}" != "disabled" ]]; then
-  WANDB_ARGS+=(--wandb-project slime-tillicum --wandb-group qwen3-8b-opd10k)
+  WANDB_ARGS+=(--wandb-project slime-tillicum --wandb-group "qwen3-8b-opd-${OPD_RUN_LABEL}")
 fi
 
 SGLANG_ARGS=(
@@ -194,6 +203,7 @@ MISC_ARGS=(
 
 export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF}"
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 ray start --head --node-ip-address "${MASTER_ADDR}" \
   --num-gpus "${OPD_RAY_GPUS}" \
   --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
@@ -204,7 +214,8 @@ RUNTIME_ENV_JSON="{
     \"CUDA_DEVICE_MAX_CONNECTIONS\": \"1\",
     \"NCCL_NVLS_ENABLE\": \"${HAS_NVLINK}\",
     \"WANDB_MODE\": \"${WANDB_MODE}\",
-    \"HF_HOME\": \"${HF_HOME}\"
+    \"HF_HOME\": \"${HF_HOME}\",
+    \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\"
   }
 }"
 
@@ -231,13 +242,86 @@ checkpoint_prune_old opd "${OPD_SAVE_DIR}" final
 checkpoint_report opd "${OPD_SAVE_DIR}" "${CHECKPOINT_REPORT_DIR}"
 checkpoint_verify_single_latest opd "${OPD_SAVE_DIR}"
 
-if [[ -f "${SPLIT_METADATA}" ]]; then
-  cp -f "${SPLIT_METADATA}" "${OPD_SAVE_DIR}/split_metadata.json"
-fi
-
 if [[ ! -d "${OPD_FINAL_HF_DIR}" ]]; then
   echo "Missing final OPD HF eval snapshot: ${OPD_FINAL_HF_DIR}" >&2
   exit 1
+fi
+
+python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+opd_jsonl = Path(os.environ["OPD_JSONL"])
+save_dir = Path(os.environ["OPD_SAVE_DIR"])
+hf_dir = Path(os.environ["OPD_FINAL_HF_DIR"])
+manifest_path = Path(os.environ["OPD_TRAINED_MANIFEST"])
+train_size = int(os.environ["OPD_TRAIN_SIZE"])
+effective_samples = int(os.environ["OPD_EFFECTIVE_TRAIN_SAMPLES"])
+rollout_batch_size = int(os.environ["OPD_ROLLOUT_BATCH_SIZE"])
+global_batch_size = int(os.environ["OPD_GLOBAL_BATCH_SIZE"])
+num_rollout = int(os.environ["OPD_NUM_ROLLOUT"])
+final_rollout_id = int(os.environ["OPD_FINAL_ROLLOUT_ID"])
+
+if effective_samples != num_rollout * rollout_batch_size:
+    raise SystemExit(
+        f"Effective sample mismatch: {effective_samples} != {num_rollout} * {rollout_batch_size}"
+    )
+if effective_samples > train_size:
+    raise SystemExit(f"Effective samples {effective_samples} exceed OPD_TRAIN_SIZE {train_size}")
+
+rows = []
+with opd_jsonl.open("r", encoding="utf-8") as f:
+    for row_offset, line in enumerate(f):
+        if row_offset >= effective_samples:
+            break
+        item = json.loads(line)
+        metadata = item.get("metadata") or {}
+        rows.append(
+            {
+                "row_offset": row_offset,
+                "source_row_id": metadata.get("source_row_id"),
+                "prompt_sha256": metadata.get("prompt_sha256"),
+            }
+        )
+
+if len(rows) != effective_samples:
+    raise SystemExit(f"OPD pool has only {len(rows)} rows, expected {effective_samples}")
+
+dataset_state = save_dir / "rollout" / f"global_dataset_state_dict_{final_rollout_id}.pt"
+if not dataset_state.exists():
+    raise SystemExit(f"Missing rollout dataset state for continuation: {dataset_state}")
+
+manifest = {
+    "run_label": os.environ["OPD_RUN_LABEL"],
+    "opd_data_pool": str(opd_jsonl),
+    "split_metadata": os.environ.get("SPLIT_METADATA"),
+    "opd_pool_size": int(os.environ["OPD_POOL_SIZE"]),
+    "opd_train_size": train_size,
+    "opd_effective_samples": effective_samples,
+    "rollout_start_id": 0,
+    "rollout_final_id": final_rollout_id,
+    "num_rollout": num_rollout,
+    "rollout_batch_size": rollout_batch_size,
+    "global_batch_size": global_batch_size,
+    "n_samples_per_prompt": int(os.environ["OPD_N_SAMPLES_PER_PROMPT"]),
+    "resume_from_full_optim_checkpoint": str(save_dir / f"iter_{final_rollout_id:07d}"),
+    "resume_from_hf_snapshot": str(hf_dir),
+    "rollout_dataset_state": str(dataset_state),
+    "trained_rows": rows,
+}
+
+manifest_path.parent.mkdir(parents=True, exist_ok=True)
+manifest_text = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+manifest_path.write_text(manifest_text, encoding="utf-8")
+(hf_dir / "opd_trained_manifest.json").write_text(manifest_text, encoding="utf-8")
+print(f"Wrote OPD trained manifest: {manifest_path}")
+print(f"Copied OPD trained manifest to: {hf_dir / 'opd_trained_manifest.json'}")
+PY
+
+if [[ -f "${SPLIT_METADATA}" ]]; then
+  cp -f "${SPLIT_METADATA}" "${OPD_SAVE_DIR}/split_metadata.json"
+  cp -f "${SPLIT_METADATA}" "${OPD_FINAL_HF_DIR}/split_metadata.json"
 fi
 
 echo "Finished OPD at $(date)"
