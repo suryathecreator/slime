@@ -151,6 +151,7 @@ PERF_ARGS=(
   --recompute-num-layers 1
   --use-dynamic-batch-size
   --max-tokens-per-gpu "${OPD_MAX_TOKENS_PER_GPU}"
+  --log-probs-chunk-size 4096
 )
 
 GRPO_ARGS=(
