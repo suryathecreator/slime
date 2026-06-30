@@ -43,7 +43,7 @@ echo "submit log: ${submit_log}"
 echo "OPD pool/train/effective: ${OPD_POOL_SIZE}/${OPD_TRAIN_SIZE}/${OPD_EFFECTIVE_TRAIN_SAMPLES}"
 echo "OPD rollout ids: 0-${OPD_FINAL_ROLLOUT_ID}"
 echo "OPD actor/rollout/teacher GPUs: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/${OPD_TEACHER_GPU}"
-echo "OPD TP/CP/max response/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_MAX_RESPONSE_LEN}/${OPD_MAX_TOKENS_PER_GPU}"
+echo "OPD TP/CP/max response/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_MAX_RESPONSE_LEN}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
 
 jid_opd="$(
   sbatch --parsable "${SBATCH_COMMON[@]}" \

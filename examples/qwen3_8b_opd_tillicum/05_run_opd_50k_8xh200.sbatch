@@ -47,7 +47,7 @@ echo "OPD rollout batch/global batch/samples per prompt: ${OPD_ROLLOUT_BATCH_SIZ
 echo "OPD rollout ids: 0-${OPD_FINAL_ROLLOUT_ID}"
 echo "OPD max response len: ${OPD_MAX_RESPONSE_LEN}"
 echo "OPD actor/rollout/ray GPUs: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/${OPD_RAY_GPUS}"
-echo "OPD TP/CP/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_MAX_TOKENS_PER_GPU}"
+echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
 echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
@@ -153,6 +153,7 @@ PERF_ARGS=(
   --sequence-parallel
   --pipeline-model-parallel-size 1
   --context-parallel-size "${OPD_CONTEXT_PARALLEL_SIZE}"
+  --seq-length "${OPD_SEQ_LENGTH}"
   --expert-model-parallel-size 1
   --expert-tensor-parallel-size 1
   --recompute-granularity full
