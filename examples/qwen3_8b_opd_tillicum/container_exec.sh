@@ -169,17 +169,61 @@ APPTAINER_ARGS+=(
   --env "CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1}"
 )
 
+container_path_exists() {
+  local path="$1"
+  if [[ -d "${SLIME_SIF}" ]]; then
+    [[ -e "${SLIME_SIF}${path}" ]]
+  else
+    "${APPTAINER_BIN}" "${APPTAINER_ARGS[@]}" "${SLIME_SIF}" test -e "${path}"
+  fi
+}
+
+container_has_py_or_legacy_pyc() {
+  local module_path="$1"
+  container_path_exists "${module_path}.py" || container_path_exists "${module_path}.pyc"
+}
+
+check_stdlib_files() {
+  local missing=()
+  for module_path in \
+    /usr/lib/python3.12/encodings/__init__ \
+    /usr/lib/python3.12/os \
+    /usr/lib/python3.12/site; do
+    if ! container_has_py_or_legacy_pyc "${module_path}"; then
+      missing+=("${module_path}.py or ${module_path}.pyc")
+    fi
+  done
+
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    cat >&2 <<EOF
+Container Python stdlib preflight failed before launching the requested command.
+The sandbox appears to be pycache-only and not sourceless-import materialized:
+  ${SLIME_SIF}
+
+Missing source or legacy sourceless .pyc paths:
+EOF
+    printf "  %s\n" "${missing[@]}" >&2
+    cat >&2 <<EOF
+
+Repair or rebuild it with:
+  bash ${SCRIPT_DIR}/00_pull_or_load_container.sh
+EOF
+    return 1
+  fi
+}
+
 if [[ "${CONTAINER_PYTHON_PREFLIGHT:-1}" != "0" ]]; then
+  check_stdlib_files
   preflight_log="$(mktemp "${TMPDIR%/}/container_python_preflight.XXXXXX")"
   if ! "${APPTAINER_BIN}" "${APPTAINER_ARGS[@]}" "${SLIME_SIF}" \
-    python3 -c "import encodings" >/dev/null 2>"${preflight_log}"; then
+    python3 -c "import encodings, os, site" >/dev/null 2>"${preflight_log}"; then
     cat >&2 <<EOF
 Container Python preflight failed before launching the requested command.
 The container may be incomplete or corrupt:
   ${SLIME_SIF}
 
-Python could not import the stdlib encodings module. Move the container aside
-and rebuild it with:
+Python could not import required stdlib modules. The sandbox may be pycache-only
+and not sourceless-import materialized. Repair or rebuild it with:
   bash ${SCRIPT_DIR}/00_pull_or_load_container.sh
 
 Preflight stderr:
