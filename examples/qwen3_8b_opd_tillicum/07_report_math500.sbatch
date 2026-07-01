@@ -69,6 +69,10 @@ aggregate_if_available "${OPD_EVAL_OUTPUT_DIR}" opd
 
 if has_any_stage_summary; then
   echo "Writing combined eval report: ${COMBINED_EVAL_OUTPUT_DIR}"
+  REPORT_NOTE_ARGS=()
+  if [[ -n "${REPORT_EXPERIMENT_NOTE:-}" ]]; then
+    REPORT_NOTE_ARGS=(--experiment-note "${REPORT_EXPERIMENT_NOTE}")
+  fi
   python3 examples/qwen3_8b_opd_tillicum/summarize_eval.py \
     --combined-output-dir "${COMBINED_EVAL_OUTPUT_DIR}" \
     --base-dir "${BASE_EVAL_OUTPUT_DIR}" \
@@ -79,6 +83,7 @@ if has_any_stage_summary; then
     --opd-rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}" \
     --sft-final-only \
     --opd-final-only \
+    "${REPORT_NOTE_ARGS[@]}" \
     --out-json "${COMBINED_EVAL_OUTPUT_DIR}/summary_all.json"
 else
   echo "No per-stage summaries available for combined report yet."

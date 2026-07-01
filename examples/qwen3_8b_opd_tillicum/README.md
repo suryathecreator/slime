@@ -74,14 +74,21 @@ bash examples/qwen3_8b_opd_tillicum/01_prepare_env.sh
 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh
 ```
 
-Then launch only after explicit approval:
+Then launch only after explicit approval. The conservative 8-GPU downstream
+chain is:
 
 ```bash
 bash examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_chain.sh
 ```
 
-The current default chain preserves the completed SFT checkpoint/eval and runs
-only the downstream 1k OPD experiment:
+The corrected 4-GPU SFT-loaded chain is:
+
+```bash
+bash examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_sft_offload4_chain.sh
+```
+
+This chain preserves the completed SFT checkpoint/eval and runs only the
+downstream 1k OPD experiment:
 
 - OPD data pool: 10,000 row-disjoint OpenThoughts3 math prompts.
 - OPD training horizon: 1,024 effective samples, `8` rollouts of `128`
@@ -93,6 +100,14 @@ only the downstream 1k OPD experiment:
   `OPD_MAX_TOKENS_PER_GPU=11264`.
 - OPD eval: final checkpoint only, stage `opd_001024`.
 - Final report: base -> final SFT -> final OPD.
+
+Important: run label `1k_32k` from job `156276` is an accidental but useful
+base -> OPD test. That run attempted to pass the final SFT HF snapshot to
+Megatron `--load`; Megatron cannot load an HF snapshot as a training
+checkpoint, so the actor fell back to the base torch_dist checkpoint. Do not
+interpret `1k_32k` as SFT -> OPD. Correct SFT-loaded runs must use the full
+Megatron checkpoint directory `$SFT_SAVE_DIR`, with `.metadata` under
+`iter_0000096`, as the initial `--load`.
 
 ## Reproducing On Another Slurm Cluster
 
@@ -184,16 +199,18 @@ The intended wall-clock budget after model/data/container preparation is:
 - Report aggregation job: 30 minutes on the cluster-minimum `gpu:h200:1`.
 
 The main runtime risk is the Qwen3-32B teacher logprob server throughput during
-OPD. The current conservative chain starts from the completed final SFT
-checkpoint, runs 1k OPD with the near-32k response cap, evaluates the final OPD
-checkpoint, runs the fixed base eval, then generates the combined final figure.
+OPD. The corrected offload chain starts from the completed final SFT full
+Megatron checkpoint, runs 1k OPD with the near-32k response cap, evaluates the
+final OPD checkpoint with 4 one-GPU SGLang engines and concurrency 4, reuses or
+runs the fixed base eval, then generates the combined final figure.
 
 For future OPD runs, do not treat the current 8-GPU allocation as the preferred
-long-term configuration. Implement offloading and retune the actor/rollout/
-teacher split so training can run with fewer GPUs, targeting a 4-GPU total
-training job if the offload path is stable enough. This will likely trade wall
-clock time for lower GPU occupancy, but it is the right direction for follow-up
-runs once the reproduction path is validated.
+long-term configuration. Use optimizer CPU offload and retune the actor/rollout/
+teacher split so training can run with fewer GPUs, targeting the 4-GPU total
+training job used by `submit_opd_1k_32k_sft_offload4_chain.sh` if the offload
+path is stable enough. This will likely trade wall clock time for lower GPU
+occupancy, but it is the right direction for follow-up runs once the
+reproduction path is validated.
 
 MATH-500 summaries report `accuracy` with parse failures counted wrong,
 `accuracy_on_parseable` as a diagnostic over parseable responses only, and
