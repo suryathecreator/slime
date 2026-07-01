@@ -188,6 +188,13 @@ OPD. The current conservative chain starts from the completed final SFT
 checkpoint, runs 1k OPD with the near-32k response cap, evaluates the final OPD
 checkpoint, runs the fixed base eval, then generates the combined final figure.
 
+For future OPD runs, do not treat the current 8-GPU allocation as the preferred
+long-term configuration. Implement offloading and retune the actor/rollout/
+teacher split so training can run with fewer GPUs, targeting a 4-GPU total
+training job if the offload path is stable enough. This will likely trade wall
+clock time for lower GPU occupancy, but it is the right direction for follow-up
+runs once the reproduction path is validated.
+
 MATH-500 summaries report `accuracy` with parse failures counted wrong,
 `accuracy_on_parseable` as a diagnostic over parseable responses only, and
 `parse_failure_rate` separately. Combined reports include a labeled SVG/PNG
