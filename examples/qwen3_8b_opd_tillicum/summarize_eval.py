@@ -32,6 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--opd-rollout-batch-size", type=int, default=128)
     parser.add_argument("--sft-final-only", action="store_true")
     parser.add_argument("--opd-final-only", action="store_true")
+    parser.add_argument("--experiment-note", default=None)
     parser.add_argument("--train-samples", type=int, default=None)
     return parser.parse_args()
 
@@ -470,6 +471,7 @@ def write_combined_report(
     opd_rollout_batch_size: int,
     sft_final_only: bool,
     opd_final_only: bool,
+    experiment_note: str | None,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     points = combined_points(
@@ -488,6 +490,7 @@ def write_combined_report(
     write_combined_csv(out_dir / "combined_accuracy_curve.csv", points)
     write_combined_svg(out_dir / "combined_accuracy_curve.svg", points, sft_total_samples)
     write_combined_curve_png(out_dir / "combined_accuracy_curve.png", points, sft_total_samples)
+    default_note = "Combined curve uses light blue shading for SFT and light purple shading for OPD."
     return {
         "points": points,
         "artifacts": {
@@ -495,7 +498,8 @@ def write_combined_report(
             "svg": str(out_dir / "combined_accuracy_curve.svg"),
             "png": str(out_dir / "combined_accuracy_curve.png"),
         },
-        "note": "Combined curve uses light blue shading for SFT and light purple shading for OPD.",
+        "note": f"{default_note} {experiment_note}" if experiment_note else default_note,
+        "experiment_note": experiment_note,
         "sft_final_only": sft_final_only,
         "opd_final_only": opd_final_only,
     }
@@ -646,6 +650,7 @@ def main() -> None:
             opd_rollout_batch_size=args.opd_rollout_batch_size,
             sft_final_only=args.sft_final_only,
             opd_final_only=args.opd_final_only,
+            experiment_note=args.experiment_note,
         )
     else:
         if not args.stage or not args.debug_file:

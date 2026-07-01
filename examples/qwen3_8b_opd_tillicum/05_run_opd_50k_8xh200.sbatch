@@ -31,7 +31,10 @@ for required_path in \
   "${STUDENT_HF_DIR}" \
   "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" \
   "${TEACHER_HF_DIR}" \
-  "${SFT_FINAL_HF_DIR}"; do
+  "${SFT_FINAL_HF_DIR}" \
+  "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" \
+  "${SFT_FINAL_FULL_CKPT_DIR}/.metadata" \
+  "${SFT_FINAL_FULL_CKPT_DIR}/common.pt"; do
   if [[ ! -e "${required_path}" ]]; then
     echo "Missing required path: ${required_path}" >&2
     exit 1
@@ -54,6 +57,9 @@ echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
 echo "Save dir: ${OPD_SAVE_DIR}"
 echo "HF eval snapshots: ${OPD_HF_SNAPSHOT_DIR}"
 echo "Expected final OPD rollout id: ${OPD_FINAL_ROLLOUT_ID}"
+echo "Initial OPD load dir: ${OPD_INITIAL_LOAD_DIR}"
+echo "SFT full checkpoint dir: ${SFT_FINAL_FULL_CKPT_DIR}"
+echo "OPD optimizer CPU offload: ${OPD_OPTIMIZER_CPU_OFFLOAD}"
 
 checkpoint_start_pruner opd "${OPD_SAVE_DIR}" "${CHECKPOINT_PRUNE_INTERVAL_SECONDS}" "${CHECKPOINT_REPORT_DIR}"
 cleanup_pruner() {
@@ -108,13 +114,61 @@ echo "HAS_NVLINK=${HAS_NVLINK} (detected ${NVLINK_COUNT} NVLink references)"
 
 source scripts/models/qwen3-8B.sh
 
+comma_range() {
+  local n="$1"
+  local out=""
+  local i
+  if [[ "${n}" -lt 1 ]]; then
+    echo "comma_range requires n >= 1, got ${n}" >&2
+    return 1
+  fi
+  for ((i = 0; i < n; i++)); do
+    if [[ -n "${out}" ]]; then
+      out+=","
+    fi
+    out+="${i}"
+  done
+  printf "%s" "${out}"
+}
+
+validate_megatron_load_dir() {
+  local label="$1"
+  local load_dir="$2"
+  local latest_file="${load_dir}/latest_checkpointed_iteration.txt"
+  local latest_iter
+  local iter_dir
+
+  if [[ "${load_dir}" == "${SFT_FINAL_HF_DIR}" ]] || [[ -f "${load_dir}/config.json" && ! -f "${load_dir}/.metadata" ]]; then
+    echo "${label} load dir appears to be an HF snapshot, not a Megatron checkpoint: ${load_dir}" >&2
+    exit 1
+  fi
+  if [[ ! -s "${latest_file}" ]]; then
+    echo "${label} load dir is missing latest checkpoint marker: ${latest_file}" >&2
+    exit 1
+  fi
+  latest_iter="$(tr -d "[:space:]" <"${latest_file}")"
+  if [[ ! "${latest_iter}" =~ ^[0-9]+$ ]]; then
+    echo "${label} latest checkpoint marker is not numeric: ${latest_file}=${latest_iter}" >&2
+    exit 1
+  fi
+  printf -v iter_dir "%s/iter_%07d" "${load_dir}" "${latest_iter}"
+  if [[ ! -f "${iter_dir}/.metadata" || ! -f "${iter_dir}/common.pt" ]]; then
+    echo "${label} latest checkpoint is incomplete or not Megatron torch_dist: ${iter_dir}" >&2
+    exit 1
+  fi
+  echo "${label} validated Megatron load dir: ${load_dir} iteration ${latest_iter} (${iter_dir})"
+}
+
 if [[ -f "${OPD_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
   OPD_LOAD_DIR="${OPD_SAVE_DIR}"
-  echo "Resuming OPD from ${OPD_LOAD_DIR}"
+  OPD_LOAD_KIND="opd_resume"
+  echo "Resuming OPD from full optimizer checkpoint ${OPD_LOAD_DIR}"
 else
-  OPD_LOAD_DIR="${SFT_FINAL_HF_DIR}"
-  echo "Starting OPD from final SFT HF snapshot ${OPD_LOAD_DIR}"
+  OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
+  OPD_LOAD_KIND="sft_full_optim_initial"
+  echo "Starting OPD from full SFT optimizer checkpoint ${OPD_LOAD_DIR}"
 fi
+validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
 
 CKPT_ARGS=(
   --megatron-to-hf-mode bridge
@@ -183,6 +237,13 @@ OPTIMIZER_ARGS=(
   --adam-beta1 0.9
   --adam-beta2 0.98
 )
+if [[ "${OPD_OPTIMIZER_CPU_OFFLOAD}" == "1" ]]; then
+  OPTIMIZER_ARGS+=(
+    --optimizer-cpu-offload
+    --overlap-cpu-optimizer-d2h-h2d
+    --use-precision-aware-optimizer
+  )
+fi
 
 WANDB_ARGS=()
 if [[ "${WANDB_MODE}" != "disabled" ]]; then
@@ -205,7 +266,9 @@ MISC_ARGS=(
 export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF}"
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 ray start --head --node-ip-address "${MASTER_ADDR}" \
+RAY_VISIBLE_DEVICES="$(comma_range "${OPD_RAY_GPUS}")"
+echo "Ray CUDA_VISIBLE_DEVICES=${RAY_VISIBLE_DEVICES}"
+CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray start --head --node-ip-address "${MASTER_ADDR}" \
   --num-gpus "${OPD_RAY_GPUS}" \
   --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
 
@@ -220,7 +283,7 @@ RUNTIME_ENV_JSON="{
   }
 }"
 
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6 ray job submit --address="http://127.0.0.1:8265" \
+CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray job submit --address="http://127.0.0.1:8265" \
   --runtime-env-json="${RUNTIME_ENV_JSON}" \
   -- python3 train.py \
   --actor-num-nodes 1 \
@@ -307,6 +370,8 @@ manifest = {
     "global_batch_size": global_batch_size,
     "n_samples_per_prompt": int(os.environ["OPD_N_SAMPLES_PER_PROMPT"]),
     "resume_from_full_optim_checkpoint": str(save_dir / f"iter_{final_rollout_id:07d}"),
+    "initial_load_dir": os.environ.get("OPD_INITIAL_LOAD_DIR"),
+    "sft_full_checkpoint_dir": os.environ.get("SFT_FINAL_FULL_CKPT_DIR"),
     "resume_from_hf_snapshot": str(hf_dir),
     "rollout_dataset_state": str(dataset_state),
     "trained_rows": rows,
