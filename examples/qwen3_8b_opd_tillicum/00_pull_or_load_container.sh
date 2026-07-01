@@ -16,10 +16,80 @@ if [[ -z "${APPTAINER_BIN}" ]]; then
   fi
 fi
 
+container_path_exists() {
+  local path="$1"
+  if [[ -d "${SLIME_SIF}" ]]; then
+    [[ -e "${SLIME_SIF}${path}" ]]
+  else
+    "${APPTAINER_BIN}" exec --cleanenv "${SLIME_SIF}" test -e "${path}"
+  fi
+}
+
+container_has_py_or_legacy_pyc() {
+  local module_path="$1"
+  container_path_exists "${module_path}.py" || container_path_exists "${module_path}.pyc"
+}
+
+validate_stdlib_files() {
+  local missing=()
+  for module_path in \
+    /usr/lib/python3.12/encodings/__init__ \
+    /usr/lib/python3.12/os \
+    /usr/lib/python3.12/site; do
+    if ! container_has_py_or_legacy_pyc "${module_path}"; then
+      missing+=("${module_path}.py or ${module_path}.pyc")
+    fi
+  done
+
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    {
+      echo "Container Python stdlib is incomplete or pycache-only."
+      echo "Missing source or legacy sourceless .pyc paths:"
+      printf "  %s\n" "${missing[@]}"
+    } >&2
+    return 1
+  fi
+}
+
+materialize_sourceless_stdlib() {
+  if [[ ! -d "${SLIME_SIF}" ]]; then
+    echo "Skipping sourceless stdlib repair for non-sandbox container: ${SLIME_SIF}"
+    return 0
+  fi
+
+  local stdlib_root="${SLIME_SIF}/usr/lib/python3.12"
+  if [[ ! -d "${stdlib_root}" ]]; then
+    echo "No Python stdlib directory found in sandbox: ${stdlib_root}" >&2
+    return 1
+  fi
+
+  local created=0
+  local pyc pycache_dir target_dir pyc_name module_name target
+  while IFS= read -r pyc; do
+    pycache_dir="$(dirname "${pyc}")"
+    target_dir="$(dirname "${pycache_dir}")"
+    pyc_name="$(basename "${pyc}")"
+    module_name="${pyc_name%.cpython-312.pyc}"
+    target="${target_dir}/${module_name}.pyc"
+
+    if [[ -e "${target_dir}/${module_name}.py" || -e "${target}" ]]; then
+      continue
+    fi
+    cp -p "${pyc}" "${target}"
+    created=$((created + 1))
+  done < <(find "${stdlib_root}" -path '*/__pycache__/*.cpython-312.pyc' -type f | sort)
+
+  echo "Sourceless stdlib repair materialized ${created} legacy .pyc files."
+}
+
 validate_container() {
+  validate_stdlib_files
   echo "Validating container Python/imports"
   "${APPTAINER_BIN}" exec --cleanenv "${SLIME_SIF}" \
-    python3 -c "import encodings, sglang, torch; print('container ok')"
+    python3 -c "import encodings, os, site, sglang, torch; print('container ok')"
+  echo "Validating container through wrapper"
+  "${SCRIPT_DIR}/container_exec.sh" \
+    python3 -c "import encodings, os, site, sglang, torch; print('container wrapper ok')"
 }
 
 mkdir -p "$(dirname "${SLIME_SIF}")" "${APPTAINER_CACHEDIR}" "${APPTAINER_TMPDIR}"
@@ -36,6 +106,9 @@ EOF
 
 if [[ -e "${SLIME_SIF}" && "${FORCE_PULL:-0}" != "1" ]]; then
   echo "Container already exists. Validating it now."
+  if [[ -d "${SLIME_SIF}" ]]; then
+    materialize_sourceless_stdlib
+  fi
   if validate_container; then
     echo "Existing container is valid: ${SLIME_SIF}"
   else
@@ -58,6 +131,7 @@ fi
 
 if [[ "${SLIME_CONTAINER_FORMAT}" == "sandbox" ]]; then
   "${APPTAINER_BIN}" build --sandbox "${SLIME_SIF}" "${SLIME_IMAGE_URI}"
+  materialize_sourceless_stdlib
 else
   "${APPTAINER_BIN}" pull --force "${SLIME_SIF}" "${SLIME_IMAGE_URI}"
 fi

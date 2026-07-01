@@ -12,6 +12,17 @@ echo "  account/partition/qos: ${ACCOUNT}/${PARTITION}/${QOS}"
 echo "  scratch: ${SCRATCH_ROOT}"
 echo "  container (${SLIME_CONTAINER_FORMAT}): ${SLIME_SIF}"
 
+if [[ "${OPD_CONTEXT_PARALLEL_SIZE}" -gt 1 ]]; then
+  opd_seq_modulus=$((2 * OPD_CONTEXT_PARALLEL_SIZE))
+  if (( OPD_SEQ_LENGTH % opd_seq_modulus != 0 )); then
+    echo "OPD_SEQ_LENGTH must be divisible by 2 * OPD_CONTEXT_PARALLEL_SIZE when CP > 1." >&2
+    echo "  OPD_SEQ_LENGTH=${OPD_SEQ_LENGTH}" >&2
+    echo "  OPD_CONTEXT_PARALLEL_SIZE=${OPD_CONTEXT_PARALLEL_SIZE}" >&2
+    echo "  required divisor=${opd_seq_modulus}" >&2
+    exit 1
+  fi
+fi
+
 SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/env.sh
   examples/qwen3_8b_opd_tillicum/checkpoint_utils.sh
@@ -21,6 +32,7 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh
   examples/qwen3_8b_opd_tillicum/submit_25k_10k_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_resume_sft_eval_then_opd_chain.sh
+  examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_chain.sh
   examples/qwen3_8b_opd_tillicum/02_prepare_data_25k_10k.sbatch
   examples/qwen3_8b_opd_tillicum/03_convert_models_if_needed.sbatch
   examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
