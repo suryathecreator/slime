@@ -1,0 +1,29 @@
+{
+  "experiment": "accidental_base_to_opd_1k_32k",
+  "status": "completed_salvage_eval",
+  "note": "This is the accidental base -> OPD run, not the corrected SFT -> OPD experiment. The OPD training path used the broken loader/fallback behavior, so treat this as diagnostic rather than a clean baseline.",
+  "base_model": {
+    "repo": "Qwen/Qwen3-8B-Base",
+    "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
+    "eval_summary": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k/base/summary.json",
+    "accuracy": 0.638,
+    "accuracy_on_parseable": 0.7595238095238095,
+    "parse_failure_rate": 0.16,
+    "cap_hit_rate": 0.036,
+    "avg_generated_tokens": 1686.402,
+    "n": 500
+  },
+  "accidental_opd": {
+    "run_label": "1k_32k",
+    "eval_stage": "opd_001024",
+    "effective_opd_samples": 1024,
+    "eval_summary": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_final/opd_001024/summary.json",
+    "accuracy": 0.0,
+    "accuracy_on_parseable": 0.0,
+    "parse_failure_rate": 0.998,
+    "cap_hit_rate": 0.882,
+    "avg_generated_tokens": 30137.598,
+    "n": 500
+  },
+  "combined_report": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k"
+}

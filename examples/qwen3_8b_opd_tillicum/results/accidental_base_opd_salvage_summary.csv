@@ -1,0 +1,3 @@
+experiment,stage,train_samples,accuracy,accuracy_on_parseable,parse_failure_rate,cap_hit_rate,avg_generated_tokens,n,note
+accidental_base_to_opd_1k_32k,base,0,0.638,0.7595238095238095,0.16,0.036,1686.402,500,same Qwen3-8B-Base revision as accidental OPD rollout
+accidental_base_to_opd_1k_32k,opd_001024,1024,0.0,0.0,0.998,0.882,30137.598,500,accidental base->OPD diagnostic result; not corrected SFT->OPD

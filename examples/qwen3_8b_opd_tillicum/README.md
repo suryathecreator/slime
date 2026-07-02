@@ -245,3 +245,8 @@ MATH-500 summaries report `accuracy` with parse failures counted wrong,
 `accuracy_on_parseable` as a diagnostic over parseable responses only, and
 `parse_failure_rate` separately. Combined reports include a labeled SVG/PNG
 curve with light-blue SFT shading and light-purple OPD shading.
+
+Tracked result snapshots live under `results/`. The accidental base -> OPD
+salvage eval is recorded in `results/accidental_base_opd_salvage_summary.json`
+and `results/accidental_base_opd_salvage_summary.csv`; it is diagnostic only
+and not the corrected SFT -> OPD experiment.
