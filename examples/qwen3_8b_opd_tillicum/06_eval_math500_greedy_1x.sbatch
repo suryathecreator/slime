@@ -50,7 +50,12 @@ aggregate_if_available() {
 write_combined_report() {
   local found_summary=0
   local report_dir
-  for report_dir in "${BASE_EVAL_OUTPUT_DIR}" "${SFT_EVAL_OUTPUT_DIR}" "${OPD_EVAL_OUTPUT_DIR}"; do
+  local report_dirs=("${BASE_EVAL_OUTPUT_DIR}" "${OPD_EVAL_OUTPUT_DIR}")
+  if [[ "${REPORT_INCLUDE_SFT:-1}" == "1" ]]; then
+    report_dirs+=("${SFT_EVAL_OUTPUT_DIR}")
+  fi
+
+  for report_dir in "${report_dirs[@]}"; do
     if [[ -d "${report_dir}" ]] && find "${report_dir}" -mindepth 2 -maxdepth 2 -name summary.json -print -quit | grep -q .; then
       found_summary=1
       break
@@ -64,14 +69,22 @@ write_combined_report() {
     if [[ -n "${REPORT_EXPERIMENT_NOTE:-}" ]]; then
       REPORT_NOTE_ARGS=(--experiment-note "${REPORT_EXPERIMENT_NOTE}")
     fi
+    REPORT_SFT_ARGS=()
+    REPORT_SFT_TOTAL_SAMPLES=0
+    if [[ "${REPORT_INCLUDE_SFT:-1}" == "1" ]]; then
+      REPORT_SFT_ARGS=(--sft-dir "${SFT_EVAL_OUTPUT_DIR}")
+      REPORT_SFT_TOTAL_SAMPLES="$((SFT_NUM_ROLLOUT * SFT_ROLLOUT_BATCH_SIZE))"
+    fi
     python3 examples/qwen3_8b_opd_tillicum/summarize_eval.py \
       --combined-output-dir "${COMBINED_EVAL_OUTPUT_DIR}" \
       --base-dir "${BASE_EVAL_OUTPUT_DIR}" \
-      --sft-dir "${SFT_EVAL_OUTPUT_DIR}" \
+      "${REPORT_SFT_ARGS[@]}" \
       --opd-dir "${OPD_EVAL_OUTPUT_DIR}" \
-      --sft-total-samples "$((SFT_NUM_ROLLOUT * SFT_ROLLOUT_BATCH_SIZE))" \
+      --sft-total-samples "${REPORT_SFT_TOTAL_SAMPLES}" \
       --sft-rollout-batch-size "${SFT_ROLLOUT_BATCH_SIZE}" \
       --opd-rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}" \
+      --opd-x-offset-samples "${REPORT_OPD_X_OFFSET_SAMPLES}" \
+      --opd-label-prefix "${REPORT_OPD_LABEL_PREFIX}" \
       --sft-final-only \
       --opd-final-only \
       "${REPORT_NOTE_ARGS[@]}" \
@@ -83,7 +96,9 @@ write_combined_report() {
 
 write_all_reports() {
   aggregate_if_available "${BASE_EVAL_OUTPUT_DIR}" base
-  aggregate_if_available "${SFT_EVAL_OUTPUT_DIR}" sft
+  if [[ "${REPORT_INCLUDE_SFT:-1}" == "1" ]]; then
+    aggregate_if_available "${SFT_EVAL_OUTPUT_DIR}" sft
+  fi
   aggregate_if_available "${OPD_EVAL_OUTPUT_DIR}" opd
   write_combined_report
 }
@@ -219,17 +234,17 @@ run_eval() {
   )
 
   PERF_ARGS=(
-    --tensor-model-parallel-size 2
+    --tensor-model-parallel-size "${EVAL_TENSOR_MODEL_PARALLEL_SIZE}"
     --sequence-parallel
     --pipeline-model-parallel-size 1
-    --context-parallel-size 1
+    --context-parallel-size "${EVAL_CONTEXT_PARALLEL_SIZE}"
     --expert-model-parallel-size 1
     --expert-tensor-parallel-size 1
     --recompute-granularity full
     --recompute-method uniform
     --recompute-num-layers 1
     --use-dynamic-batch-size
-    --max-tokens-per-gpu "${EVAL_MAX_RESPONSE_LEN}"
+    --max-tokens-per-gpu "${EVAL_MAX_TOKENS_PER_GPU}"
   )
 
   OPTIMIZER_ARGS=(

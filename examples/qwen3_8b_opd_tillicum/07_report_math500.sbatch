@@ -30,6 +30,7 @@ echo "Base eval dir: ${BASE_EVAL_OUTPUT_DIR}"
 echo "SFT eval dir: ${SFT_EVAL_OUTPUT_DIR}"
 echo "OPD eval dir: ${OPD_EVAL_OUTPUT_DIR}"
 echo "Combined report dir: ${COMBINED_EVAL_OUTPUT_DIR}"
+echo "Report include SFT: ${REPORT_INCLUDE_SFT}"
 
 aggregate_if_available() {
   local dir="$1"
@@ -51,7 +52,12 @@ aggregate_if_available() {
 
 has_any_stage_summary() {
   local report_dir summary_path
-  for report_dir in "${BASE_EVAL_OUTPUT_DIR}" "${SFT_EVAL_OUTPUT_DIR}" "${OPD_EVAL_OUTPUT_DIR}"; do
+  local report_dirs=("${BASE_EVAL_OUTPUT_DIR}" "${OPD_EVAL_OUTPUT_DIR}")
+  if [[ "${REPORT_INCLUDE_SFT:-1}" == "1" ]]; then
+    report_dirs+=("${SFT_EVAL_OUTPUT_DIR}")
+  fi
+
+  for report_dir in "${report_dirs[@]}"; do
     summary_path=""
     if [[ -d "${report_dir}" ]]; then
       summary_path="$(find "${report_dir}" -mindepth 2 -maxdepth 2 -name summary.json -print -quit)"
@@ -64,7 +70,9 @@ has_any_stage_summary() {
 }
 
 aggregate_if_available "${BASE_EVAL_OUTPUT_DIR}" base
-aggregate_if_available "${SFT_EVAL_OUTPUT_DIR}" sft
+if [[ "${REPORT_INCLUDE_SFT:-1}" == "1" ]]; then
+  aggregate_if_available "${SFT_EVAL_OUTPUT_DIR}" sft
+fi
 aggregate_if_available "${OPD_EVAL_OUTPUT_DIR}" opd
 
 if has_any_stage_summary; then
@@ -73,14 +81,22 @@ if has_any_stage_summary; then
   if [[ -n "${REPORT_EXPERIMENT_NOTE:-}" ]]; then
     REPORT_NOTE_ARGS=(--experiment-note "${REPORT_EXPERIMENT_NOTE}")
   fi
+  REPORT_SFT_ARGS=()
+  REPORT_SFT_TOTAL_SAMPLES=0
+  if [[ "${REPORT_INCLUDE_SFT:-1}" == "1" ]]; then
+    REPORT_SFT_ARGS=(--sft-dir "${SFT_EVAL_OUTPUT_DIR}")
+    REPORT_SFT_TOTAL_SAMPLES="$((SFT_NUM_ROLLOUT * SFT_ROLLOUT_BATCH_SIZE))"
+  fi
   python3 examples/qwen3_8b_opd_tillicum/summarize_eval.py \
     --combined-output-dir "${COMBINED_EVAL_OUTPUT_DIR}" \
     --base-dir "${BASE_EVAL_OUTPUT_DIR}" \
-    --sft-dir "${SFT_EVAL_OUTPUT_DIR}" \
+    "${REPORT_SFT_ARGS[@]}" \
     --opd-dir "${OPD_EVAL_OUTPUT_DIR}" \
-    --sft-total-samples "$((SFT_NUM_ROLLOUT * SFT_ROLLOUT_BATCH_SIZE))" \
+    --sft-total-samples "${REPORT_SFT_TOTAL_SAMPLES}" \
     --sft-rollout-batch-size "${SFT_ROLLOUT_BATCH_SIZE}" \
     --opd-rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}" \
+    --opd-x-offset-samples "${REPORT_OPD_X_OFFSET_SAMPLES}" \
+    --opd-label-prefix "${REPORT_OPD_LABEL_PREFIX}" \
     --sft-final-only \
     --opd-final-only \
     "${REPORT_NOTE_ARGS[@]}" \

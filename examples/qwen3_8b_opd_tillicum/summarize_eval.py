@@ -30,6 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sft-total-samples", type=int, default=24832)
     parser.add_argument("--sft-rollout-batch-size", type=int, default=256)
     parser.add_argument("--opd-rollout-batch-size", type=int, default=128)
+    parser.add_argument("--opd-x-offset-samples", type=int, default=None)
+    parser.add_argument("--opd-label-prefix", default="SFT+")
     parser.add_argument("--sft-final-only", action="store_true")
     parser.add_argument("--opd-final-only", action="store_true")
     parser.add_argument("--experiment-note", default=None)
@@ -239,6 +241,8 @@ def combined_points(
     sft_total_samples: int,
     sft_rollout_batch_size: int,
     opd_rollout_batch_size: int,
+    opd_x_offset_samples: int | None,
+    opd_label_prefix: str,
     sft_final_only: bool,
     opd_final_only: bool,
 ) -> list[dict[str, Any]]:
@@ -270,8 +274,9 @@ def combined_points(
             step_label = rollout_label("sft", x_value, sft_rollout_batch_size)
         else:
             opd_samples = int(train_samples or 0)
-            x_value = sft_total_samples + opd_samples
-            sample_label = f"SFT+{opd_samples}"
+            opd_offset = sft_total_samples if opd_x_offset_samples is None else opd_x_offset_samples
+            x_value = opd_offset + opd_samples
+            sample_label = f"{opd_label_prefix}{opd_samples}" if opd_label_prefix else str(opd_samples)
             step_label = rollout_label("opd", opd_samples, opd_rollout_batch_size)
 
         points.append(
@@ -321,6 +326,7 @@ def write_combined_svg(path: Path, points: list[dict[str, Any]], sft_total_sampl
     if not points:
         return
 
+    has_sft_region = sft_total_samples > 0 and any(str(point["phase"]) == "sft" for point in points)
     width, height = 1120, 680
     margin_left, margin_right, margin_top, margin_bottom = 90, 45, 70, 160
     plot_w = width - margin_left - margin_right
@@ -336,9 +342,9 @@ def write_combined_svg(path: Path, points: list[dict[str, Any]], sft_total_sampl
         y = 0.0 if y is None else max(0.0, min(1.0, float(y)))
         return margin_top + (1.0 - y) * plot_h
 
-    sft_right = sx(min(sft_total_samples, max_x))
-    bg_sft_w = max(0.0, sft_right - margin_left)
-    bg_opd_x = sft_right
+    sft_right = sx(min(sft_total_samples, max_x)) if has_sft_region else margin_left
+    bg_sft_w = max(0.0, sft_right - margin_left) if has_sft_region else 0.0
+    bg_opd_x = sft_right if has_sft_region else margin_left
     bg_opd_w = max(0.0, margin_left + plot_w - bg_opd_x)
 
     by_phase = {"base": "#4b5563", "sft": "#2563eb", "opd": "#7c3aed"}
@@ -352,9 +358,17 @@ def write_combined_svg(path: Path, points: list[dict[str, Any]], sft_total_sampl
         f'<rect x="{bg_opd_x:.1f}" y="{margin_top}" width="{bg_opd_w:.1f}" height="{plot_h}" fill="#ede9fe" opacity="0.76"/>',
         f'<text x="{margin_left}" y="34" font-family="Arial, sans-serif" font-size="24" font-weight="700">MATH-500 Accuracy Curve</text>',
         f'<text x="{margin_left}" y="58" font-family="Arial, sans-serif" font-size="14" fill="#4b5563">X-axis shows effective trained samples and rollout ids. Parse failures count wrong.</text>',
-        f'<text x="{margin_left + 12}" y="{margin_top + 24}" font-family="Arial, sans-serif" font-size="13" fill="#1e40af">SFT segment</text>',
-        f'<text x="{max(bg_opd_x + 12, margin_left + 120):.1f}" y="{margin_top + 24}" font-family="Arial, sans-serif" font-size="13" fill="#5b21b6">OPD segment</text>',
     ]
+    if has_sft_region:
+        lines.append(
+            f'<text x="{margin_left + 12}" y="{margin_top + 24}" font-family="Arial, sans-serif" font-size="13" fill="#1e40af">SFT segment</text>'
+        )
+        opd_label_x = max(bg_opd_x + 12, margin_left + 120)
+    else:
+        opd_label_x = margin_left + 12
+    lines.append(
+        f'<text x="{opd_label_x:.1f}" y="{margin_top + 24}" font-family="Arial, sans-serif" font-size="13" fill="#5b21b6">OPD segment</text>'
+    )
 
     for i in range(6):
         y_val = i / 5
@@ -393,7 +407,12 @@ def write_combined_svg(path: Path, points: list[dict[str, Any]], sft_total_sampl
 
     legend_x = width - 315
     legend_y = 30
-    for idx, (label, color) in enumerate((("base", "#4b5563"), ("SFT", "#2563eb"), ("OPD", "#7c3aed"))):
+    legend_entries = [("base", "#4b5563")]
+    if any(str(point["phase"]) == "sft" for point in points):
+        legend_entries.append(("SFT", "#2563eb"))
+    if any(str(point["phase"]) == "opd" for point in points):
+        legend_entries.append(("OPD", "#7c3aed"))
+    for idx, (label, color) in enumerate(legend_entries):
         y = legend_y + idx * 22
         lines.append(f'<circle cx="{legend_x}" cy="{y}" r="5" fill="{color}"/>')
         lines.append(
@@ -408,6 +427,7 @@ def write_combined_curve_png(path: Path, points: list[dict[str, Any]], sft_total
     if not points:
         return
 
+    has_sft_region = sft_total_samples > 0 and any(str(point["phase"]) == "sft" for point in points)
     width, height = 900, 520
     margin_left, margin_right, margin_top, margin_bottom = 70, 35, 35, 70
     plot_w = width - margin_left - margin_right
@@ -429,8 +449,9 @@ def write_combined_curve_png(path: Path, points: list[dict[str, Any]], sft_total
         y = 0.0 if y is None else max(0.0, min(1.0, float(y)))
         return margin_top + round((1.0 - y) * plot_h)
 
-    sft_right = map_x(min(sft_total_samples, max_x))
-    fill_rect(margin_left, margin_top, sft_right, margin_top + plot_h, (219, 234, 254))
+    sft_right = map_x(min(sft_total_samples, max_x)) if has_sft_region else margin_left
+    if has_sft_region:
+        fill_rect(margin_left, margin_top, sft_right, margin_top + plot_h, (219, 234, 254))
     fill_rect(sft_right, margin_top, margin_left + plot_w, margin_top + plot_h, (237, 233, 254))
 
     axis = (32, 32, 32)
@@ -469,6 +490,8 @@ def write_combined_report(
     sft_total_samples: int,
     sft_rollout_batch_size: int,
     opd_rollout_batch_size: int,
+    opd_x_offset_samples: int | None,
+    opd_label_prefix: str,
     sft_final_only: bool,
     opd_final_only: bool,
     experiment_note: str | None,
@@ -481,6 +504,8 @@ def write_combined_report(
         sft_total_samples=sft_total_samples,
         sft_rollout_batch_size=sft_rollout_batch_size,
         opd_rollout_batch_size=opd_rollout_batch_size,
+        opd_x_offset_samples=opd_x_offset_samples,
+        opd_label_prefix=opd_label_prefix,
         sft_final_only=sft_final_only,
         opd_final_only=opd_final_only,
     )
@@ -490,7 +515,11 @@ def write_combined_report(
     write_combined_csv(out_dir / "combined_accuracy_curve.csv", points)
     write_combined_svg(out_dir / "combined_accuracy_curve.svg", points, sft_total_samples)
     write_combined_curve_png(out_dir / "combined_accuracy_curve.png", points, sft_total_samples)
-    default_note = "Combined curve uses light blue shading for SFT and light purple shading for OPD."
+    has_sft_region = sft_total_samples > 0 and any(str(point["phase"]) == "sft" for point in points)
+    if has_sft_region:
+        default_note = "Combined curve uses light blue shading for SFT and light purple shading for OPD."
+    else:
+        default_note = "Combined curve omits SFT and uses light purple shading for the OPD region."
     return {
         "points": points,
         "artifacts": {
@@ -500,6 +529,8 @@ def write_combined_report(
         },
         "note": f"{default_note} {experiment_note}" if experiment_note else default_note,
         "experiment_note": experiment_note,
+        "opd_x_offset_samples": opd_x_offset_samples,
+        "opd_label_prefix": opd_label_prefix,
         "sft_final_only": sft_final_only,
         "opd_final_only": opd_final_only,
     }
@@ -648,6 +679,8 @@ def main() -> None:
             sft_total_samples=args.sft_total_samples,
             sft_rollout_batch_size=args.sft_rollout_batch_size,
             opd_rollout_batch_size=args.opd_rollout_batch_size,
+            opd_x_offset_samples=args.opd_x_offset_samples,
+            opd_label_prefix=args.opd_label_prefix,
             sft_final_only=args.sft_final_only,
             opd_final_only=args.opd_final_only,
             experiment_note=args.experiment_note,
