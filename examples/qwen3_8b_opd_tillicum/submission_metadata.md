@@ -78,3 +78,52 @@ Recorded: 2026-07-01 17:28 PDT
   iteration `96` and no base fallback; actor/rollout/teacher split is `2/1/1`;
   actor `TP=1`, `CP=2`; eval log shows 4 one-GPU SGLang engines with
   concurrency 4; final report compares base, final SFT, and corrected final OPD.
+
+## Corrected SFT-Loaded 4-GPU OPD Retry
+
+- Reason for retry: train job `157036` failed on `2026-07-01` after 2m58s,
+  before rollout or actor training, with
+  `/usr/bin/bash: line 98: OPD_INITIAL_LOAD_DIR: unbound variable`.
+- Root cause: `OPD_INITIAL_LOAD_DIR` and `OPD_OPTIMIZER_CPU_OFFLOAD` were set
+  in the host Slurm environment but were not forwarded by `container_exec.sh`
+  through Apptainer `--cleanenv`.
+- Progress preservation: no corrected OPD checkpoint, HF snapshot, rollout
+  dataset state, or debug rollout file existed, so the retry restarts from the
+  final SFT full checkpoint at
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_full_optim/iter_0000096`.
+- Patch commit: `0b952db` (`Forward corrected OPD load env into container`).
+- Stale jobs canceled: `157037`, `157038`, `157039`.
+- Independent cleanup job `157809` was left running.
+- Submit time: `2026-07-01T20:30:20-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `157935`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `cpus-per-task=32`, `time=18:00:00`,
+  `Dependency=(null)`.
+- OPD final eval job: `157936`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `cpus-per-task=32`, `time=05:00:00`,
+  dependency `afterok:157935`.
+- Base maybe-eval job: `157937`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `cpus-per-task=32`, `time=05:00:00`,
+  dependency `afterok:157936`.
+- Final report job: `157938`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `cpus-per-task=4`, `time=00:30:00`,
+  dependency `afterok:157937`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_full_optim`
+- OPD optimizer CPU offload: `1`.
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_offload4_full_optim`
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_offload4_final`
+- Base eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k_sft_offload4`
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_offload4`
+- Expected runtime validation: train log shows
+  `Starting OPD from full SFT optimizer checkpoint`, validates Megatron load dir
+  at iteration `96`, prints `OPD optimizer CPU offload: 1`, reaches rollout id
+  `0`, and does not print `OPD_INITIAL_LOAD_DIR: unbound variable` or base
+  fallback checkpoint messages.
