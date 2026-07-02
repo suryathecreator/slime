@@ -214,9 +214,11 @@ The older `1k_32k` OPD run is an accidental base -> OPD experiment because the
 OPD job was not loaded from the full SFT Megatron checkpoint. If its final eval
 times out before Slime writes `debug_eval_0.pt`, use
 `submit_cleanup_base_opd_2gpu.sh`. That cleanup job requests 2 H200s for 18
-hours, reruns the accidental OPD final eval to completion, runs base eval only
-if the current base summary is missing, and writes a base -> OPD-only combined
-report with SFT omitted from the comparison.
+hours, skips any completed accidental OPD summary, reruns only missing eval
+stages, and writes a base -> OPD-only combined report with SFT omitted from the
+comparison. The cleanup path is artifact-idempotent: if a nested eval exits
+nonzero after writing the expected `summary.json`, the wrapper treats that
+stage as salvaged and continues to the remaining missing pieces.
 
 For future OPD runs, do not treat the current 8-GPU allocation as the preferred
 long-term configuration. Use optimizer CPU offload and retune the actor/rollout/

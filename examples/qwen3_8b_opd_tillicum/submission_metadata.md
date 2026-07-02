@@ -10,6 +10,18 @@ Recorded: 2026-07-01 17:28 PDT
   stage rather than appending partial responses.
 - Code commit submitted: `d25a6f4` (`Add 2GPU base OPD cleanup eval`)
 - Job id: `157809`
+- Final state: `FAILED`, exit `2:0`, elapsed `03:20:56`, from
+  `2026-07-01T20:06:33-07:00` to `2026-07-01T23:27:29-07:00`.
+- Failure point: the accidental OPD eval completed and wrote `debug_eval_0.pt`
+  plus `summary.json`, then the nested eval wrapper returned
+  `container_exec.sh: line 250: unexpected EOF while looking for matching '"'`
+  before base eval or combined report generation.
+- Preserved OPD eval result: `accuracy=0.0`, `accuracy_on_parseable=0.0`,
+  `parse_failure_rate=0.998`, `cap_hit_rate=0.882`,
+  `avg_generated_tokens=30137.598`, `n=500`.
+- Salvage decision: preserve the complete OPD final eval artifact, rerun only
+  missing base eval/report pieces, and skip OPD eval on replacement unless the
+  OPD summary is missing.
 - Submit time: `2026-07-01T17:28:20-07:00`
 - Dependency policy: none. This job is independent of corrected SFT-loaded jobs
   `157036`-`157039`.

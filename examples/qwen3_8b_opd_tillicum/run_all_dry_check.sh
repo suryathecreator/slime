@@ -47,6 +47,7 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
   examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch
   examples/qwen3_8b_opd_tillicum/06_eval_math500_greedy_1x.sbatch
+  examples/qwen3_8b_opd_tillicum/06_eval_math500_greedy_inner.sh
   examples/qwen3_8b_opd_tillicum/07_report_math500.sbatch
   examples/qwen3_8b_opd_tillicum/08_maybe_base_eval_math500.sbatch
   examples/qwen3_8b_opd_tillicum/09_cleanup_base_opd_2gpu.sbatch

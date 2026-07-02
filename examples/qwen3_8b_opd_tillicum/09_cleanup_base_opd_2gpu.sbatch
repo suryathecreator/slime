@@ -61,7 +61,9 @@ done
 run_inner_eval() {
   local target="$1"
   local output_dir="$2"
+  local expected_summary="$3"
   local ray_tmp="/tmp/${USER:-suryadv}/slime-ray-${SLURM_JOB_ID:-cleanup}-${target}"
+  local status=0
   mkdir -p "${ray_tmp}"
   echo "Running inner eval target=${target} output=${output_dir} at $(date)"
   env -u SLURM_JOB_ID -u SLURM_JOB_NAME \
@@ -70,19 +72,42 @@ run_inner_eval() {
     EVAL_OUTPUT_DIR="${output_dir}" \
     EVAL_SKIP_COMPLETED=1 \
     OPD_MILESTONE_ROLLOUT_IDS="${OPD_FINAL_ROLLOUT_ID}" \
-    bash "${SCRIPT_DIR}/06_eval_math500_greedy_1x.sbatch"
+    bash "${SCRIPT_DIR}/06_eval_math500_greedy_1x.sbatch" || status=$?
+  if [[ "${status}" -eq 0 ]]; then
+    return 0
+  fi
+
+  if [[ -s "${expected_summary}" ]]; then
+    echo "INNER_EVAL_SUMMARY_SALVAGE_OK target=${target} summary=${expected_summary} after status=${status}"
+    return 0
+  fi
+  echo "INNER_EVAL_FAILED target=${target} status=${status} missing expected summary=${expected_summary}" >&2
+  return "${status}"
 }
 
 if [[ -s "${OPD_EVAL_OUTPUT_DIR}/opd_001024/summary.json" ]]; then
   echo "OPD cleanup summary already exists: ${OPD_EVAL_OUTPUT_DIR}/opd_001024/summary.json"
 else
-  run_inner_eval opd "${OPD_EVAL_OUTPUT_DIR}"
+  run_inner_eval opd "${OPD_EVAL_OUTPUT_DIR}" "${OPD_EVAL_OUTPUT_DIR}/opd_001024/summary.json"
 fi
 
 if [[ -s "${BASE_EVAL_OUTPUT_DIR}/base/summary.json" ]]; then
   echo "Base cleanup summary already exists: ${BASE_EVAL_OUTPUT_DIR}/base/summary.json"
 else
-  run_inner_eval base "${BASE_EVAL_OUTPUT_DIR}"
+  run_inner_eval base "${BASE_EVAL_OUTPUT_DIR}" "${BASE_EVAL_OUTPUT_DIR}/base/summary.json"
+fi
+
+for required_summary in \
+  "${OPD_EVAL_OUTPUT_DIR}/opd_001024/summary.json" \
+  "${BASE_EVAL_OUTPUT_DIR}/base/summary.json"; do
+  if [[ ! -s "${required_summary}" ]]; then
+    echo "Missing required summary before combined report: ${required_summary}" >&2
+    exit 1
+  fi
+done
+
+if [[ -s "${COMBINED_EVAL_OUTPUT_DIR}/summary_all.json" ]]; then
+  echo "Existing accidental base->OPD combined report will be refreshed: ${COMBINED_EVAL_OUTPUT_DIR}/summary_all.json"
 fi
 
 echo "Writing accidental base->OPD combined report at $(date)"
