@@ -20,7 +20,7 @@ export EVAL_GPU_GRES="${EVAL_GPU_GRES:-gpu:h200:4}"
 export EVAL_ROLLOUT_NUM_GPUS="${EVAL_ROLLOUT_NUM_GPUS:-4}"
 export EVAL_ROLLOUT_BATCH_SIZE="${EVAL_ROLLOUT_BATCH_SIZE:-128}"
 export EVAL_SGLANG_SERVER_CONCURRENCY="${EVAL_SGLANG_SERVER_CONCURRENCY:-4}"
-export CORRECTED_AFTERANY_DEPENDENCY="${CORRECTED_AFTERANY_DEPENDENCY:-156277:156278:156279}"
+export CORRECTED_AFTERANY_DEPENDENCY="${CORRECTED_AFTERANY_DEPENDENCY:-none}"
 export REPORT_EXPERIMENT_NOTE="${REPORT_EXPERIMENT_NOTE:-Corrected SFT -> OPD run: OPD loaded the full SFT Megatron optimizer checkpoint at rollout 96. The earlier 1k_32k run is an accidental base -> OPD test because it used an HF snapshot as Megatron --load and fell back to base.}"
 
 source "${SCRIPT_DIR}/env.sh"
@@ -32,6 +32,12 @@ mkdir -p "${SLURM_LOG_DIR}"
 SBATCH_TRAIN=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres "${GPU_GRES}" --cpus-per-task=32)
 SBATCH_EVAL=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres "${EVAL_GPU_GRES}" --cpus-per-task=32)
 SBATCH_REPORT=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}")
+TRAIN_DEP_ARGS=()
+TRAIN_DEP_LABEL="none"
+if [[ -n "${CORRECTED_AFTERANY_DEPENDENCY}" && "${CORRECTED_AFTERANY_DEPENDENCY}" != "none" ]]; then
+  TRAIN_DEP_ARGS=(--dependency=afterany:${CORRECTED_AFTERANY_DEPENDENCY})
+  TRAIN_DEP_LABEL="afterany:${CORRECTED_AFTERANY_DEPENDENCY}"
+fi
 
 printf -v SFT_FINAL_STAGE "sft_%06d" "$((SFT_NUM_ROLLOUT * SFT_ROLLOUT_BATCH_SIZE))"
 SFT_FINAL_SUMMARY="${SFT_EVAL_OUTPUT_DIR}/${SFT_FINAL_STAGE}/summary.json"
@@ -70,16 +76,17 @@ submit_log="${SLURM_LOG_DIR}/submit_opd_${OPD_RUN_LABEL}_$(date +%Y%m%d_%H%M%S).
 echo "Submitting corrected SFT-loaded OPD ${OPD_RUN_LABEL} chain"
 echo "account/partition/qos: ${ACCOUNT}/${PARTITION}/${QOS}"
 echo "submit log: ${submit_log}"
-echo "wait dependency: afterany:${CORRECTED_AFTERANY_DEPENDENCY}"
+echo "wait dependency: ${TRAIN_DEP_LABEL}"
 echo "train/eval gres: ${GPU_GRES}/${EVAL_GPU_GRES}"
-echo "OPD initial load: ${SFT_SAVE_DIR}"
+echo "OPD initial load: ${OPD_INITIAL_LOAD_DIR}"
 echo "OPD actor/rollout/teacher/ray GPUs: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/${OPD_TEACHER_GPU}/${OPD_RAY_GPUS}"
 echo "OPD TP/CP/max response/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_MAX_RESPONSE_LEN}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
+echo "OPD optimizer CPU offload: ${OPD_OPTIMIZER_CPU_OFFLOAD}"
 echo "Eval GPUs/batch/concurrency: ${EVAL_ROLLOUT_NUM_GPUS}/${EVAL_ROLLOUT_BATCH_SIZE}/${EVAL_SGLANG_SERVER_CONCURRENCY}"
 
 jid_opd="$(
   sbatch --parsable "${SBATCH_TRAIN[@]}" \
-    --dependency=afterany:${CORRECTED_AFTERANY_DEPENDENCY} \
+    "${TRAIN_DEP_ARGS[@]}" \
     --time=18:00:00 \
     --job-name=slime-qwen3-opd1k-sft4g \
     --export=ALL \
@@ -115,8 +122,10 @@ jid_report="$(
   echo "opd_eval_final=${jid_opd_eval}"
   echo "base_maybe=${jid_base_maybe}"
   echo "report=${jid_report}"
-  echo "dependency=afterany:${CORRECTED_AFTERANY_DEPENDENCY}"
+  echo "dependency=${TRAIN_DEP_LABEL}"
   echo "SFT_SAVE_DIR=${SFT_SAVE_DIR}"
+  echo "OPD_INITIAL_LOAD_DIR=${OPD_INITIAL_LOAD_DIR}"
+  echo "OPD_OPTIMIZER_CPU_OFFLOAD=${OPD_OPTIMIZER_CPU_OFFLOAD}"
   echo "SFT_FINAL_FULL_CKPT_DIR=${SFT_FINAL_FULL_CKPT_DIR}"
   echo "SFT_FINAL_HF_DIR=${SFT_FINAL_HF_DIR}"
   echo "SFT_FINAL_SUMMARY=${SFT_FINAL_SUMMARY}"

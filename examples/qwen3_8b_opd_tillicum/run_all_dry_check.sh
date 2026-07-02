@@ -55,6 +55,18 @@ for file in "${SHELL_FILES[@]}"; do
   bash -n "${file}"
 done
 
+echo "Checking required container env forwarding"
+REQUIRED_CONTAINER_ENV=(
+  OPD_INITIAL_LOAD_DIR
+  OPD_OPTIMIZER_CPU_OFFLOAD
+)
+for name in "${REQUIRED_CONTAINER_ENV[@]}"; do
+  if ! grep -Eq "^[[:space:]]+${name}$" examples/qwen3_8b_opd_tillicum/container_exec.sh; then
+    echo "container_exec.sh must forward ${name} into Apptainer." >&2
+    exit 1
+  fi
+done
+
 echo "Checking Python syntax"
 python3 -m py_compile "${PYTHON_FILES[@]}"
 
