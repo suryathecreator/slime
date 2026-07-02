@@ -29,6 +29,20 @@ case "${OPD_INITIAL_LOAD_MODE}" in
     exit 1
     ;;
 esac
+if [[ "${OPD_COLOCATE}" == "1" ]]; then
+  if [[ "${OPD_ACTOR_GPUS}" -ne "${OPD_ROLLOUT_GPUS}" ]]; then
+    echo "Colocated OPD expects actor and rollout GPU counts to match." >&2
+    echo "  OPD_ACTOR_GPUS=${OPD_ACTOR_GPUS}" >&2
+    echo "  OPD_ROLLOUT_GPUS=${OPD_ROLLOUT_GPUS}" >&2
+    exit 1
+  fi
+  if [[ "${OPD_RAY_GPUS}" -lt "${OPD_ACTOR_GPUS}" ]]; then
+    echo "Colocated OPD needs OPD_RAY_GPUS >= OPD_ACTOR_GPUS." >&2
+    echo "  OPD_RAY_GPUS=${OPD_RAY_GPUS}" >&2
+    echo "  OPD_ACTOR_GPUS=${OPD_ACTOR_GPUS}" >&2
+    exit 1
+  fi
+fi
 
 SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/env.sh
@@ -40,6 +54,7 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/submit_25k_10k_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_resume_sft_eval_then_opd_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_chain.sh
+  examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_sft_colocate4_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_sft_offload4_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_cleanup_base_opd_2gpu.sh
   examples/qwen3_8b_opd_tillicum/02_prepare_data_25k_10k.sbatch
@@ -67,6 +82,10 @@ echo "Checking required container env forwarding"
 REQUIRED_CONTAINER_ENV=(
   OPD_INITIAL_LOAD_MODE
   OPD_INITIAL_LOAD_DIR
+  OPD_COLOCATE
+  OPD_OFFLOAD_TRAIN
+  OPD_OFFLOAD_ROLLOUT
+  OPD_RECOMPUTE_LOSS_FUNCTION
   OPD_OPTIMIZER_CPU_OFFLOAD
   OPD_SANITY_CHECK_ENABLED
   OPD_SANITY_REPORT_DIR

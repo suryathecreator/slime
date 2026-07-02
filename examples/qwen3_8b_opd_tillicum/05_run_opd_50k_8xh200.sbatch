@@ -49,8 +49,11 @@ echo "OPD effective samples: ${OPD_EFFECTIVE_TRAIN_SAMPLES}"
 echo "OPD rollout batch/global batch/samples per prompt: ${OPD_ROLLOUT_BATCH_SIZE}/${OPD_GLOBAL_BATCH_SIZE}/${OPD_N_SAMPLES_PER_PROMPT}"
 echo "OPD rollout ids: 0-${OPD_FINAL_ROLLOUT_ID}"
 echo "OPD max response len: ${OPD_MAX_RESPONSE_LEN}"
-echo "OPD actor/rollout/ray GPUs: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/${OPD_RAY_GPUS}"
+echo "OPD actor/rollout/teacher GPU counts: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/1"
+echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
 echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
+echo "OPD colocate/offload train/offload rollout: ${OPD_COLOCATE}/${OPD_OFFLOAD_TRAIN}/${OPD_OFFLOAD_ROLLOUT}"
+echo "OPD recompute loss function: ${OPD_RECOMPUTE_LOSS_FUNCTION}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
 echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
@@ -307,6 +310,22 @@ MISC_ARGS=(
   --attention-backend flash
 )
 
+COLOCATION_ARGS=(
+  --num-gpus-per-node "${OPD_RAY_GPUS}"
+)
+if [[ "${OPD_COLOCATE}" == "1" ]]; then
+  COLOCATION_ARGS+=(--colocate)
+fi
+if [[ "${OPD_OFFLOAD_TRAIN}" == "1" ]]; then
+  COLOCATION_ARGS+=(--offload-train)
+fi
+if [[ "${OPD_OFFLOAD_ROLLOUT}" == "1" ]]; then
+  COLOCATION_ARGS+=(--offload-rollout)
+fi
+if [[ "${OPD_RECOMPUTE_LOSS_FUNCTION}" == "1" ]]; then
+  COLOCATION_ARGS+=(--recompute-loss-function)
+fi
+
 export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF}"
@@ -340,6 +359,7 @@ CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray job submit --address="http://1
   --actor-num-nodes 1 \
   --actor-num-gpus-per-node "${OPD_ACTOR_GPUS}" \
   --rollout-num-gpus "${OPD_ROLLOUT_GPUS}" \
+  "${COLOCATION_ARGS[@]}" \
   "${MODEL_ARGS[@]}" \
   "${CKPT_ARGS[@]}" \
   "${ROLLOUT_ARGS[@]}" \
