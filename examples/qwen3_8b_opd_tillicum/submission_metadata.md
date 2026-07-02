@@ -306,3 +306,73 @@ Recorded: 2026-07-01 17:28 PDT
   the SFT HF snapshot load, no base fallback, no TP mismatch, OPD sanity JSON
   for rollout `0`, and actor training proceeds past the previous first-step
   OOM.
+
+## Corrected SFT-Weights 4-GPU OPD Colocate Retry
+
+- Result snapshot commit: `f7f79b5` (`Record accidental base OPD salvage
+  results`), pushed to `origin/opd-reproduction`.
+- Tracked salvage result files:
+  `examples/qwen3_8b_opd_tillicum/results/accidental_base_opd_salvage_summary.json`
+  and
+  `examples/qwen3_8b_opd_tillicum/results/accidental_base_opd_salvage_summary.csv`.
+- Superseded retry: non-colocated jobs `158665`, `158666`, `158667`, and
+  `158668` were canceled before start. That canceled chain used the separated
+  `2/1/1` layout and is not the current corrected run.
+- Patch commit: `7852d74` (`Switch corrected OPD to colocate4`), pushed to
+  `origin/opd-reproduction`.
+- Key patch behavior:
+  - New corrected default run label: `1k_32k_sft_colocate4`.
+  - Actor and student rollout are colocated on Ray GPUs `0,1,2`; teacher is on
+    physical GPU `3`.
+  - Actor/rollout/teacher GPU counts: `3/3/1`.
+  - Actor `TP=1`, `CP=3`, `OPD_SEQ_LENGTH=32766`,
+    `OPD_MAX_RESPONSE_LEN=31744`, `OPD_MAX_TOKENS_PER_GPU=11264`.
+  - Enables `--colocate`, `--offload-train`, `--offload-rollout`,
+    optimizer CPU offload, and `--recompute-loss-function`.
+  - Keeps the OPD sanity guard from commit `4e8f653`.
+  - Removes the `8192` train-packing default from the current corrected path;
+    `8192` remains only as a documented fallback if the colocated CP=3 retry
+    still OOMs.
+- Container repair/validation: `00_pull_or_load_container.sh` was rerun before
+  submission. It materialized `0` additional stdlib `.pyc` files and validated
+  both direct Apptainer imports and `container_exec.sh` imports for
+  `encodings, os, site, sglang, torch`.
+- Static validation before submission:
+  - `bash -n` on edited shell/sbatch scripts.
+  - `python3 -m py_compile` on touched Python helpers.
+  - `git diff --check`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed.
+- Submit time: `2026-07-02T15:29:12-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158697`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  at submission.
+- OPD final eval job: `158698`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158697`.
+- Base maybe-eval job: `158699`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158698`.
+- Final report job: `158700`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158699`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load mode: `hf`.
+- OPD initial load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim`
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_colocate4_final`
+- Base eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k_sft_colocate4`
+- Base reuse source:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k`
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_colocate4`
+- Expected runtime validation: train log shows `OPD_INITIAL_LOAD_MODE=hf`,
+  SFT HF snapshot as the Megatron HF load path, `--colocate`,
+  `--offload-train`, `--offload-rollout`, actor/rollout/teacher `3/3/1`,
+  `TP=1`, `CP=3`, rollout `0` reaches and completes actor train step `0`
+  without CUDA OOM, `train_rollout_logprob_abs_diff` is small rather than the
+  old pathological value, and final `iter_0000007` checkpoint/HF snapshot plus
+  trained-data manifest are written.
