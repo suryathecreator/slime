@@ -75,6 +75,26 @@ Recorded: 2026-07-01 17:28 PDT
 - Runtime validation target: no `unexpected EOF while looking for matching '"'`;
   combined report includes only base and accidental OPD points with SFT omitted.
 
+## Accidental Base -> OPD Cleanup Final Result
+
+- Final state: job `158065` completed successfully on `2026-07-02`.
+- Patch commit used by job: `a99c041` (`Fix base OPD cleanup salvage`).
+- Base summary:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k/base/summary.json`
+- Accidental OPD summary:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_final/opd_001024/summary.json`
+- Combined report:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k`
+- Base result: `accuracy=0.638`, `accuracy_on_parseable=0.7595238095238095`,
+  `parse_failure_rate=0.16`, `cap_hit_rate=0.036`,
+  `avg_generated_tokens=1686.402`, `n=500`.
+- Accidental base -> OPD result: `accuracy=0.0`,
+  `accuracy_on_parseable=0.0`, `parse_failure_rate=0.998`,
+  `cap_hit_rate=0.882`, `avg_generated_tokens=30137.598`, `n=500`.
+- Interpretation note: the base eval and accidental OPD rollout used the same
+  base HF revision, but the OPD run used the broken/accidental loader path and
+  should not be treated as a clean planned base -> OPD baseline.
+
 ## Corrected SFT-Loaded 4-GPU OPD
 
 - Purpose: corrected 1k/32k OPD run that loads the final SFT full Megatron
@@ -223,3 +243,66 @@ Recorded: 2026-07-01 17:28 PDT
   `Load checkpoint from HuggingFace model into Megatron`, does not print the
   TP/PP mismatch error, does not fall back to base, teacher `/health_generate`
   passes, and OPD reaches rollout id `0`.
+
+## Corrected SFT-Weights 4-GPU OPD Retry With Sanity Guard
+
+- Reason for retry: train job `158041` loaded the final SFT HF snapshot and
+  reached rollout `0`, then failed during the first actor train step with CUDA
+  OOM. The failing allocation was `192.00 MiB`; GPU 1 had only `68.19 MiB`
+  free and `139.63 GiB` in use.
+- Progress preservation: no corrected OPD checkpoint, HF snapshot, or rollout
+  dataset state existed. The diagnostic rollout file was preserved as
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/opd_1k_32k_sft_offload4_rollout_logs/rollout_0.failed_158041.pt`.
+- Rollout sanity from the preserved artifact: `n=128`,
+  `avg_response_tokens=1325.5234375`, `max_response_tokens=17370`,
+  `cap_hit_rate=0.0`, `completed_rate=1.0`,
+  `final_answer_rate=0.6953125`.
+- Patch commit: `4e8f653` (`Guard corrected OPD against rollout collapse`),
+  pushed to `origin/opd-reproduction`.
+- Key patch behavior:
+  - Adds OPD rollout sanity summaries before actor updates.
+  - Writes JSON reports under `$OPD_SANITY_REPORT_DIR`.
+  - Fails fast on extreme cap-hit / no-final-answer collapse signals.
+  - Lowers corrected 4-GPU actor dynamic train packing to
+    `OPD_MAX_TOKENS_PER_GPU=8192` while keeping
+    `OPD_MAX_RESPONSE_LEN=31744`.
+  - Repairs the current pycache-only Apptainer sandbox via
+    `00_pull_or_load_container.sh`; final dry check passed
+    `RUN_CONTAINER_CHECKS=1`.
+- Stale jobs canceled: `158042`, `158043`, `158044`.
+- Submit time: `2026-07-02T14:41:54-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158665`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for priority
+  at submission.
+- OPD final eval job: `158666`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158665`.
+- Base maybe-eval job: `158667`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158666`.
+- Final report job: `158668`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158667`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load mode: `hf`.
+- OPD initial load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`
+- OPD actor/rollout/teacher/ray GPUs: `2/1/1/3`; actor `TP=1`, `CP=2`;
+  `OPD_MAX_RESPONSE_LEN=31744`; `OPD_SEQ_LENGTH=32768`;
+  `OPD_MAX_TOKENS_PER_GPU=8192`; optimizer CPU offload enabled.
+- OPD sanity guard:
+  `OPD_SANITY_CHECK_ENABLED=1`, `OPD_SANITY_MAX_CAP_HIT_RATE=0.50`,
+  `OPD_SANITY_MAX_AVG_RESPONSE_TOKENS=16000`,
+  `OPD_SANITY_MIN_FINAL_ANSWER_RATE=0.02`.
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_offload4_full_optim`
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_offload4_final`
+- Base eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k_sft_offload4`
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_offload4`
+- Expected runtime validation: train log shows `OPD_INITIAL_LOAD_MODE=hf`,
+  the SFT HF snapshot load, no base fallback, no TP mismatch, OPD sanity JSON
+  for rollout `0`, and actor training proceeds past the previous first-step
+  OOM.
