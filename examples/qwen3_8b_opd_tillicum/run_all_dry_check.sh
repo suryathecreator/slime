@@ -68,6 +68,8 @@ REQUIRED_CONTAINER_ENV=(
   OPD_INITIAL_LOAD_MODE
   OPD_INITIAL_LOAD_DIR
   OPD_OPTIMIZER_CPU_OFFLOAD
+  OPD_SANITY_CHECK_ENABLED
+  OPD_SANITY_REPORT_DIR
 )
 for name in "${REQUIRED_CONTAINER_ENV[@]}"; do
   if ! grep -Eq "^[[:space:]]+${name}$" examples/qwen3_8b_opd_tillicum/container_exec.sh; then

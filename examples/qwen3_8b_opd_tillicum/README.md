@@ -115,6 +115,12 @@ checkpoint across the TP mismatch. After OPD starts, its own full optimizer
 checkpoint under `$OPD_SAVE_DIR` is the fidelity-safe continuation point for
 more OPD.
 
+The corrected 4-GPU chain also enables an OPD rollout sanity guard before actor
+updates. The guard logs `OPD_SANITY` metrics and writes JSON under
+`$OPD_SANITY_REPORT_DIR`; it fails fast on extreme collapse signals such as a
+high cap-hit rate or almost no final-answer formatting. This is a training
+guard only: MATH-500 scoring remains the source of accuracy numbers.
+
 ## Reproducing On Another Slurm Cluster
 
 These wrappers are Tillicum-shaped, but the core workflow is portable to a
@@ -209,6 +215,13 @@ OPD. The corrected offload chain starts from the completed final SFT HF weights
 snapshot, runs 1k OPD with the near-32k response cap, evaluates the final OPD
 checkpoint with 4 one-GPU SGLang engines and concurrency 4, reuses or runs the
 fixed base eval, then generates the combined final figure.
+
+For the corrected 4-GPU SFT-loaded OPD chain, keep the generation/eval response
+cap at `31744` but use a smaller actor dynamic training budget
+`OPD_MAX_TOKENS_PER_GPU=8192`. This lowers per-microbatch activation pressure
+after job `158041` OOMed during the first actor train step with only about
+68 MiB free on one H200. The change affects train microbatch scheduling, not
+the generated response cap or the OPD objective.
 
 The older `1k_32k` OPD run is an accidental base -> OPD experiment because the
 OPD job was not loaded from the full SFT Megatron checkpoint. If its final eval
