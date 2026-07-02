@@ -121,8 +121,9 @@ def load_checkpoint(ddp_model, optimizer, opt_param_scheduler, checkpointing_con
 
 
 def _is_megatron_checkpoint(path: str | Path) -> bool:
-    return (Path(path) / "latest_checkpointed_iteration.txt").is_file() or bool(
-        re.fullmatch(r"iter_\d{7}", Path(path).name)
+    path = Path(path)
+    return (path / "latest_checkpointed_iteration.txt").is_file() or (
+        bool(re.fullmatch(r"iter_\d{7}", path.name)) and (path / ".metadata").is_file()
     )
 
 

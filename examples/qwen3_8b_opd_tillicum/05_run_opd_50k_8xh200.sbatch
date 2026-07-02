@@ -57,6 +57,7 @@ echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
 echo "Save dir: ${OPD_SAVE_DIR}"
 echo "HF eval snapshots: ${OPD_HF_SNAPSHOT_DIR}"
 echo "Expected final OPD rollout id: ${OPD_FINAL_ROLLOUT_ID}"
+echo "Initial OPD load mode: ${OPD_INITIAL_LOAD_MODE}"
 echo "Initial OPD load dir: ${OPD_INITIAL_LOAD_DIR}"
 echo "SFT full checkpoint dir: ${SFT_FINAL_FULL_CKPT_DIR}"
 echo "OPD optimizer CPU offload: ${OPD_OPTIMIZER_CPU_OFFLOAD}"
@@ -159,20 +160,61 @@ validate_megatron_load_dir() {
   echo "${label} validated Megatron load dir: ${load_dir} iteration ${latest_iter} (${iter_dir})"
 }
 
+validate_hf_load_dir() {
+  local label="$1"
+  local load_dir="$2"
+  local -a weight_files=()
+
+  if [[ ! -d "${load_dir}" ]]; then
+    echo "${label} HF load dir is missing: ${load_dir}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${load_dir}/config.json" ]]; then
+    echo "${label} HF load dir is missing config.json: ${load_dir}" >&2
+    exit 1
+  fi
+  shopt -s nullglob
+  weight_files=("${load_dir}"/model*.safetensors "${load_dir}"/pytorch_model*.bin)
+  shopt -u nullglob
+  if [[ ! -f "${load_dir}/model.safetensors.index.json" && "${#weight_files[@]}" -eq 0 ]]; then
+    echo "${label} HF load dir is missing model weight files: ${load_dir}" >&2
+    exit 1
+  fi
+  echo "${label} validated HF load dir: ${load_dir}"
+}
+
+CKPT_HF_CHECKPOINT="${STUDENT_HF_DIR}"
 if [[ -f "${OPD_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
   OPD_LOAD_DIR="${OPD_SAVE_DIR}"
   OPD_LOAD_KIND="opd_resume"
   echo "Resuming OPD from full optimizer checkpoint ${OPD_LOAD_DIR}"
+  validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
 else
-  OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
-  OPD_LOAD_KIND="sft_full_optim_initial"
-  echo "Starting OPD from full SFT optimizer checkpoint ${OPD_LOAD_DIR}"
+  case "${OPD_INITIAL_LOAD_MODE}" in
+    megatron)
+      OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
+      OPD_LOAD_KIND="sft_full_optim_initial"
+      echo "Starting OPD from full SFT optimizer checkpoint ${OPD_LOAD_DIR}"
+      validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
+      ;;
+    hf)
+      OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
+      OPD_LOAD_KIND="sft_hf_weights_initial"
+      CKPT_HF_CHECKPOINT="${OPD_LOAD_DIR}"
+      echo "Starting OPD from SFT HF weights snapshot ${OPD_LOAD_DIR}"
+      echo "Fresh OPD optimizer will be initialized because SFT full optimizer checkpoint TP layout is incompatible with this actor layout."
+      validate_hf_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
+      ;;
+    *)
+      echo "Unsupported OPD_INITIAL_LOAD_MODE=${OPD_INITIAL_LOAD_MODE}" >&2
+      exit 1
+      ;;
+  esac
 fi
-validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
 
 CKPT_ARGS=(
   --megatron-to-hf-mode bridge
-  --hf-checkpoint "${STUDENT_HF_DIR}"
+  --hf-checkpoint "${CKPT_HF_CHECKPOINT}"
   --ref-load "${STUDENT_TORCH_DIST_DIR}"
   --load "${OPD_LOAD_DIR}"
   --save "${OPD_SAVE_DIR}"
@@ -370,6 +412,7 @@ manifest = {
     "global_batch_size": global_batch_size,
     "n_samples_per_prompt": int(os.environ["OPD_N_SAMPLES_PER_PROMPT"]),
     "resume_from_full_optim_checkpoint": str(save_dir / f"iter_{final_rollout_id:07d}"),
+    "initial_load_mode": os.environ.get("OPD_INITIAL_LOAD_MODE"),
     "initial_load_dir": os.environ.get("OPD_INITIAL_LOAD_DIR"),
     "sft_full_checkpoint_dir": os.environ.get("SFT_FINAL_FULL_CKPT_DIR"),
     "resume_from_hf_snapshot": str(hf_dir),

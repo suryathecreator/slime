@@ -22,6 +22,13 @@ if [[ "${OPD_CONTEXT_PARALLEL_SIZE}" -gt 1 ]]; then
     exit 1
   fi
 fi
+case "${OPD_INITIAL_LOAD_MODE}" in
+  megatron|hf) ;;
+  *)
+    echo "OPD_INITIAL_LOAD_MODE must be 'megatron' or 'hf', got '${OPD_INITIAL_LOAD_MODE}'" >&2
+    exit 1
+    ;;
+esac
 
 SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/env.sh
@@ -57,6 +64,7 @@ done
 
 echo "Checking required container env forwarding"
 REQUIRED_CONTAINER_ENV=(
+  OPD_INITIAL_LOAD_MODE
   OPD_INITIAL_LOAD_DIR
   OPD_OPTIMIZER_CPU_OFFLOAD
 )

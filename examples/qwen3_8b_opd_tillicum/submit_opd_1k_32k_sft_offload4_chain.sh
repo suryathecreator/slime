@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 export OPD_RUN_LABEL="${OPD_RUN_LABEL:-1k_32k_sft_offload4}"
-export OPD_INITIAL_LOAD_DIR="${OPD_INITIAL_LOAD_DIR:-${SFT_SAVE_DIR:-}}"
+export OPD_INITIAL_LOAD_MODE="${OPD_INITIAL_LOAD_MODE:-hf}"
 export OPD_ACTOR_GPUS="${OPD_ACTOR_GPUS:-2}"
 export OPD_ROLLOUT_GPUS="${OPD_ROLLOUT_GPUS:-1}"
 export OPD_RAY_GPUS="${OPD_RAY_GPUS:-3}"
@@ -21,7 +21,7 @@ export EVAL_ROLLOUT_NUM_GPUS="${EVAL_ROLLOUT_NUM_GPUS:-4}"
 export EVAL_ROLLOUT_BATCH_SIZE="${EVAL_ROLLOUT_BATCH_SIZE:-128}"
 export EVAL_SGLANG_SERVER_CONCURRENCY="${EVAL_SGLANG_SERVER_CONCURRENCY:-4}"
 export CORRECTED_AFTERANY_DEPENDENCY="${CORRECTED_AFTERANY_DEPENDENCY:-none}"
-export REPORT_EXPERIMENT_NOTE="${REPORT_EXPERIMENT_NOTE:-Corrected SFT -> OPD run: OPD loaded the full SFT Megatron optimizer checkpoint at rollout 96. The earlier 1k_32k run is an accidental base -> OPD test because it used an HF snapshot as Megatron --load and fell back to base.}"
+export REPORT_EXPERIMENT_NOTE="${REPORT_EXPERIMENT_NOTE:-Corrected SFT -> OPD run: OPD initializes from the final SFT HF weights at rollout 96 with a fresh OPD optimizer, because the final SFT full optimizer checkpoint was saved with TP=2 and cannot be optimizer-resumed by the 4-GPU TP=1/CP=2 actor. The earlier 1k_32k run is an accidental base -> OPD test because it used an HF snapshot as Megatron --load without the explicit HF-load path and fell back to base.}"
 
 source "${SCRIPT_DIR}/env.sh"
 export BASE_EVAL_REUSE_DIR="${BASE_EVAL_REUSE_DIR:-${OUTPUT_ROOT}/math500_eval_base_25k_opd_1k_32k}"
@@ -70,6 +70,38 @@ if [[ "${OPD_CONTEXT_PARALLEL_SIZE}" -gt 1 ]]; then
     exit 1
   fi
 fi
+case "${OPD_INITIAL_LOAD_MODE}" in
+  hf)
+    for required_path in \
+      "${OPD_INITIAL_LOAD_DIR}" \
+      "${OPD_INITIAL_LOAD_DIR}/config.json"; do
+      if [[ ! -e "${required_path}" ]]; then
+        echo "Missing required HF initial load path before submit: ${required_path}" >&2
+        exit 1
+      fi
+    done
+    shopt -s nullglob
+    hf_weight_files=("${OPD_INITIAL_LOAD_DIR}"/model*.safetensors "${OPD_INITIAL_LOAD_DIR}"/pytorch_model*.bin)
+    shopt -u nullglob
+    if [[ ! -f "${OPD_INITIAL_LOAD_DIR}/model.safetensors.index.json" && "${#hf_weight_files[@]}" -eq 0 ]]; then
+      echo "HF initial load dir is missing model weights: ${OPD_INITIAL_LOAD_DIR}" >&2
+      exit 1
+    fi
+    ;;
+  megatron)
+    for required_path in \
+      "${OPD_INITIAL_LOAD_DIR}/latest_checkpointed_iteration.txt"; do
+      if [[ ! -e "${required_path}" ]]; then
+        echo "Missing required Megatron initial load path before submit: ${required_path}" >&2
+        exit 1
+      fi
+    done
+    ;;
+  *)
+    echo "OPD_INITIAL_LOAD_MODE must be 'hf' or 'megatron', got '${OPD_INITIAL_LOAD_MODE}'" >&2
+    exit 1
+    ;;
+esac
 
 submit_log="${SLURM_LOG_DIR}/submit_opd_${OPD_RUN_LABEL}_$(date +%Y%m%d_%H%M%S).txt"
 
@@ -78,6 +110,7 @@ echo "account/partition/qos: ${ACCOUNT}/${PARTITION}/${QOS}"
 echo "submit log: ${submit_log}"
 echo "wait dependency: ${TRAIN_DEP_LABEL}"
 echo "train/eval gres: ${GPU_GRES}/${EVAL_GPU_GRES}"
+echo "OPD initial load mode: ${OPD_INITIAL_LOAD_MODE}"
 echo "OPD initial load: ${OPD_INITIAL_LOAD_DIR}"
 echo "OPD actor/rollout/teacher/ray GPUs: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/${OPD_TEACHER_GPU}/${OPD_RAY_GPUS}"
 echo "OPD TP/CP/max response/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_MAX_RESPONSE_LEN}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
@@ -124,6 +157,7 @@ jid_report="$(
   echo "report=${jid_report}"
   echo "dependency=${TRAIN_DEP_LABEL}"
   echo "SFT_SAVE_DIR=${SFT_SAVE_DIR}"
+  echo "OPD_INITIAL_LOAD_MODE=${OPD_INITIAL_LOAD_MODE}"
   echo "OPD_INITIAL_LOAD_DIR=${OPD_INITIAL_LOAD_DIR}"
   echo "OPD_OPTIMIZER_CPU_OFFLOAD=${OPD_OPTIMIZER_CPU_OFFLOAD}"
   echo "SFT_FINAL_FULL_CKPT_DIR=${SFT_FINAL_FULL_CKPT_DIR}"

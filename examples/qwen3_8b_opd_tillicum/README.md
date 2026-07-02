@@ -103,11 +103,17 @@ downstream 1k OPD experiment:
 
 Important: run label `1k_32k` from job `156276` is an accidental but useful
 base -> OPD test. That run attempted to pass the final SFT HF snapshot to
-Megatron `--load`; Megatron cannot load an HF snapshot as a training
-checkpoint, so the actor fell back to the base torch_dist checkpoint. Do not
-interpret `1k_32k` as SFT -> OPD. Correct SFT-loaded runs must use the full
-Megatron checkpoint directory `$SFT_SAVE_DIR`, with `.metadata` under
-`iter_0000096`, as the initial `--load`.
+Megatron `--load` without the explicit HF-load path, so the actor fell back to
+the base torch_dist checkpoint. Do not interpret `1k_32k` as SFT -> OPD.
+
+The corrected 4-GPU chain uses `OPD_INITIAL_LOAD_MODE=hf` and initializes the
+actor from the final SFT HF weights snapshot `$SFT_FINAL_HF_DIR`. This is
+intentional for the 4-GPU topology: the completed SFT full optimizer checkpoint
+was saved with tensor parallel `2`, while the corrected OPD actor uses tensor
+parallel `1` and context parallel `2`. Megatron cannot optimizer-resume that SFT
+checkpoint across the TP mismatch. After OPD starts, its own full optimizer
+checkpoint under `$OPD_SAVE_DIR` is the fidelity-safe continuation point for
+more OPD.
 
 ## Reproducing On Another Slurm Cluster
 
@@ -199,10 +205,10 @@ The intended wall-clock budget after model/data/container preparation is:
 - Report aggregation job: 30 minutes on the cluster-minimum `gpu:h200:1`.
 
 The main runtime risk is the Qwen3-32B teacher logprob server throughput during
-OPD. The corrected offload chain starts from the completed final SFT full
-Megatron checkpoint, runs 1k OPD with the near-32k response cap, evaluates the
-final OPD checkpoint with 4 one-GPU SGLang engines and concurrency 4, reuses or
-runs the fixed base eval, then generates the combined final figure.
+OPD. The corrected offload chain starts from the completed final SFT HF weights
+snapshot, runs 1k OPD with the near-32k response cap, evaluates the final OPD
+checkpoint with 4 one-GPU SGLang engines and concurrency 4, reuses or runs the
+fixed base eval, then generates the combined final figure.
 
 The older `1k_32k` OPD run is an accidental base -> OPD experiment because the
 OPD job was not loaded from the full SFT Megatron checkpoint. If its final eval
