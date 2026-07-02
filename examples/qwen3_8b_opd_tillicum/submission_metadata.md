@@ -50,6 +50,31 @@ Recorded: 2026-07-01 17:28 PDT
   produced, resubmit the same job with `EVAL_SGLANG_SERVER_CONCURRENCY=4` and
   record the replacement job here.
 
+## Accidental Base -> OPD Cleanup Salvage Retry
+
+- Purpose: finish the accidental base -> OPD report while preserving the
+  complete OPD eval artifact from failed job `157809`.
+- Patch commit: `a99c041` (`Fix base OPD cleanup salvage`), pushed to
+  `origin/opd-reproduction`.
+- Key patch behavior: `06_eval_math500_greedy_1x.sbatch` now invokes a tracked
+  inner helper instead of a large inline `bash -lc` payload, and
+  `09_cleanup_base_opd_2gpu.sbatch` skips completed summaries and treats a
+  nested nonzero eval as salvaged if the expected `summary.json` exists.
+- Job id: `158065`
+- Submit time: `2026-07-01T23:44:26-07:00`.
+- Dependency policy: none. This job is independent of corrected SFT -> OPD jobs
+  `158041`-`158044`.
+- Slurm request: `gpu:h200:2`, `cpus-per-task=16`, `time=18:00:00`,
+  account `raivn`, partition `gpu-h200`, QOS `normal`.
+- Initial scheduler state: `PENDING`, reason `Priority`, `Dependency=(null)`.
+- Mail: `MailUser=suryadv@cs.washington.edu`, `MailType=END,FAIL`.
+- Expected runtime behavior: skip existing
+  `math500_eval_opd_1k_32k_final/opd_001024/summary.json`, run fresh base eval
+  into `math500_eval_base_25k_opd_1k_32k/base`, then write the base -> OPD-only
+  combined report under `math500_eval_combined_25k_opd_1k_32k`.
+- Runtime validation target: no `unexpected EOF while looking for matching '"'`;
+  combined report includes only base and accidental OPD points with SFT omitted.
+
 ## Corrected SFT-Loaded 4-GPU OPD
 
 - Purpose: corrected 1k/32k OPD run that loads the final SFT full Megatron
