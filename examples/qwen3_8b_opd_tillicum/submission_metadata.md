@@ -376,3 +376,64 @@ Recorded: 2026-07-01 17:28 PDT
   without CUDA OOM, `train_rollout_logprob_abs_diff` is small rather than the
   old pathological value, and final `iter_0000007` checkpoint/HF snapshot plus
   trained-data manifest are written.
+
+## Corrected SFT-Weights Colocate Retry After Env-Forwarding Fix
+
+- Failed job: `158697`, `slime-qwen3-opd1k-sft4g`, failed after `00:00:05`
+  on `2026-07-02T16:30:09`.
+- Root cause: `container_exec.sh` forwarded `REPORT_EXPERIMENT_NOTE` through
+  repeated Apptainer `--env` flags. The note included `GPUs 0,1,2`; Apptainer
+  split the comma-separated value and rejected `1` because it was not
+  formatted as `key=value`.
+- Progress decision: no corrected OPD progress exists. The full optimizer save
+  dir and HF snapshot dir are empty top-level dirs, and no rollout/debug
+  artifact was created, so the fidelity-safe restart point remains the final
+  SFT HF snapshot at `iter_0000096`.
+- Patch commit: `1a56828` (`Fix Apptainer env forwarding for report notes`),
+  pushed to `origin/opd-reproduction`.
+- Key patch behavior:
+  - `PASS_ENV` variables are forwarded with Apptainer/Singularity
+    prefix-based env vars instead of repeated `--env key=value` arguments.
+  - Newline-containing env values fail fast with a clear wrapper error.
+  - Container launch failures from Apptainer CLI/env parsing are reported
+    separately from Python stdlib import failures.
+  - `run_all_dry_check.sh` now verifies that a comma-bearing
+    `REPORT_EXPERIMENT_NOTE` survives into the container unchanged.
+- Static validation before replacement submission:
+  - `bash -n` on changed shell scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Canceled stale dependent jobs: `158698`, `158699`, `158700`.
+- Replacement submit time: `2026-07-02T17:26:11-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158772`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  at submission.
+- OPD final eval job: `158773`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158772`.
+- Base maybe-eval job: `158774`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158773`.
+- Final report job: `158775`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158774`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load mode: `hf`.
+- OPD initial load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim`
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_colocate4_final`
+- Base eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k_sft_colocate4`
+- Base reuse source:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k`
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_colocate4`
+- Expected runtime validation: new OPD log should have no
+  `invalid argument ... for "--env" flag`, should pass container preflight,
+  should load the SFT HF snapshot at `iter_0000096`, should show
+  colocate/offload enabled with actor/rollout/teacher `3/3/1`, and should reach
+  teacher `/health_generate`, rollout `0`, and actor train.
