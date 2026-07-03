@@ -763,3 +763,56 @@ Recorded: 2026-07-01 17:28 PDT
   no `TorchMemorySaver ... expandable_segments` failure, teacher
   `/health_generate`, SFT HF snapshot load at `iter_0000096`, rollout `0`,
   and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Method-Level Native RoPE
+
+- Superseded retry: `159090`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T03:48:08-07:00` and failed after `00:04:55`.
+- Root cause: the allocator-scoping patch worked, but rollout SGLang engines
+  still entered `RotaryEmbedding.forward_cuda` during warmup. That path tried
+  to JIT-compile fused RoPE with NVCC/ninja; the runtime sandbox lacks `gcc`,
+  so NVCC failed with `gcc: No such file or directory` and
+  `ninja exited with status 1`.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, sanity
+  report, or dataset state was produced by `159090`; restart from final SFT HF
+  weights remains fidelity-safe.
+- Patch behavior:
+  - Moved the rollout SGLang HTTP server import until after
+    `maybe_force_native_rope()` runs.
+  - Extended the native shim to patch `RotaryEmbedding.forward_cuda` itself to
+    call `forward_native`, not only the constructor's `_forward_method`.
+  - Updated already-cached RoPE objects in SGLang's `_ROPE_DICT` whenever the
+    shim runs.
+  - Kept the existing native `SiluAndMul`, `clamp_position`, and rollout
+    memory-saver allocator patches.
+- Static validation before replacement submission:
+  - `python3 -m py_compile slime/backends/sglang_utils/native_rope.py
+    slime/backends/sglang_utils/sglang_engine.py` passed.
+  - `git diff --check` passed.
+  - Targeted container regression passed: with
+    `SLIME_SGLANG_FORCE_NATIVE_ROPE=1`, `RotaryEmbedding.forward_cuda` was
+    replaced, one cached RoPE object was repaired, and a fresh RoPE object used
+    `forward_native`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Patch commit: `072357b` (`Force native SGLang RoPE method path`), pushed to
+  `origin/opd-reproduction`.
+- Canceled stale jobs: `159091`, `159092`, `159093`.
+- Replacement submit time: `2026-07-03T04:18:54-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159189`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g024` at
+  submission verification.
+- OPD final eval job: `159190`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159189`.
+- Base maybe-eval job: `159191`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159190`.
+- Final report job: `159192`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159191`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show the method-level native
+  RoPE shim message, memory-saver allocator override, no fused-RoPE
+  NVCC/ninja failure, teacher `/health_generate`, SFT HF snapshot load at
+  `iter_0000096`, rollout `0`, and actor train.
