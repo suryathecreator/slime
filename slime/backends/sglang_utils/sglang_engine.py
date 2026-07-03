@@ -49,11 +49,12 @@ def _to_local_gpu_id(physical_gpu_id: int) -> int:
 
 
 def _launch_http_server_with_slime_patches(server_args: ServerArgs) -> None:
-    from sglang.srt.entrypoints.http_server import launch_server
-
     from slime.backends.sglang_utils.native_rope import maybe_force_native_rope
 
     maybe_force_native_rope()
+
+    from sglang.srt.entrypoints.http_server import launch_server
+
     launch_server(server_args)
 
 
