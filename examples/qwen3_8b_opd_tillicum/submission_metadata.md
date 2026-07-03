@@ -572,4 +572,29 @@ Recorded: 2026-07-01 17:28 PDT
   - `git diff --check` passed.
   - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
     Slurm `sbatch --test-only`, container imports, and the comma-env probe.
-- Replacement job IDs will be recorded after resubmission.
+- Patch commit: `9ab04c1` (`Force native SGLang RoPE without deterministic
+  mode`), pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `158800`, `158801`, `158802`.
+- Replacement submit time: `2026-07-02T18:21:41-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158815`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g017` at
+  submission verification.
+- OPD final eval job: `158816`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158815`.
+- Base maybe-eval job: `158817`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158816`.
+- Final report job: `158818`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158817`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD/EVAL SGLang native-RoPE flags:
+  `SLIME_SGLANG_FORCE_NATIVE_ROPE=1`,
+  `OPD_SGLANG_RL_ON_POLICY_TARGET=<empty>`,
+  `EVAL_SGLANG_RL_ON_POLICY_TARGET=<empty>`.
+- Expected runtime validation: new OPD log should show
+  `SLIME SGLang force native RoPE: 1`, no deterministic
+  `rl_on_policy_target='fsdp'`, no fused-RoPE NVCC/GCC failure, no Triton
+  `Failed to find C compiler`, teacher `/health_generate`, SFT HF snapshot
+  load at `iter_0000096`, rollout `0`, and actor train.
