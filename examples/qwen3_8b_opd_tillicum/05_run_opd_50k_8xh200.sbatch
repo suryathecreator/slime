@@ -54,6 +54,7 @@ echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
 echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
 echo "OPD colocate/offload train/offload rollout: ${OPD_COLOCATE}/${OPD_OFFLOAD_TRAIN}/${OPD_OFFLOAD_ROLLOUT}"
 echo "OPD recompute loss function: ${OPD_RECOMPUTE_LOSS_FUNCTION}"
+echo "OPD disable cuda graph: ${OPD_DISABLE_CUDA_GRAPH}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
 echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
@@ -83,13 +84,20 @@ TEACHER_IP="127.0.0.1"
 TEACHER_PORT="${OPD_TEACHER_PORT}"
 TEACHER_LOG="${TEACHER_LOG_DIR}/sglang_teacher_${SLURM_JOB_ID:-manual}.log"
 
-CUDA_VISIBLE_DEVICES="${OPD_TEACHER_GPU}" python3 -m sglang.launch_server \
+TEACHER_SGLANG_ARGS=(
   --model-path "${TEACHER_HF_DIR}" \
   --host 0.0.0.0 \
   --port "${TEACHER_PORT}" \
   --tp 1 \
   --chunked-prefill-size 4096 \
-  --mem-fraction-static "${OPD_TEACHER_MEM_FRACTION}" \
+  --mem-fraction-static "${OPD_TEACHER_MEM_FRACTION}"
+)
+if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
+  TEACHER_SGLANG_ARGS+=(--disable-cuda-graph)
+fi
+
+CUDA_VISIBLE_DEVICES="${OPD_TEACHER_GPU}" python3 -m sglang.launch_server \
+  "${TEACHER_SGLANG_ARGS[@]}" \
   >"${TEACHER_LOG}" 2>&1 &
 TEACHER_PID=$!
 
@@ -104,6 +112,11 @@ trap cleanup EXIT
 
 echo "Waiting for teacher server on ${TEACHER_IP}:${TEACHER_PORT}"
 until curl -sf "http://${TEACHER_IP}:${TEACHER_PORT}/health_generate" >/dev/null; do
+  if ! kill -0 "${TEACHER_PID}" >/dev/null 2>&1; then
+    echo "Teacher server exited before /health_generate became ready." >&2
+    tail -n 80 "${TEACHER_LOG}" >&2 || true
+    exit 1
+  fi
   tail -n 20 "${TEACHER_LOG}" || true
   sleep 10
 done
@@ -301,6 +314,9 @@ SGLANG_ARGS=(
   --rollout-num-gpus-per-engine 1
   --sglang-mem-fraction-static 0.4
 )
+if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
+  SGLANG_ARGS+=(--sglang-disable-cuda-graph)
+fi
 
 MISC_ARGS=(
   --attention-dropout 0.0

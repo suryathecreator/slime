@@ -240,6 +240,9 @@ run_eval() {
     --sglang-mem-fraction-static 0.7
     --sglang-server-concurrency "${EVAL_SGLANG_SERVER_CONCURRENCY}"
   )
+  if [[ "${EVAL_DISABLE_CUDA_GRAPH}" == "1" ]]; then
+    SGLANG_ARGS+=(--sglang-disable-cuda-graph)
+  fi
 
   MISC_ARGS=(
     --attention-dropout 0.0
