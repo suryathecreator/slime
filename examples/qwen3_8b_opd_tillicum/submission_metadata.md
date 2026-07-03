@@ -437,3 +437,52 @@ Recorded: 2026-07-01 17:28 PDT
   should load the SFT HF snapshot at `iter_0000096`, should show
   colocate/offload enabled with actor/rollout/teacher `3/3/1`, and should reach
   teacher `/health_generate`, rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With CUDA Graphs Disabled
+
+- Superseded retry: `158772`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-02T17:27:40` and was canceled on `2026-07-02T18:04:46` after
+  teacher startup repeatedly failed before `/health_generate`.
+- Root cause: the minimal Apptainer sandbox contains SGLang/NVCC but does not
+  contain the full CUDA development/header and GCC toolchain needed for fresh
+  SGLang CUDA-graph/JIT compilation. The teacher log failed on
+  `gcc: No such file or directory` while compiling a fused-rope CUDA kernel,
+  and direct probes showed CUDA runtime headers were also absent.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, or
+  dataset state was produced by `158772`; restart from final SFT HF weights
+  remains fidelity-safe.
+- Patch commit: `06a6b10` (`Disable SGLang cuda graphs for Tillicum OPD`),
+  pushed to `origin/opd-reproduction`.
+- Key patch behavior:
+  - Direct Qwen3-32B teacher server gets `--disable-cuda-graph`.
+  - Student rollout SGLang engines get `--sglang-disable-cuda-graph`.
+  - Eval SGLang engines also get `--sglang-disable-cuda-graph`.
+  - The OPD teacher wait loop now exits if the teacher process dies before
+    `/health_generate`, instead of tailing a dead server log until walltime.
+  - The earlier experimental host-GCC bind attempt was not kept.
+- Static validation before replacement submission:
+  - `bash -n` on changed shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Canceled stale jobs: `158772`, `158773`, `158774`, `158775`.
+- Replacement submit time: `2026-07-02T18:05:22-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158786`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g001` at
+  submission verification.
+- OPD final eval job: `158787`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158786`.
+- Base maybe-eval job: `158788`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158787`.
+- Final report job: `158789`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158788`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD/EVAL CUDA graph disable flags: `OPD_DISABLE_CUDA_GRAPH=1`,
+  `EVAL_DISABLE_CUDA_GRAPH=1`.
+- Expected runtime validation: new OPD log should show
+  `OPD disable cuda graph: 1`, teacher args with `disable_cuda_graph=True`,
+  no SGLang fused-rope NVCC/GCC failure, teacher `/health_generate`, SFT HF
+  snapshot load at `iter_0000096`, rollout `0`, and actor train.
