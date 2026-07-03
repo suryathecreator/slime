@@ -243,7 +243,7 @@ run_eval() {
     --sglang-server-concurrency "${EVAL_SGLANG_SERVER_CONCURRENCY}"
   )
   if [[ "${EVAL_DISABLE_CUDA_GRAPH}" == "1" ]]; then
-    SGLANG_ARGS+=(--sglang-disable-cuda-graph)
+    SGLANG_ARGS+=(--sglang-disable-cuda-graph --sglang-disable-piecewise-cuda-graph)
   fi
   if [[ -n "${EVAL_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
     SGLANG_ARGS+=(--sglang-rl-on-policy-target "${EVAL_SGLANG_RL_ON_POLICY_TARGET}")

@@ -95,7 +95,7 @@ TEACHER_SGLANG_ARGS=(
   --mem-fraction-static "${OPD_TEACHER_MEM_FRACTION}"
 )
 if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
-  TEACHER_SGLANG_ARGS+=(--disable-cuda-graph)
+  TEACHER_SGLANG_ARGS+=(--disable-cuda-graph --disable-piecewise-cuda-graph)
 fi
 if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
   TEACHER_SGLANG_ARGS+=(--rl-on-policy-target "${OPD_SGLANG_RL_ON_POLICY_TARGET}")
@@ -320,7 +320,7 @@ SGLANG_ARGS=(
   --sglang-mem-fraction-static 0.4
 )
 if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
-  SGLANG_ARGS+=(--sglang-disable-cuda-graph)
+  SGLANG_ARGS+=(--sglang-disable-cuda-graph --sglang-disable-piecewise-cuda-graph)
 fi
 if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
   SGLANG_ARGS+=(--sglang-rl-on-policy-target "${OPD_SGLANG_RL_ON_POLICY_TARGET}")
