@@ -141,6 +141,7 @@ export OPD_DISABLE_CUDA_GRAPH="${OPD_DISABLE_CUDA_GRAPH:-1}"
 # The Tillicum sandbox lacks a full GCC/CUDA development toolchain, so use
 # Slime's narrow SGLang RoPE shim instead of runtime fused-RoPE compilation.
 export SLIME_SGLANG_FORCE_NATIVE_ROPE="${SLIME_SGLANG_FORCE_NATIVE_ROPE:-1}"
+export SLIME_SGLANG_PATCH_SITE="${SLIME_SGLANG_PATCH_SITE:-${SLIME_SGLANG_FORCE_NATIVE_ROPE}}"
 export OPD_SGLANG_RL_ON_POLICY_TARGET="${OPD_SGLANG_RL_ON_POLICY_TARGET-}"
 export OPD_COLOCATE="${OPD_COLOCATE:-0}"
 export OPD_OFFLOAD_TRAIN="${OPD_OFFLOAD_TRAIN:-0}"

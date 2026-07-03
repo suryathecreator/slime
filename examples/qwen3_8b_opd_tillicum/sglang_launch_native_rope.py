@@ -7,6 +7,8 @@ import sys
 
 from slime.backends.sglang_utils.native_rope import maybe_force_native_rope
 
+if os.environ.get("SLIME_SGLANG_FORCE_NATIVE_ROPE", "0").lower() in {"1", "true", "yes", "on"}:
+    os.environ.setdefault("SLIME_SGLANG_PATCH_SITE", "1")
 maybe_force_native_rope()
 
 from sglang.launch_server import run_server  # noqa: E402
