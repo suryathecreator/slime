@@ -816,3 +816,67 @@ Recorded: 2026-07-01 17:28 PDT
   RoPE shim message, memory-saver allocator override, no fused-RoPE
   NVCC/ninja failure, teacher `/health_generate`, SFT HF snapshot load at
   `iter_0000096`, rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Startup Native RoPE Hook
+
+- Superseded retry: `159189`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T04:18:54-07:00` and failed after `00:03:43`.
+- Root cause: the method-level native RoPE patch was active in the Ray actor
+  process, but SGLang launched a fresh scheduler/model-worker Python process
+  during rollout engine startup. That child process did not call the shim
+  before importing SGLang RoPE code, so it still entered
+  `RotaryEmbedding.forward_cuda` and hit the no-compiler fused-RoPE JIT path
+  (`gcc: No such file or directory`, `ninja exited with status 1`).
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, sanity
+  report, or dataset state was produced by `159189`; restart from final SFT HF
+  weights remains fidelity-safe.
+- Patch behavior:
+  - Added a gated repo-root `sitecustomize.py` startup hook. When
+    `SLIME_SGLANG_PATCH_SITE=1`, every Python process with the repo on
+    `PYTHONPATH` applies `maybe_force_native_rope()` before user code imports
+    SGLang.
+  - Defaulted `SLIME_SGLANG_PATCH_SITE` to
+    `SLIME_SGLANG_FORCE_NATIVE_ROPE` in the Tillicum environment and forwarded
+    it through the Apptainer wrapper.
+  - Passed `SLIME_SGLANG_PATCH_SITE` through Ray runtime env and SGLang actor
+    env so rollout scheduler/model-worker subprocesses inherit it.
+  - Updated the direct teacher launcher to set the startup-hook env for any
+    SGLang child processes it creates.
+- Static validation before replacement submission:
+  - `python3 -m py_compile sitecustomize.py
+    slime/backends/sglang_utils/native_rope.py
+    slime/backends/sglang_utils/sglang_engine.py slime/ray/rollout.py
+    examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py` passed.
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Targeted container regression passed: with
+    `SLIME_SGLANG_PATCH_SITE=1` and `SLIME_SGLANG_FORCE_NATIVE_ROPE=1`,
+    `RotaryEmbedding.forward_cuda` was patched at Python startup before normal
+    code ran.
+  - Cached/fresh RoPE container regression passed: cached `_ROPE_DICT` objects
+    and newly constructed RoPE objects both used `forward_native`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `ddf36d8` (`Apply SGLang patches at Python startup`), pushed
+  to `origin/opd-reproduction`.
+- Canceled stale jobs: `159190`, `159191`, `159192`.
+- Replacement submit time: `2026-07-03T13:46:33-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159392`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g018` at
+  submission verification.
+- OPD final eval job: `159393`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159392`.
+- Base maybe-eval job: `159394`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159393`.
+- Final report job: `159395`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159394`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show
+  `SLIME_SGLANG_PATCH_SITE=1: applied SGLang native compatibility patches at
+  Python startup`, memory-saver allocator override, no fused-RoPE NVCC/ninja
+  failure, teacher `/health_generate`, SFT HF snapshot load at
+  `iter_0000096`, rollout `0`, and actor train.
