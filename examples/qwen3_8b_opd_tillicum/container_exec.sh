@@ -179,17 +179,31 @@ PASS_ENV=(
   PYTORCH_CUDA_ALLOC_CONF
 )
 
+export_container_env() {
+  local name="$1"
+  local value="$2"
+  if [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* ]]; then
+    cat >&2 <<EOF
+Cannot forward ${name} into the Apptainer container because it contains a newline.
+Container env forwarding supports spaces and commas, but not multiline values.
+EOF
+    exit 1
+  fi
+
+  # Apptainer/Singularity split --env values on commas. Prefix-based forwarding
+  # preserves long notes and paths containing spaces, commas, or punctuation.
+  export "APPTAINERENV_${name}=${value}"
+  export "SINGULARITYENV_${name}=${value}"
+}
+
 for name in "${PASS_ENV[@]}"; do
   if [[ "${!name+x}" == "x" ]]; then
-    APPTAINER_ARGS+=(--env "${name}=${!name}")
+    export_container_env "${name}" "${!name}"
   fi
 done
 
-APPTAINER_ARGS+=(
-  --env "HOME=${CONTAINER_HOME_INNER}"
-  --env "PYTHONPATH=${SLIME_REPO_ROOT}:/root/Megatron-LM:${PYTHONPATH:-}"
-  --env "CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-1}"
-)
+export_container_env PYTHONPATH "${SLIME_REPO_ROOT}:/root/Megatron-LM:${PYTHONPATH:-}"
+export_container_env CUDA_DEVICE_MAX_CONNECTIONS "${CUDA_DEVICE_MAX_CONNECTIONS:-1}"
 
 container_path_exists() {
   local path="$1"
@@ -239,7 +253,16 @@ if [[ "${CONTAINER_PYTHON_PREFLIGHT:-1}" != "0" ]]; then
   preflight_log="$(mktemp "${TMPDIR%/}/container_python_preflight.XXXXXX")"
   if ! "${APPTAINER_BIN}" "${APPTAINER_ARGS[@]}" "${SLIME_SIF}" \
     python3 -c "import encodings, os, site" >/dev/null 2>"${preflight_log}"; then
-    cat >&2 <<EOF
+    if grep -Eq 'invalid argument|unknown flag|requires an argument|must be formatted as key=value' "${preflight_log}"; then
+      cat >&2 <<EOF
+Container launch failed before Python preflight could run.
+This is an Apptainer/Singularity command-line or environment-forwarding error:
+  ${SLIME_SIF}
+
+Launch stderr:
+EOF
+    else
+      cat >&2 <<EOF
 Container Python preflight failed before launching the requested command.
 The container may be incomplete or corrupt:
   ${SLIME_SIF}
@@ -250,6 +273,7 @@ and not sourceless-import materialized. Repair or rebuild it with:
 
 Preflight stderr:
 EOF
+    fi
     sed -n '1,120p' "${preflight_log}" >&2 || true
     rm -f "${preflight_log}"
     exit 1

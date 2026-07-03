@@ -120,6 +120,9 @@ if [[ "${RUN_CONTAINER_CHECKS:-0}" == "1" ]]; then
   if [[ -e "${SLIME_SIF}" ]]; then
     echo "Checking imports inside container"
     "${SCRIPT_DIR}/container_exec.sh" python3 -c "import encodings, slime, sglang, torch, transformers, datasets; print('container imports ok')"
+    echo "Checking comma-safe container env forwarding"
+    REPORT_EXPERIMENT_NOTE="comma, spaces -> ok" \
+      "${SCRIPT_DIR}/container_exec.sh" python3 -c "import os, sys; expected = 'comma, spaces -> ok'; actual = os.environ.get('REPORT_EXPERIMENT_NOTE'); sys.exit(0 if actual == expected else f'bad REPORT_EXPERIMENT_NOTE: {actual!r}')"
   else
     echo "RUN_CONTAINER_CHECKS=1 but SLIME_SIF does not exist; skipping import check."
   fi
