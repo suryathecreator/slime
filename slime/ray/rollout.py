@@ -29,7 +29,12 @@ from slime.utils.types import Sample
 
 from ..utils.metric_utils import has_repetition
 from .rollout_validation import validate_server_group_gpu_indices
-from .utils import NOSET_VISIBLE_DEVICES_ENV_VARS_LIST, Lock, add_default_ray_env_vars
+from .utils import (
+    NOSET_VISIBLE_DEVICES_ENV_VARS_LIST,
+    Lock,
+    add_default_ray_env_vars,
+    apply_sglang_memory_saver_allocator_env,
+)
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
@@ -201,6 +206,19 @@ class ServerGroup:
                     "SLIME_ENABLE_PROFILING": "true",
                 }.items()
             }
+            enable_memory_saver = bool(
+                self.sglang_overrides.get("enable_memory_saver", self.args.offload_rollout and self.needs_offload)
+            )
+            env_vars = apply_sglang_memory_saver_allocator_env(
+                env_vars,
+                enable_memory_saver=enable_memory_saver,
+            )
+            if enable_memory_saver:
+                logger.info(
+                    "SGLang engine rank=%s uses memory saver; PYTORCH_CUDA_ALLOC_CONF=%s",
+                    global_rank,
+                    env_vars["PYTORCH_CUDA_ALLOC_CONF"],
+                )
             rollout_engine = RolloutRayActor.options(
                 num_cpus=num_cpus,
                 num_gpus=num_gpus,

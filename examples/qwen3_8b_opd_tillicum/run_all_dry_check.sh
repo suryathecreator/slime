@@ -75,6 +75,7 @@ PYTHON_FILES=(
   slime/backends/sglang_utils/native_rope.py
   slime/backends/sglang_utils/sglang_engine.py
   slime/ray/rollout.py
+  slime/ray/utils.py
 )
 
 echo "Checking shell syntax"
@@ -93,6 +94,7 @@ REQUIRED_CONTAINER_ENV=(
   OPD_OPTIMIZER_CPU_OFFLOAD
   OPD_DISABLE_CUDA_GRAPH
   SLIME_SGLANG_FORCE_NATIVE_ROPE
+  SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF
   OPD_SGLANG_RL_ON_POLICY_TARGET
   OPD_SANITY_CHECK_ENABLED
   OPD_SANITY_REPORT_DIR

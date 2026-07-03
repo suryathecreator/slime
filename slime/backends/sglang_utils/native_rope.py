@@ -18,11 +18,11 @@ def maybe_force_native_rope() -> bool:
     """Route selected SGLang ops through native PyTorch paths when requested.
 
     The Tillicum Apptainer sandbox intentionally avoids a full CUDA development
-    toolchain. SGLang's default Qwen RoPE and SiLU-mul activation paths
-    JIT-compile CUDA kernels on first warmup, which fail without gcc/CUDA
-    headers. This patch is narrow: it leaves SGLang server args alone and only
-    changes objects created after the patch to call their existing
-    ``forward_native`` implementations.
+    toolchain. SGLang's default Qwen RoPE, SiLU-mul activation, and
+    clamp-position paths JIT-compile CUDA kernels on first warmup, which fail
+    without gcc/CUDA headers. This patch is narrow: it leaves SGLang server
+    args alone and only routes these known compiler-sensitive operations to
+    their existing native PyTorch implementations.
     """
 
     global _PATCHED
@@ -31,10 +31,12 @@ def maybe_force_native_rope() -> bool:
 
     from sglang.srt.layers.activation import SiluAndMul
     from sglang.srt.layers.rotary_embedding.base import RotaryEmbedding
+    import sglang.srt.model_executor.forward_batch_info as forward_batch_info
 
     rope_patched = getattr(RotaryEmbedding, "_slime_native_rope_patched", False)
     activation_patched = getattr(SiluAndMul, "_slime_native_activation_patched", False)
-    if rope_patched and activation_patched:
+    clamp_patched = getattr(forward_batch_info, "_slime_native_clamp_position_patched", False)
+    if rope_patched and activation_patched and clamp_patched:
         _PATCHED = True
         return True
 
@@ -60,9 +62,13 @@ def maybe_force_native_rope() -> bool:
         SiluAndMul.__init__ = patched_activation_init
         SiluAndMul._slime_native_activation_patched = True
 
+    if not clamp_patched:
+        forward_batch_info.clamp_position = forward_batch_info._clamp_position_native
+        forward_batch_info._slime_native_clamp_position_patched = True
+
     _PATCHED = True
     print(
-        "SLIME_SGLANG_FORCE_NATIVE_ROPE=1: patched SGLang RotaryEmbedding and SiluAndMul to use forward_native.",
+        "SLIME_SGLANG_FORCE_NATIVE_ROPE=1: patched SGLang RotaryEmbedding, SiluAndMul, and clamp_position to use native paths.",
         file=sys.stderr,
     )
     return True

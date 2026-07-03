@@ -58,6 +58,7 @@ echo "OPD disable cuda graph: ${OPD_DISABLE_CUDA_GRAPH}"
 echo "SLIME SGLang force native RoPE: ${SLIME_SGLANG_FORCE_NATIVE_ROPE}"
 echo "OPD SGLang rl-on-policy target: ${OPD_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
+echo "SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF=${SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
 echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
 echo "Save dir: ${OPD_SAVE_DIR}"
@@ -95,7 +96,7 @@ TEACHER_SGLANG_ARGS=(
   --mem-fraction-static "${OPD_TEACHER_MEM_FRACTION}"
 )
 if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
-  TEACHER_SGLANG_ARGS+=(--disable-cuda-graph)
+  TEACHER_SGLANG_ARGS+=(--disable-cuda-graph --disable-piecewise-cuda-graph)
 fi
 if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
   TEACHER_SGLANG_ARGS+=(--rl-on-policy-target "${OPD_SGLANG_RL_ON_POLICY_TARGET}")
@@ -320,7 +321,7 @@ SGLANG_ARGS=(
   --sglang-mem-fraction-static 0.4
 )
 if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
-  SGLANG_ARGS+=(--sglang-disable-cuda-graph)
+  SGLANG_ARGS+=(--sglang-disable-cuda-graph --sglang-disable-piecewise-cuda-graph)
 fi
 if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
   SGLANG_ARGS+=(--sglang-rl-on-policy-target "${OPD_SGLANG_RL_ON_POLICY_TARGET}")
@@ -368,6 +369,7 @@ RUNTIME_ENV_JSON="{
     \"HF_HOME\": \"${HF_HOME}\",
     \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",
     \"SLIME_SGLANG_FORCE_NATIVE_ROPE\": \"${SLIME_SGLANG_FORCE_NATIVE_ROPE}\",
+    \"SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF\": \"${SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF}\",
     \"OPD_SANITY_CHECK_ENABLED\": \"${OPD_SANITY_CHECK_ENABLED}\",
     \"OPD_SANITY_FAIL_ON_COLLAPSE\": \"${OPD_SANITY_FAIL_ON_COLLAPSE}\",
     \"OPD_SANITY_MAX_ROLLOUT_ID\": \"${OPD_SANITY_MAX_ROLLOUT_ID}\",

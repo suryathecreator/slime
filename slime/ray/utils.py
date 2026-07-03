@@ -28,9 +28,34 @@ RAY_DEFAULT_ENV_VARS = {
     "RAY_USE_UVLOOP": "0",
 }
 
+SGLANG_MEMORY_SAVER_CUDA_ALLOC_CONF = "max_split_size_mb:128"
+
 
 def add_default_ray_env_vars(env_vars: dict[str, str] | None = None) -> dict[str, str]:
     return RAY_DEFAULT_ENV_VARS | (env_vars or {})
+
+
+def apply_sglang_memory_saver_allocator_env(
+    env_vars: dict[str, str] | None = None,
+    *,
+    enable_memory_saver: bool,
+    environ=os.environ,
+) -> dict[str, str]:
+    """Keep SGLang memory saver away from PyTorch expandable segments."""
+
+    env_vars = dict(env_vars or {})
+    if not enable_memory_saver:
+        return env_vars
+
+    allocator_conf = environ.get("SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF") or SGLANG_MEMORY_SAVER_CUDA_ALLOC_CONF
+    if "expandable_segments" in allocator_conf:
+        raise RuntimeError(
+            "SGLang rollout memory saver is incompatible with "
+            f"PYTORCH_CUDA_ALLOC_CONF={allocator_conf!r}. "
+            "Set SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF to a non-expandable allocator config."
+        )
+    env_vars["PYTORCH_CUDA_ALLOC_CONF"] = allocator_conf
+    return env_vars
 
 
 def ray_noset_visible_devices(env_vars=os.environ):
