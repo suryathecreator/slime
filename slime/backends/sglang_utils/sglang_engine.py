@@ -48,6 +48,15 @@ def _to_local_gpu_id(physical_gpu_id: int) -> int:
     )
 
 
+def _launch_http_server_with_slime_patches(server_args: ServerArgs) -> None:
+    from sglang.srt.entrypoints.http_server import launch_server
+
+    from slime.backends.sglang_utils.native_rope import maybe_force_native_rope
+
+    maybe_force_native_rope()
+    launch_server(server_args)
+
+
 def launch_server_process(server_args: ServerArgs) -> multiprocessing.Process:
     if getattr(server_args, "encoder_only", False):
         from sglang.srt.disaggregation.encode_server import launch_server_process as sglang_launch_server_process
@@ -58,11 +67,9 @@ def launch_server_process(server_args: ServerArgs) -> multiprocessing.Process:
             wait_for_server=True,
         )
 
-    from sglang.srt.entrypoints.http_server import launch_server
-
     multiprocessing.set_start_method("spawn", force=True)
     server_args.host = server_args.host.strip("[]")
-    p = multiprocessing.Process(target=launch_server, args=(server_args,))
+    p = multiprocessing.Process(target=_launch_http_server_with_slime_patches, args=(server_args,))
     p.start()
 
     if getattr(server_args, "node_rank", 0) != 0:

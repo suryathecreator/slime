@@ -541,3 +541,35 @@ Recorded: 2026-07-01 17:28 PDT
   `rl_on_policy_target='fsdp'`, no fused-RoPE NVCC/GCC failure, teacher
   `/health_generate`, SFT HF snapshot load at `iter_0000096`, rollout `0`, and
   actor train.
+
+## Corrected SFT-Weights Colocate Retry With Narrow Native-RoPE Shim
+
+- Superseded retry: `158799`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-02T18:13:46` and failed before teacher `/health_generate`.
+- Root cause: `--rl-on-policy-target fsdp` avoided the fused RoPE NVCC path but
+  also enabled deterministic batch-invariant SGLang ops. During teacher warmup,
+  SGLang replaced matmul with a Triton persistent matmul and failed because the
+  sandbox still lacks a C compiler:
+  `RuntimeError: Failed to find C compiler`.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, or
+  dataset state was produced by `158799`; restart from final SFT HF weights
+  remains fidelity-safe.
+- Patch behavior:
+  - Added `slime.backends.sglang_utils.native_rope`, a narrow shim controlled
+    by `SLIME_SGLANG_FORCE_NATIVE_ROPE=1`.
+  - The shim patches SGLang `RotaryEmbedding` instances to use
+    `forward_native`, avoiding fused RoPE JIT compilation without setting
+    `rl_on_policy_target`.
+  - Added a tracked teacher launcher
+    `examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py`.
+  - Patched Slime's Ray SGLang engine child process target so rollout/eval
+    SGLang servers apply the same shim after Python `spawn`.
+  - Reset OPD/EVAL `SGLANG_RL_ON_POLICY_TARGET` defaults to empty so
+    deterministic batch-invariant matmul is not enabled by default.
+- Static validation before replacement submission:
+  - `bash -n` on changed shell/sbatch scripts passed.
+  - `python3 -m py_compile` on touched Python files passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Replacement job IDs will be recorded after resubmission.

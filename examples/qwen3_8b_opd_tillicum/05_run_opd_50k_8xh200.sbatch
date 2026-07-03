@@ -55,6 +55,7 @@ echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}
 echo "OPD colocate/offload train/offload rollout: ${OPD_COLOCATE}/${OPD_OFFLOAD_TRAIN}/${OPD_OFFLOAD_ROLLOUT}"
 echo "OPD recompute loss function: ${OPD_RECOMPUTE_LOSS_FUNCTION}"
 echo "OPD disable cuda graph: ${OPD_DISABLE_CUDA_GRAPH}"
+echo "SLIME SGLang force native RoPE: ${SLIME_SGLANG_FORCE_NATIVE_ROPE}"
 echo "OPD SGLang rl-on-policy target: ${OPD_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
@@ -100,7 +101,7 @@ if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
   TEACHER_SGLANG_ARGS+=(--rl-on-policy-target "${OPD_SGLANG_RL_ON_POLICY_TARGET}")
 fi
 
-CUDA_VISIBLE_DEVICES="${OPD_TEACHER_GPU}" python3 -m sglang.launch_server \
+CUDA_VISIBLE_DEVICES="${OPD_TEACHER_GPU}" python3 examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py \
   "${TEACHER_SGLANG_ARGS[@]}" \
   >"${TEACHER_LOG}" 2>&1 &
 TEACHER_PID=$!
@@ -366,6 +367,7 @@ RUNTIME_ENV_JSON="{
     \"WANDB_MODE\": \"${WANDB_MODE}\",
     \"HF_HOME\": \"${HF_HOME}\",
     \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",
+    \"SLIME_SGLANG_FORCE_NATIVE_ROPE\": \"${SLIME_SGLANG_FORCE_NATIVE_ROPE}\",
     \"OPD_SANITY_CHECK_ENABLED\": \"${OPD_SANITY_CHECK_ENABLED}\",
     \"OPD_SANITY_FAIL_ON_COLLAPSE\": \"${OPD_SANITY_FAIL_ON_COLLAPSE}\",
     \"OPD_SANITY_MAX_ROLLOUT_ID\": \"${OPD_SANITY_MAX_ROLLOUT_ID}\",

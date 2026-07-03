@@ -158,6 +158,7 @@ run_eval() {
   fi
 
   echo "Evaluating ${stage} from ${load_dir} train_samples=${train_samples}"
+  echo "SLIME SGLang force native RoPE: ${SLIME_SGLANG_FORCE_NATIVE_ROPE}"
   echo "Eval SGLang rl-on-policy target: ${EVAL_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
   ray stop --force >/dev/null 2>&1 || true
 
@@ -267,7 +268,8 @@ run_eval() {
       \"CUDA_DEVICE_MAX_CONNECTIONS\": \"1\",
       \"NCCL_NVLS_ENABLE\": \"${HAS_NVLINK}\",
       \"WANDB_MODE\": \"${WANDB_MODE}\",
-      \"HF_HOME\": \"${HF_HOME}\"
+      \"HF_HOME\": \"${HF_HOME}\",
+      \"SLIME_SGLANG_FORCE_NATIVE_ROPE\": \"${SLIME_SGLANG_FORCE_NATIVE_ROPE}\"
     }
   }"
 
