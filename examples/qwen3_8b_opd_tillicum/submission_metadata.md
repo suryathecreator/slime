@@ -516,4 +516,28 @@ Recorded: 2026-07-01 17:28 PDT
   - `git diff --check` passed.
   - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
     Slurm `sbatch --test-only`, container imports, and the comma-env probe.
-- Replacement job IDs will be recorded after resubmission.
+- Patch commit: `7c357c1` (`Use SGLang native path for Tillicum RoPE`),
+  pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `158786`, `158787`, `158788`, `158789`.
+- Replacement submit time: `2026-07-02T18:13:42-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158799`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g001` at
+  submission verification.
+- OPD final eval job: `158800`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158799`.
+- Base maybe-eval job: `158801`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158800`.
+- Final report job: `158802`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158801`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD/EVAL SGLang native path flags:
+  `OPD_SGLANG_RL_ON_POLICY_TARGET=fsdp`,
+  `EVAL_SGLANG_RL_ON_POLICY_TARGET=fsdp`.
+- Expected runtime validation: new OPD log should show
+  `OPD SGLang rl-on-policy target: fsdp`, teacher args with
+  `rl_on_policy_target='fsdp'`, no fused-RoPE NVCC/GCC failure, teacher
+  `/health_generate`, SFT HF snapshot load at `iter_0000096`, rollout `0`, and
+  actor train.
