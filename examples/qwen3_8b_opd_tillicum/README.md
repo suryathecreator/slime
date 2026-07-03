@@ -84,7 +84,7 @@ bash examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_chain.sh
 The corrected 4-GPU SFT-loaded chain is:
 
 ```bash
-bash examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_sft_offload4_chain.sh
+bash examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_sft_colocate4_chain.sh
 ```
 
 This chain preserves the completed SFT checkpoint/eval and runs only the
@@ -103,11 +103,31 @@ downstream 1k OPD experiment:
 
 Important: run label `1k_32k` from job `156276` is an accidental but useful
 base -> OPD test. That run attempted to pass the final SFT HF snapshot to
-Megatron `--load`; Megatron cannot load an HF snapshot as a training
-checkpoint, so the actor fell back to the base torch_dist checkpoint. Do not
-interpret `1k_32k` as SFT -> OPD. Correct SFT-loaded runs must use the full
-Megatron checkpoint directory `$SFT_SAVE_DIR`, with `.metadata` under
-`iter_0000096`, as the initial `--load`.
+Megatron `--load` without the explicit HF-load path, so the actor fell back to
+the base torch_dist checkpoint. Do not interpret `1k_32k` as SFT -> OPD.
+
+The corrected 4-GPU chain uses `OPD_INITIAL_LOAD_MODE=hf` and initializes the
+actor from the final SFT HF weights snapshot `$SFT_FINAL_HF_DIR`. This is
+intentional for the 4-GPU topology: the completed SFT full optimizer checkpoint
+was saved with tensor parallel `2`, while the corrected colocated OPD actor uses
+tensor parallel `1` and context parallel `3`. Megatron cannot optimizer-resume
+that SFT checkpoint across the TP mismatch. After OPD starts, its own full
+optimizer checkpoint under `$OPD_SAVE_DIR` is the fidelity-safe continuation
+point for more OPD.
+
+The corrected 4-GPU default run label is `1k_32k_sft_colocate4`. It keeps the
+4-H200 ceiling by colocating actor training and student rollout engines on Ray
+GPUs `0,1,2`, with the Qwen3-32B teacher logprob server on physical GPU `3`.
+The actor uses `TP=1`, `CP=3`, `OPD_SEQ_LENGTH=32766`,
+`OPD_MAX_RESPONSE_LEN=31744`, and `OPD_MAX_TOKENS_PER_GPU=11264`, with
+`--colocate`, `--offload-train`, `--offload-rollout`, optimizer CPU offload,
+and `--recompute-loss-function` enabled.
+
+The corrected 4-GPU chain also enables an OPD rollout sanity guard before actor
+updates. The guard logs `OPD_SANITY` metrics and writes JSON under
+`$OPD_SANITY_REPORT_DIR`; it fails fast on extreme collapse signals such as a
+high cap-hit rate or almost no final-answer formatting. This is a training
+guard only: MATH-500 scoring remains the source of accuracy numbers.
 
 ## Reproducing On Another Slurm Cluster
 
@@ -199,23 +219,32 @@ The intended wall-clock budget after model/data/container preparation is:
 - Report aggregation job: 30 minutes on the cluster-minimum `gpu:h200:1`.
 
 The main runtime risk is the Qwen3-32B teacher logprob server throughput during
-OPD. The corrected offload chain starts from the completed final SFT full
-Megatron checkpoint, runs 1k OPD with the near-32k response cap, evaluates the
-final OPD checkpoint with 4 one-GPU SGLang engines and concurrency 4, reuses or
-runs the fixed base eval, then generates the combined final figure.
+OPD. The corrected offload chain starts from the completed final SFT HF weights
+snapshot, runs 1k OPD with the near-32k response cap, evaluates the final OPD
+checkpoint with 4 one-GPU SGLang engines and concurrency 4, reuses or runs the
+fixed base eval, then generates the combined final figure.
+
+For the corrected 4-GPU SFT-loaded OPD chain, keep the generation/eval response
+cap at `31744` and use the colocated `3/3/1` actor/rollout/teacher layout
+described above. Job `158041` OOMed during the first actor train step with only
+about 68 MiB free on one H200 in the older separated `2/1/1` layout. The
+colocated CP=3 layout spreads actor long-sequence activation memory across
+three actor GPUs while preserving the 4-GPU ceiling.
 
 The older `1k_32k` OPD run is an accidental base -> OPD experiment because the
 OPD job was not loaded from the full SFT Megatron checkpoint. If its final eval
 times out before Slime writes `debug_eval_0.pt`, use
 `submit_cleanup_base_opd_2gpu.sh`. That cleanup job requests 2 H200s for 18
-hours, reruns the accidental OPD final eval to completion, runs base eval only
-if the current base summary is missing, and writes a base -> OPD-only combined
-report with SFT omitted from the comparison.
+hours, skips any completed accidental OPD summary, reruns only missing eval
+stages, and writes a base -> OPD-only combined report with SFT omitted from the
+comparison. The cleanup path is artifact-idempotent: if a nested eval exits
+nonzero after writing the expected `summary.json`, the wrapper treats that
+stage as salvaged and continues to the remaining missing pieces.
 
 For future OPD runs, do not treat the current 8-GPU allocation as the preferred
 long-term configuration. Use optimizer CPU offload and retune the actor/rollout/
 teacher split so training can run with fewer GPUs, targeting the 4-GPU total
-training job used by `submit_opd_1k_32k_sft_offload4_chain.sh` if the offload
+training job used by `submit_opd_1k_32k_sft_colocate4_chain.sh` if the offload
 path is stable enough. This will likely trade wall clock time for lower GPU
 occupancy, but it is the right direction for follow-up runs once the
 reproduction path is validated.
@@ -224,3 +253,8 @@ MATH-500 summaries report `accuracy` with parse failures counted wrong,
 `accuracy_on_parseable` as a diagnostic over parseable responses only, and
 `parse_failure_rate` separately. Combined reports include a labeled SVG/PNG
 curve with light-blue SFT shading and light-purple OPD shading.
+
+Tracked result snapshots live under `results/`. The accidental base -> OPD
+salvage eval is recorded in `results/accidental_base_opd_salvage_summary.json`
+and `results/accidental_base_opd_salvage_summary.csv`; it is diagnostic only
+and not the corrected SFT -> OPD experiment.

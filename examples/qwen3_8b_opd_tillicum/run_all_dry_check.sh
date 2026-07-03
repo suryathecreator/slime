@@ -22,6 +22,27 @@ if [[ "${OPD_CONTEXT_PARALLEL_SIZE}" -gt 1 ]]; then
     exit 1
   fi
 fi
+case "${OPD_INITIAL_LOAD_MODE}" in
+  megatron|hf) ;;
+  *)
+    echo "OPD_INITIAL_LOAD_MODE must be 'megatron' or 'hf', got '${OPD_INITIAL_LOAD_MODE}'" >&2
+    exit 1
+    ;;
+esac
+if [[ "${OPD_COLOCATE}" == "1" ]]; then
+  if [[ "${OPD_ACTOR_GPUS}" -ne "${OPD_ROLLOUT_GPUS}" ]]; then
+    echo "Colocated OPD expects actor and rollout GPU counts to match." >&2
+    echo "  OPD_ACTOR_GPUS=${OPD_ACTOR_GPUS}" >&2
+    echo "  OPD_ROLLOUT_GPUS=${OPD_ROLLOUT_GPUS}" >&2
+    exit 1
+  fi
+  if [[ "${OPD_RAY_GPUS}" -lt "${OPD_ACTOR_GPUS}" ]]; then
+    echo "Colocated OPD needs OPD_RAY_GPUS >= OPD_ACTOR_GPUS." >&2
+    echo "  OPD_RAY_GPUS=${OPD_RAY_GPUS}" >&2
+    echo "  OPD_ACTOR_GPUS=${OPD_ACTOR_GPUS}" >&2
+    exit 1
+  fi
+fi
 
 SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/env.sh
@@ -33,6 +54,7 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/submit_25k_10k_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_resume_sft_eval_then_opd_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_chain.sh
+  examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_sft_colocate4_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_sft_offload4_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_cleanup_base_opd_2gpu.sh
   examples/qwen3_8b_opd_tillicum/02_prepare_data_25k_10k.sbatch
@@ -40,6 +62,7 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
   examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch
   examples/qwen3_8b_opd_tillicum/06_eval_math500_greedy_1x.sbatch
+  examples/qwen3_8b_opd_tillicum/06_eval_math500_greedy_inner.sh
   examples/qwen3_8b_opd_tillicum/07_report_math500.sbatch
   examples/qwen3_8b_opd_tillicum/08_maybe_base_eval_math500.sbatch
   examples/qwen3_8b_opd_tillicum/09_cleanup_base_opd_2gpu.sbatch
@@ -53,6 +76,29 @@ PYTHON_FILES=(
 echo "Checking shell syntax"
 for file in "${SHELL_FILES[@]}"; do
   bash -n "${file}"
+done
+
+echo "Checking required container env forwarding"
+REQUIRED_CONTAINER_ENV=(
+  OPD_INITIAL_LOAD_MODE
+  OPD_INITIAL_LOAD_DIR
+  OPD_COLOCATE
+  OPD_OFFLOAD_TRAIN
+  OPD_OFFLOAD_ROLLOUT
+  OPD_RECOMPUTE_LOSS_FUNCTION
+  OPD_OPTIMIZER_CPU_OFFLOAD
+  OPD_DISABLE_CUDA_GRAPH
+  OPD_SGLANG_RL_ON_POLICY_TARGET
+  OPD_SANITY_CHECK_ENABLED
+  OPD_SANITY_REPORT_DIR
+  EVAL_DISABLE_CUDA_GRAPH
+  EVAL_SGLANG_RL_ON_POLICY_TARGET
+)
+for name in "${REQUIRED_CONTAINER_ENV[@]}"; do
+  if ! grep -Eq "^[[:space:]]+${name}$" examples/qwen3_8b_opd_tillicum/container_exec.sh; then
+    echo "container_exec.sh must forward ${name} into Apptainer." >&2
+    exit 1
+  fi
 done
 
 echo "Checking Python syntax"
@@ -78,6 +124,9 @@ if [[ "${RUN_CONTAINER_CHECKS:-0}" == "1" ]]; then
   if [[ -e "${SLIME_SIF}" ]]; then
     echo "Checking imports inside container"
     "${SCRIPT_DIR}/container_exec.sh" python3 -c "import encodings, slime, sglang, torch, transformers, datasets; print('container imports ok')"
+    echo "Checking comma-safe container env forwarding"
+    REPORT_EXPERIMENT_NOTE="comma, spaces -> ok" \
+      "${SCRIPT_DIR}/container_exec.sh" python3 -c "import os, sys; expected = 'comma, spaces -> ok'; actual = os.environ.get('REPORT_EXPERIMENT_NOTE'); sys.exit(0 if actual == expected else f'bad REPORT_EXPERIMENT_NOTE: {actual!r}')"
   else
     echo "RUN_CONTAINER_CHECKS=1 but SLIME_SIF does not exist; skipping import check."
   fi

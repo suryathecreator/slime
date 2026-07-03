@@ -10,6 +10,18 @@ Recorded: 2026-07-01 17:28 PDT
   stage rather than appending partial responses.
 - Code commit submitted: `d25a6f4` (`Add 2GPU base OPD cleanup eval`)
 - Job id: `157809`
+- Final state: `FAILED`, exit `2:0`, elapsed `03:20:56`, from
+  `2026-07-01T20:06:33-07:00` to `2026-07-01T23:27:29-07:00`.
+- Failure point: the accidental OPD eval completed and wrote `debug_eval_0.pt`
+  plus `summary.json`, then the nested eval wrapper returned
+  `container_exec.sh: line 250: unexpected EOF while looking for matching '"'`
+  before base eval or combined report generation.
+- Preserved OPD eval result: `accuracy=0.0`, `accuracy_on_parseable=0.0`,
+  `parse_failure_rate=0.998`, `cap_hit_rate=0.882`,
+  `avg_generated_tokens=30137.598`, `n=500`.
+- Salvage decision: preserve the complete OPD final eval artifact, rerun only
+  missing base eval/report pieces, and skip OPD eval on replacement unless the
+  OPD summary is missing.
 - Submit time: `2026-07-01T17:28:20-07:00`
 - Dependency policy: none. This job is independent of corrected SFT-loaded jobs
   `157036`-`157039`.
@@ -37,6 +49,51 @@ Recorded: 2026-07-01 17:28 PDT
 - OOM fallback policy: if this cleanup OOMs before a complete debug file is
   produced, resubmit the same job with `EVAL_SGLANG_SERVER_CONCURRENCY=4` and
   record the replacement job here.
+
+## Accidental Base -> OPD Cleanup Salvage Retry
+
+- Purpose: finish the accidental base -> OPD report while preserving the
+  complete OPD eval artifact from failed job `157809`.
+- Patch commit: `a99c041` (`Fix base OPD cleanup salvage`), pushed to
+  `origin/opd-reproduction`.
+- Key patch behavior: `06_eval_math500_greedy_1x.sbatch` now invokes a tracked
+  inner helper instead of a large inline `bash -lc` payload, and
+  `09_cleanup_base_opd_2gpu.sbatch` skips completed summaries and treats a
+  nested nonzero eval as salvaged if the expected `summary.json` exists.
+- Job id: `158065`
+- Submit time: `2026-07-01T23:44:26-07:00`.
+- Dependency policy: none. This job is independent of corrected SFT -> OPD jobs
+  `158041`-`158044`.
+- Slurm request: `gpu:h200:2`, `cpus-per-task=16`, `time=18:00:00`,
+  account `raivn`, partition `gpu-h200`, QOS `normal`.
+- Initial scheduler state: `PENDING`, reason `Priority`, `Dependency=(null)`.
+- Mail: `MailUser=suryadv@cs.washington.edu`, `MailType=END,FAIL`.
+- Expected runtime behavior: skip existing
+  `math500_eval_opd_1k_32k_final/opd_001024/summary.json`, run fresh base eval
+  into `math500_eval_base_25k_opd_1k_32k/base`, then write the base -> OPD-only
+  combined report under `math500_eval_combined_25k_opd_1k_32k`.
+- Runtime validation target: no `unexpected EOF while looking for matching '"'`;
+  combined report includes only base and accidental OPD points with SFT omitted.
+
+## Accidental Base -> OPD Cleanup Final Result
+
+- Final state: job `158065` completed successfully on `2026-07-02`.
+- Patch commit used by job: `a99c041` (`Fix base OPD cleanup salvage`).
+- Base summary:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k/base/summary.json`
+- Accidental OPD summary:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_final/opd_001024/summary.json`
+- Combined report:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k`
+- Base result: `accuracy=0.638`, `accuracy_on_parseable=0.7595238095238095`,
+  `parse_failure_rate=0.16`, `cap_hit_rate=0.036`,
+  `avg_generated_tokens=1686.402`, `n=500`.
+- Accidental base -> OPD result: `accuracy=0.0`,
+  `accuracy_on_parseable=0.0`, `parse_failure_rate=0.998`,
+  `cap_hit_rate=0.882`, `avg_generated_tokens=30137.598`, `n=500`.
+- Interpretation note: the base eval and accidental OPD rollout used the same
+  base HF revision, but the OPD run used the broken/accidental loader path and
+  should not be treated as a clean planned base -> OPD baseline.
 
 ## Corrected SFT-Loaded 4-GPU OPD
 
@@ -78,3 +135,409 @@ Recorded: 2026-07-01 17:28 PDT
   iteration `96` and no base fallback; actor/rollout/teacher split is `2/1/1`;
   actor `TP=1`, `CP=2`; eval log shows 4 one-GPU SGLang engines with
   concurrency 4; final report compares base, final SFT, and corrected final OPD.
+
+## Corrected SFT-Loaded 4-GPU OPD Retry
+
+- Reason for retry: train job `157036` failed on `2026-07-01` after 2m58s,
+  before rollout or actor training, with
+  `/usr/bin/bash: line 98: OPD_INITIAL_LOAD_DIR: unbound variable`.
+- Root cause: `OPD_INITIAL_LOAD_DIR` and `OPD_OPTIMIZER_CPU_OFFLOAD` were set
+  in the host Slurm environment but were not forwarded by `container_exec.sh`
+  through Apptainer `--cleanenv`.
+- Progress preservation: no corrected OPD checkpoint, HF snapshot, rollout
+  dataset state, or debug rollout file existed, so the retry restarts from the
+  final SFT full checkpoint at
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_full_optim/iter_0000096`.
+- Patch commit: `0b952db` (`Forward corrected OPD load env into container`).
+- Stale jobs canceled: `157037`, `157038`, `157039`.
+- Independent cleanup job `157809` was left running.
+- Submit time: `2026-07-01T20:30:20-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `157935`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `cpus-per-task=32`, `time=18:00:00`,
+  `Dependency=(null)`.
+- OPD final eval job: `157936`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `cpus-per-task=32`, `time=05:00:00`,
+  dependency `afterok:157935`.
+- Base maybe-eval job: `157937`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `cpus-per-task=32`, `time=05:00:00`,
+  dependency `afterok:157936`.
+- Final report job: `157938`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `cpus-per-task=4`, `time=00:30:00`,
+  dependency `afterok:157937`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_full_optim`
+- OPD optimizer CPU offload: `1`.
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_offload4_full_optim`
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_offload4_final`
+- Base eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k_sft_offload4`
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_offload4`
+- Expected runtime validation: train log shows
+  `Starting OPD from full SFT optimizer checkpoint`, validates Megatron load dir
+  at iteration `96`, prints `OPD optimizer CPU offload: 1`, reaches rollout id
+  `0`, and does not print `OPD_INITIAL_LOAD_DIR: unbound variable` or base
+  fallback checkpoint messages.
+
+## Corrected SFT-Weights 4-GPU OPD Retry
+
+- Reason for retry: train job `157935` failed on `2026-07-01` after 4m45s,
+  before rollout or actor training, with a Megatron distributed optimizer
+  checkpoint topology error:
+  `TP, PP mismatch after resume ((1, 1) vs (2, 1) from checkpoint)`.
+- Root cause: the final SFT full optimizer checkpoint was saved with tensor
+  parallel `2`, but the corrected 4-GPU OPD actor uses tensor parallel `1` and
+  context parallel `2`. Megatron cannot optimizer-resume that SFT checkpoint
+  across the TP mismatch because it was not saved with fully-parallel checkpoint
+  support.
+- Progress preservation: no corrected OPD checkpoint, HF snapshot, rollout
+  dataset state, or debug rollout file existed. The retry initializes from the
+  final SFT HF weights snapshot and creates fresh OPD optimizer state; after
+  OPD writes its own full checkpoint, continuation should resume from
+  `$OPD_SAVE_DIR`, not from the SFT checkpoint.
+- Patch commit: `3e9c216` (`Fix corrected OPD HF initialization`), pushed to
+  `origin/opd-reproduction`.
+- Stale jobs canceled: `157936`, `157937`, `157938`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- Submit time: `2026-07-01T23:29:56-07:00`.
+- OPD train job: `158041`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `cpus-per-task=32`, `time=18:00:00`,
+  `Dependency=(null)`, pending for resources at submission.
+- OPD final eval job: `158042`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `cpus-per-task=32`, `time=05:00:00`,
+  dependency `afterok:158041`.
+- Base maybe-eval job: `158043`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `cpus-per-task=32`, `time=05:00:00`,
+  dependency `afterok:158042`.
+- Final report job: `158044`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `cpus-per-task=4`, `time=00:30:00`,
+  dependency `afterok:158043`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load mode: `hf`.
+- OPD initial load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`
+- SFT full checkpoint retained for provenance:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_full_optim/iter_0000096`
+- OPD optimizer CPU offload: `1`.
+- OPD actor/rollout/teacher/ray GPUs: `2/1/1/3`; actor `TP=1`, `CP=2`;
+  `OPD_MAX_RESPONSE_LEN=31744`; `OPD_SEQ_LENGTH=32768`;
+  `OPD_MAX_TOKENS_PER_GPU=16384`.
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_offload4_full_optim`
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_offload4_final`
+- Base eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k_sft_offload4`
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_offload4`
+- Expected runtime validation: train log shows `OPD_INITIAL_LOAD_MODE=hf`,
+  validates the SFT HF snapshot, logs
+  `Load checkpoint from HuggingFace model into Megatron`, does not print the
+  TP/PP mismatch error, does not fall back to base, teacher `/health_generate`
+  passes, and OPD reaches rollout id `0`.
+
+## Corrected SFT-Weights 4-GPU OPD Retry With Sanity Guard
+
+- Reason for retry: train job `158041` loaded the final SFT HF snapshot and
+  reached rollout `0`, then failed during the first actor train step with CUDA
+  OOM. The failing allocation was `192.00 MiB`; GPU 1 had only `68.19 MiB`
+  free and `139.63 GiB` in use.
+- Progress preservation: no corrected OPD checkpoint, HF snapshot, or rollout
+  dataset state existed. The diagnostic rollout file was preserved as
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/opd_1k_32k_sft_offload4_rollout_logs/rollout_0.failed_158041.pt`.
+- Rollout sanity from the preserved artifact: `n=128`,
+  `avg_response_tokens=1325.5234375`, `max_response_tokens=17370`,
+  `cap_hit_rate=0.0`, `completed_rate=1.0`,
+  `final_answer_rate=0.6953125`.
+- Patch commit: `4e8f653` (`Guard corrected OPD against rollout collapse`),
+  pushed to `origin/opd-reproduction`.
+- Key patch behavior:
+  - Adds OPD rollout sanity summaries before actor updates.
+  - Writes JSON reports under `$OPD_SANITY_REPORT_DIR`.
+  - Fails fast on extreme cap-hit / no-final-answer collapse signals.
+  - Lowers corrected 4-GPU actor dynamic train packing to
+    `OPD_MAX_TOKENS_PER_GPU=8192` while keeping
+    `OPD_MAX_RESPONSE_LEN=31744`.
+  - Repairs the current pycache-only Apptainer sandbox via
+    `00_pull_or_load_container.sh`; final dry check passed
+    `RUN_CONTAINER_CHECKS=1`.
+- Stale jobs canceled: `158042`, `158043`, `158044`.
+- Submit time: `2026-07-02T14:41:54-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158665`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for priority
+  at submission.
+- OPD final eval job: `158666`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158665`.
+- Base maybe-eval job: `158667`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158666`.
+- Final report job: `158668`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158667`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load mode: `hf`.
+- OPD initial load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`
+- OPD actor/rollout/teacher/ray GPUs: `2/1/1/3`; actor `TP=1`, `CP=2`;
+  `OPD_MAX_RESPONSE_LEN=31744`; `OPD_SEQ_LENGTH=32768`;
+  `OPD_MAX_TOKENS_PER_GPU=8192`; optimizer CPU offload enabled.
+- OPD sanity guard:
+  `OPD_SANITY_CHECK_ENABLED=1`, `OPD_SANITY_MAX_CAP_HIT_RATE=0.50`,
+  `OPD_SANITY_MAX_AVG_RESPONSE_TOKENS=16000`,
+  `OPD_SANITY_MIN_FINAL_ANSWER_RATE=0.02`.
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_offload4_full_optim`
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_offload4_final`
+- Base eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k_sft_offload4`
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_offload4`
+- Expected runtime validation: train log shows `OPD_INITIAL_LOAD_MODE=hf`,
+  the SFT HF snapshot load, no base fallback, no TP mismatch, OPD sanity JSON
+  for rollout `0`, and actor training proceeds past the previous first-step
+  OOM.
+
+## Corrected SFT-Weights 4-GPU OPD Colocate Retry
+
+- Result snapshot commit: `f7f79b5` (`Record accidental base OPD salvage
+  results`), pushed to `origin/opd-reproduction`.
+- Tracked salvage result files:
+  `examples/qwen3_8b_opd_tillicum/results/accidental_base_opd_salvage_summary.json`
+  and
+  `examples/qwen3_8b_opd_tillicum/results/accidental_base_opd_salvage_summary.csv`.
+- Superseded retry: non-colocated jobs `158665`, `158666`, `158667`, and
+  `158668` were canceled before start. That canceled chain used the separated
+  `2/1/1` layout and is not the current corrected run.
+- Patch commit: `7852d74` (`Switch corrected OPD to colocate4`), pushed to
+  `origin/opd-reproduction`.
+- Key patch behavior:
+  - New corrected default run label: `1k_32k_sft_colocate4`.
+  - Actor and student rollout are colocated on Ray GPUs `0,1,2`; teacher is on
+    physical GPU `3`.
+  - Actor/rollout/teacher GPU counts: `3/3/1`.
+  - Actor `TP=1`, `CP=3`, `OPD_SEQ_LENGTH=32766`,
+    `OPD_MAX_RESPONSE_LEN=31744`, `OPD_MAX_TOKENS_PER_GPU=11264`.
+  - Enables `--colocate`, `--offload-train`, `--offload-rollout`,
+    optimizer CPU offload, and `--recompute-loss-function`.
+  - Keeps the OPD sanity guard from commit `4e8f653`.
+  - Removes the `8192` train-packing default from the current corrected path;
+    `8192` remains only as a documented fallback if the colocated CP=3 retry
+    still OOMs.
+- Container repair/validation: `00_pull_or_load_container.sh` was rerun before
+  submission. It materialized `0` additional stdlib `.pyc` files and validated
+  both direct Apptainer imports and `container_exec.sh` imports for
+  `encodings, os, site, sglang, torch`.
+- Static validation before submission:
+  - `bash -n` on edited shell/sbatch scripts.
+  - `python3 -m py_compile` on touched Python helpers.
+  - `git diff --check`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed.
+- Submit time: `2026-07-02T15:29:12-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158697`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  at submission.
+- OPD final eval job: `158698`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158697`.
+- Base maybe-eval job: `158699`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158698`.
+- Final report job: `158700`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158699`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load mode: `hf`.
+- OPD initial load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim`
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_colocate4_final`
+- Base eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k_sft_colocate4`
+- Base reuse source:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k`
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_colocate4`
+- Expected runtime validation: train log shows `OPD_INITIAL_LOAD_MODE=hf`,
+  SFT HF snapshot as the Megatron HF load path, `--colocate`,
+  `--offload-train`, `--offload-rollout`, actor/rollout/teacher `3/3/1`,
+  `TP=1`, `CP=3`, rollout `0` reaches and completes actor train step `0`
+  without CUDA OOM, `train_rollout_logprob_abs_diff` is small rather than the
+  old pathological value, and final `iter_0000007` checkpoint/HF snapshot plus
+  trained-data manifest are written.
+
+## Corrected SFT-Weights Colocate Retry After Env-Forwarding Fix
+
+- Failed job: `158697`, `slime-qwen3-opd1k-sft4g`, failed after `00:00:05`
+  on `2026-07-02T16:30:09`.
+- Root cause: `container_exec.sh` forwarded `REPORT_EXPERIMENT_NOTE` through
+  repeated Apptainer `--env` flags. The note included `GPUs 0,1,2`; Apptainer
+  split the comma-separated value and rejected `1` because it was not
+  formatted as `key=value`.
+- Progress decision: no corrected OPD progress exists. The full optimizer save
+  dir and HF snapshot dir are empty top-level dirs, and no rollout/debug
+  artifact was created, so the fidelity-safe restart point remains the final
+  SFT HF snapshot at `iter_0000096`.
+- Patch commit: `1a56828` (`Fix Apptainer env forwarding for report notes`),
+  pushed to `origin/opd-reproduction`.
+- Key patch behavior:
+  - `PASS_ENV` variables are forwarded with Apptainer/Singularity
+    prefix-based env vars instead of repeated `--env key=value` arguments.
+  - Newline-containing env values fail fast with a clear wrapper error.
+  - Container launch failures from Apptainer CLI/env parsing are reported
+    separately from Python stdlib import failures.
+  - `run_all_dry_check.sh` now verifies that a comma-bearing
+    `REPORT_EXPERIMENT_NOTE` survives into the container unchanged.
+- Static validation before replacement submission:
+  - `bash -n` on changed shell scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Canceled stale dependent jobs: `158698`, `158699`, `158700`.
+- Replacement submit time: `2026-07-02T17:26:11-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158772`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  at submission.
+- OPD final eval job: `158773`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158772`.
+- Base maybe-eval job: `158774`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158773`.
+- Final report job: `158775`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158774`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load mode: `hf`.
+- OPD initial load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim`
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_colocate4_final`
+- Base eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k_sft_colocate4`
+- Base reuse source:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k`
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_colocate4`
+- Expected runtime validation: new OPD log should have no
+  `invalid argument ... for "--env" flag`, should pass container preflight,
+  should load the SFT HF snapshot at `iter_0000096`, should show
+  colocate/offload enabled with actor/rollout/teacher `3/3/1`, and should reach
+  teacher `/health_generate`, rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With CUDA Graphs Disabled
+
+- Superseded retry: `158772`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-02T17:27:40` and was canceled on `2026-07-02T18:04:46` after
+  teacher startup repeatedly failed before `/health_generate`.
+- Root cause: the minimal Apptainer sandbox contains SGLang/NVCC but does not
+  contain the full CUDA development/header and GCC toolchain needed for fresh
+  SGLang CUDA-graph/JIT compilation. The teacher log failed on
+  `gcc: No such file or directory` while compiling a fused-rope CUDA kernel,
+  and direct probes showed CUDA runtime headers were also absent.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, or
+  dataset state was produced by `158772`; restart from final SFT HF weights
+  remains fidelity-safe.
+- Patch commit: `06a6b10` (`Disable SGLang cuda graphs for Tillicum OPD`),
+  pushed to `origin/opd-reproduction`.
+- Key patch behavior:
+  - Direct Qwen3-32B teacher server gets `--disable-cuda-graph`.
+  - Student rollout SGLang engines get `--sglang-disable-cuda-graph`.
+  - Eval SGLang engines also get `--sglang-disable-cuda-graph`.
+  - The OPD teacher wait loop now exits if the teacher process dies before
+    `/health_generate`, instead of tailing a dead server log until walltime.
+  - The earlier experimental host-GCC bind attempt was not kept.
+- Static validation before replacement submission:
+  - `bash -n` on changed shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Canceled stale jobs: `158772`, `158773`, `158774`, `158775`.
+- Replacement submit time: `2026-07-02T18:05:22-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158786`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g001` at
+  submission verification.
+- OPD final eval job: `158787`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158786`.
+- Base maybe-eval job: `158788`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158787`.
+- Final report job: `158789`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158788`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD/EVAL CUDA graph disable flags: `OPD_DISABLE_CUDA_GRAPH=1`,
+  `EVAL_DISABLE_CUDA_GRAPH=1`.
+- Expected runtime validation: new OPD log should show
+  `OPD disable cuda graph: 1`, teacher args with `disable_cuda_graph=True`,
+  no SGLang fused-rope NVCC/GCC failure, teacher `/health_generate`, SFT HF
+  snapshot load at `iter_0000096`, rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Native SGLang RoPE Path
+
+- Superseded retry: `158786`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-02T18:05:22` and failed before teacher `/health_generate`.
+- Root cause: disabling CUDA graphs was not sufficient. The Qwen3 teacher still
+  entered SGLang's fused RoPE JIT path during warmup and failed because the
+  sandbox lacks `gcc` / CUDA development headers:
+  `gcc: No such file or directory` and
+  `nvcc fatal: Failed to preprocess host compiler properties`.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, or
+  dataset state was produced by `158786`; restart from final SFT HF weights
+  remains fidelity-safe.
+- Patch behavior:
+  - Direct Qwen3-32B teacher server gets
+    `--rl-on-policy-target fsdp`.
+  - Student rollout SGLang engines get
+    `--sglang-rl-on-policy-target fsdp`.
+  - Eval SGLang engines get
+    `--sglang-rl-on-policy-target fsdp`.
+  - `OPD_SGLANG_RL_ON_POLICY_TARGET` and
+    `EVAL_SGLANG_RL_ON_POLICY_TARGET` are forwarded through Apptainer and
+    recorded in submit logs.
+  - The setting uses SGLang's on-policy/native path for Qwen rotary embeddings,
+    avoiding runtime fused RoPE NVCC compilation in this minimal sandbox.
+- Static validation before replacement submission:
+  - `bash -n` on changed shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Patch commit: `7c357c1` (`Use SGLang native path for Tillicum RoPE`),
+  pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `158786`, `158787`, `158788`, `158789`.
+- Replacement submit time: `2026-07-02T18:13:42-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158799`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g001` at
+  submission verification.
+- OPD final eval job: `158800`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158799`.
+- Base maybe-eval job: `158801`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158800`.
+- Final report job: `158802`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158801`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD/EVAL SGLang native path flags:
+  `OPD_SGLANG_RL_ON_POLICY_TARGET=fsdp`,
+  `EVAL_SGLANG_RL_ON_POLICY_TARGET=fsdp`.
+- Expected runtime validation: new OPD log should show
+  `OPD SGLang rl-on-policy target: fsdp`, teacher args with
+  `rl_on_policy_target='fsdp'`, no fused-RoPE NVCC/GCC failure, teacher
+  `/health_generate`, SFT HF snapshot load at `iter_0000096`, rollout `0`, and
+  actor train.

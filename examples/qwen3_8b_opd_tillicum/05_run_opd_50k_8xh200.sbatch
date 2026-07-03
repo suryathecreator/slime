@@ -19,7 +19,7 @@ fi
 source "${SCRIPT_DIR}/env.sh"
 source "${SCRIPT_DIR}/checkpoint_utils.sh"
 
-mkdir -p "${SLURM_LOG_DIR}" "${OPD_SAVE_DIR}" "${OPD_HF_SNAPSHOT_DIR}" "${OPD_ROLLOUT_LOG_DIR}" "${TEACHER_LOG_DIR}" "${CHECKPOINT_REPORT_DIR}"
+mkdir -p "${SLURM_LOG_DIR}" "${OPD_SAVE_DIR}" "${OPD_HF_SNAPSHOT_DIR}" "${OPD_ROLLOUT_LOG_DIR}" "${TEACHER_LOG_DIR}" "${CHECKPOINT_REPORT_DIR}" "${OPD_SANITY_REPORT_DIR}"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   export RAY_TMPDIR="/tmp/${USER:-suryadv}/slime-ray-${SLURM_JOB_ID}"
   mkdir -p "${RAY_TMPDIR}"
@@ -49,17 +49,25 @@ echo "OPD effective samples: ${OPD_EFFECTIVE_TRAIN_SAMPLES}"
 echo "OPD rollout batch/global batch/samples per prompt: ${OPD_ROLLOUT_BATCH_SIZE}/${OPD_GLOBAL_BATCH_SIZE}/${OPD_N_SAMPLES_PER_PROMPT}"
 echo "OPD rollout ids: 0-${OPD_FINAL_ROLLOUT_ID}"
 echo "OPD max response len: ${OPD_MAX_RESPONSE_LEN}"
-echo "OPD actor/rollout/ray GPUs: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/${OPD_RAY_GPUS}"
+echo "OPD actor/rollout/teacher GPU counts: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/1"
+echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
 echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
+echo "OPD colocate/offload train/offload rollout: ${OPD_COLOCATE}/${OPD_OFFLOAD_TRAIN}/${OPD_OFFLOAD_ROLLOUT}"
+echo "OPD recompute loss function: ${OPD_RECOMPUTE_LOSS_FUNCTION}"
+echo "OPD disable cuda graph: ${OPD_DISABLE_CUDA_GRAPH}"
+echo "OPD SGLang rl-on-policy target: ${OPD_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
 echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
 echo "Save dir: ${OPD_SAVE_DIR}"
 echo "HF eval snapshots: ${OPD_HF_SNAPSHOT_DIR}"
 echo "Expected final OPD rollout id: ${OPD_FINAL_ROLLOUT_ID}"
+echo "Initial OPD load mode: ${OPD_INITIAL_LOAD_MODE}"
 echo "Initial OPD load dir: ${OPD_INITIAL_LOAD_DIR}"
 echo "SFT full checkpoint dir: ${SFT_FINAL_FULL_CKPT_DIR}"
 echo "OPD optimizer CPU offload: ${OPD_OPTIMIZER_CPU_OFFLOAD}"
+echo "OPD sanity guard: enabled=${OPD_SANITY_CHECK_ENABLED}, fail=${OPD_SANITY_FAIL_ON_COLLAPSE}, max rollout=${OPD_SANITY_MAX_ROLLOUT_ID}, max cap-hit=${OPD_SANITY_MAX_CAP_HIT_RATE}, max avg tokens=${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}, min final-answer=${OPD_SANITY_MIN_FINAL_ANSWER_RATE}"
+echo "OPD sanity reports: ${OPD_SANITY_REPORT_DIR}"
 
 checkpoint_start_pruner opd "${OPD_SAVE_DIR}" "${CHECKPOINT_PRUNE_INTERVAL_SECONDS}" "${CHECKPOINT_REPORT_DIR}"
 cleanup_pruner() {
@@ -77,13 +85,23 @@ TEACHER_IP="127.0.0.1"
 TEACHER_PORT="${OPD_TEACHER_PORT}"
 TEACHER_LOG="${TEACHER_LOG_DIR}/sglang_teacher_${SLURM_JOB_ID:-manual}.log"
 
-CUDA_VISIBLE_DEVICES="${OPD_TEACHER_GPU}" python3 -m sglang.launch_server \
+TEACHER_SGLANG_ARGS=(
   --model-path "${TEACHER_HF_DIR}" \
   --host 0.0.0.0 \
   --port "${TEACHER_PORT}" \
   --tp 1 \
   --chunked-prefill-size 4096 \
-  --mem-fraction-static "${OPD_TEACHER_MEM_FRACTION}" \
+  --mem-fraction-static "${OPD_TEACHER_MEM_FRACTION}"
+)
+if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
+  TEACHER_SGLANG_ARGS+=(--disable-cuda-graph)
+fi
+if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
+  TEACHER_SGLANG_ARGS+=(--rl-on-policy-target "${OPD_SGLANG_RL_ON_POLICY_TARGET}")
+fi
+
+CUDA_VISIBLE_DEVICES="${OPD_TEACHER_GPU}" python3 -m sglang.launch_server \
+  "${TEACHER_SGLANG_ARGS[@]}" \
   >"${TEACHER_LOG}" 2>&1 &
 TEACHER_PID=$!
 
@@ -98,6 +116,11 @@ trap cleanup EXIT
 
 echo "Waiting for teacher server on ${TEACHER_IP}:${TEACHER_PORT}"
 until curl -sf "http://${TEACHER_IP}:${TEACHER_PORT}/health_generate" >/dev/null; do
+  if ! kill -0 "${TEACHER_PID}" >/dev/null 2>&1; then
+    echo "Teacher server exited before /health_generate became ready." >&2
+    tail -n 80 "${TEACHER_LOG}" >&2 || true
+    exit 1
+  fi
   tail -n 20 "${TEACHER_LOG}" || true
   sleep 10
 done
@@ -159,20 +182,61 @@ validate_megatron_load_dir() {
   echo "${label} validated Megatron load dir: ${load_dir} iteration ${latest_iter} (${iter_dir})"
 }
 
+validate_hf_load_dir() {
+  local label="$1"
+  local load_dir="$2"
+  local -a weight_files=()
+
+  if [[ ! -d "${load_dir}" ]]; then
+    echo "${label} HF load dir is missing: ${load_dir}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${load_dir}/config.json" ]]; then
+    echo "${label} HF load dir is missing config.json: ${load_dir}" >&2
+    exit 1
+  fi
+  shopt -s nullglob
+  weight_files=("${load_dir}"/model*.safetensors "${load_dir}"/pytorch_model*.bin)
+  shopt -u nullglob
+  if [[ ! -f "${load_dir}/model.safetensors.index.json" && "${#weight_files[@]}" -eq 0 ]]; then
+    echo "${label} HF load dir is missing model weight files: ${load_dir}" >&2
+    exit 1
+  fi
+  echo "${label} validated HF load dir: ${load_dir}"
+}
+
+CKPT_HF_CHECKPOINT="${STUDENT_HF_DIR}"
 if [[ -f "${OPD_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
   OPD_LOAD_DIR="${OPD_SAVE_DIR}"
   OPD_LOAD_KIND="opd_resume"
   echo "Resuming OPD from full optimizer checkpoint ${OPD_LOAD_DIR}"
+  validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
 else
-  OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
-  OPD_LOAD_KIND="sft_full_optim_initial"
-  echo "Starting OPD from full SFT optimizer checkpoint ${OPD_LOAD_DIR}"
+  case "${OPD_INITIAL_LOAD_MODE}" in
+    megatron)
+      OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
+      OPD_LOAD_KIND="sft_full_optim_initial"
+      echo "Starting OPD from full SFT optimizer checkpoint ${OPD_LOAD_DIR}"
+      validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
+      ;;
+    hf)
+      OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
+      OPD_LOAD_KIND="sft_hf_weights_initial"
+      CKPT_HF_CHECKPOINT="${OPD_LOAD_DIR}"
+      echo "Starting OPD from SFT HF weights snapshot ${OPD_LOAD_DIR}"
+      echo "Fresh OPD optimizer will be initialized because SFT full optimizer checkpoint TP layout is incompatible with this actor layout."
+      validate_hf_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
+      ;;
+    *)
+      echo "Unsupported OPD_INITIAL_LOAD_MODE=${OPD_INITIAL_LOAD_MODE}" >&2
+      exit 1
+      ;;
+  esac
 fi
-validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
 
 CKPT_ARGS=(
   --megatron-to-hf-mode bridge
-  --hf-checkpoint "${STUDENT_HF_DIR}"
+  --hf-checkpoint "${CKPT_HF_CHECKPOINT}"
   --ref-load "${STUDENT_TORCH_DIST_DIR}"
   --load "${OPD_LOAD_DIR}"
   --save "${OPD_SAVE_DIR}"
@@ -254,6 +318,12 @@ SGLANG_ARGS=(
   --rollout-num-gpus-per-engine 1
   --sglang-mem-fraction-static 0.4
 )
+if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
+  SGLANG_ARGS+=(--sglang-disable-cuda-graph)
+fi
+if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
+  SGLANG_ARGS+=(--sglang-rl-on-policy-target "${OPD_SGLANG_RL_ON_POLICY_TARGET}")
+fi
 
 MISC_ARGS=(
   --attention-dropout 0.0
@@ -262,6 +332,22 @@ MISC_ARGS=(
   --attention-softmax-in-fp32
   --attention-backend flash
 )
+
+COLOCATION_ARGS=(
+  --num-gpus-per-node "${OPD_RAY_GPUS}"
+)
+if [[ "${OPD_COLOCATE}" == "1" ]]; then
+  COLOCATION_ARGS+=(--colocate)
+fi
+if [[ "${OPD_OFFLOAD_TRAIN}" == "1" ]]; then
+  COLOCATION_ARGS+=(--offload-train)
+fi
+if [[ "${OPD_OFFLOAD_ROLLOUT}" == "1" ]]; then
+  COLOCATION_ARGS+=(--offload-rollout)
+fi
+if [[ "${OPD_RECOMPUTE_LOSS_FUNCTION}" == "1" ]]; then
+  COLOCATION_ARGS+=(--recompute-loss-function)
+fi
 
 export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
@@ -279,7 +365,14 @@ RUNTIME_ENV_JSON="{
     \"NCCL_NVLS_ENABLE\": \"${HAS_NVLINK}\",
     \"WANDB_MODE\": \"${WANDB_MODE}\",
     \"HF_HOME\": \"${HF_HOME}\",
-    \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\"
+    \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",
+    \"OPD_SANITY_CHECK_ENABLED\": \"${OPD_SANITY_CHECK_ENABLED}\",
+    \"OPD_SANITY_FAIL_ON_COLLAPSE\": \"${OPD_SANITY_FAIL_ON_COLLAPSE}\",
+    \"OPD_SANITY_MAX_ROLLOUT_ID\": \"${OPD_SANITY_MAX_ROLLOUT_ID}\",
+    \"OPD_SANITY_MAX_CAP_HIT_RATE\": \"${OPD_SANITY_MAX_CAP_HIT_RATE}\",
+    \"OPD_SANITY_MAX_AVG_RESPONSE_TOKENS\": \"${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}\",
+    \"OPD_SANITY_MIN_FINAL_ANSWER_RATE\": \"${OPD_SANITY_MIN_FINAL_ANSWER_RATE}\",
+    \"OPD_SANITY_REPORT_DIR\": \"${OPD_SANITY_REPORT_DIR}\"
   }
 }"
 
@@ -289,6 +382,7 @@ CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray job submit --address="http://1
   --actor-num-nodes 1 \
   --actor-num-gpus-per-node "${OPD_ACTOR_GPUS}" \
   --rollout-num-gpus "${OPD_ROLLOUT_GPUS}" \
+  "${COLOCATION_ARGS[@]}" \
   "${MODEL_ARGS[@]}" \
   "${CKPT_ARGS[@]}" \
   "${ROLLOUT_ARGS[@]}" \
@@ -370,6 +464,7 @@ manifest = {
     "global_batch_size": global_batch_size,
     "n_samples_per_prompt": int(os.environ["OPD_N_SAMPLES_PER_PROMPT"]),
     "resume_from_full_optim_checkpoint": str(save_dir / f"iter_{final_rollout_id:07d}"),
+    "initial_load_mode": os.environ.get("OPD_INITIAL_LOAD_MODE"),
     "initial_load_dir": os.environ.get("OPD_INITIAL_LOAD_DIR"),
     "sft_full_checkpoint_dir": os.environ.get("SFT_FINAL_FULL_CKPT_DIR"),
     "resume_from_hf_snapshot": str(hf_dir),
