@@ -880,3 +880,53 @@ Recorded: 2026-07-01 17:28 PDT
   Python startup`, memory-saver allocator override, no fused-RoPE NVCC/ninja
   failure, teacher `/health_generate`, SFT HF snapshot load at
   `iter_0000096`, rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Ray Control-Plane Scoping
+
+- Superseded retry: `159392`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T13:46:34-07:00` and failed after `00:09:34`.
+- Root cause: the startup native RoPE hook fixed the earlier SGLang
+  fused-RoPE compiler failure, but it was still enabled globally for the Ray
+  control plane. `ray start` succeeded, then `ray job submit` failed through
+  the dashboard with `RuntimeError: Request failed with status code 504`.
+- Progress decision: the job failed before the Ray training job was submitted,
+  so no corrected OPD rollout, checkpoint, HF snapshot, sanity report, or
+  dataset state was produced. Restart from final SFT HF weights remains
+  fidelity-safe.
+- Patch behavior:
+  - Run `ray start` and `ray job submit` with `SLIME_SGLANG_PATCH_SITE=0` so
+    Ray dashboard/CLI/control-plane processes do not import SGLang/Torch via
+    `sitecustomize.py`.
+  - Keep `SLIME_SGLANG_PATCH_SITE=1` in the submitted Ray runtime env for OPD
+    and eval workers, so SGLang rollout/eval subprocesses still get the native
+    RoPE startup hook.
+  - Applied the same Ray-control-plane scoping to the SFT sbatch script to
+    avoid this failure mode in future SFT reruns.
+- Static validation before replacement submission:
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `ce640a4` (`Scope SGLang startup hook away from Ray control
+  plane`), pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `159393`, `159394`, `159395`.
+- Replacement submit time: `2026-07-03T14:04:05-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159409`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g018` at
+  submission verification.
+- OPD final eval job: `159410`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159409`.
+- Base maybe-eval job: `159411`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159410`.
+- Final report job: `159412`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159411`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show Ray starts and accepts
+  the job submission without a dashboard `504`, then SGLang worker processes
+  show the startup native RoPE hook, memory-saver allocator override, no
+  fused-RoPE NVCC/ninja failure, SFT HF snapshot load at `iter_0000096`,
+  rollout `0`, and actor train.
