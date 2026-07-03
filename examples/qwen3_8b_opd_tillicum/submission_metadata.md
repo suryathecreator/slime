@@ -930,3 +930,55 @@ Recorded: 2026-07-01 17:28 PDT
   show the startup native RoPE hook, memory-saver allocator override, no
   fused-RoPE NVCC/ninja failure, SFT HF snapshot load at `iter_0000096`,
   rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Train-Actor Allocator Scoping
+
+- Superseded retry: `159409`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T14:04:05-07:00` and failed after `00:05:45`.
+- Root cause: the Ray control-plane scoping patch worked: the Ray job was
+  submitted successfully and the rollout SGLang engines started. The next
+  failure was in Megatron train actor initialization. Because `--offload-train`
+  preloads `torch_memory_saver`, train actors cannot inherit
+  `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`; `torch_memory_saver`
+  aborted with `TorchMemorySaver is disabled for the current process because
+  expandable_segments is not supported yet`.
+- Progress decision: the job failed during actor initialization before any OPD
+  rollout/training/checkpoint/HF snapshot/dataset state was produced. Restart
+  from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Train actors now apply the same non-expandable allocator compatibility
+    override used by SGLang memory-saver rollout actors whenever
+    `offload_train` is enabled for Megatron.
+  - The top-level Ray job can keep `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`;
+    the train actor runtime env overrides it only for actors that preload
+    `torch_memory_saver`.
+- Static validation before replacement submission:
+  - `python3 -m py_compile slime/ray/actor_group.py slime/ray/utils.py`
+    passed.
+  - `git diff --check` passed.
+  - Focused pytest could not run in the login environment because `pytest` is
+    not installed there.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `519f5cd` (`Scope allocator for train memory saver actors`),
+  pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `159410`, `159411`, `159412`.
+- Replacement submit time: `2026-07-03T14:19:28-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159422`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g018` at
+  submission verification.
+- OPD final eval job: `159423`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159422`.
+- Base maybe-eval job: `159424`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159423`.
+- Final report job: `159425`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159424`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show Ray job submission,
+  SGLang rollout engine memory-saver allocator override, train actors no longer
+  failing on expandable segments, SFT HF snapshot load at `iter_0000096`,
+  rollout `0`, and actor train.
