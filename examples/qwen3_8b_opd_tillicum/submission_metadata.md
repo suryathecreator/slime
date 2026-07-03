@@ -541,3 +541,112 @@ Recorded: 2026-07-01 17:28 PDT
   `rl_on_policy_target='fsdp'`, no fused-RoPE NVCC/GCC failure, teacher
   `/health_generate`, SFT HF snapshot load at `iter_0000096`, rollout `0`, and
   actor train.
+
+## Corrected SFT-Weights Colocate Retry With Narrow Native-RoPE Shim
+
+- Superseded retry: `158799`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-02T18:13:46` and failed before teacher `/health_generate`.
+- Root cause: `--rl-on-policy-target fsdp` avoided the fused RoPE NVCC path but
+  also enabled deterministic batch-invariant SGLang ops. During teacher warmup,
+  SGLang replaced matmul with a Triton persistent matmul and failed because the
+  sandbox still lacks a C compiler:
+  `RuntimeError: Failed to find C compiler`.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, or
+  dataset state was produced by `158799`; restart from final SFT HF weights
+  remains fidelity-safe.
+- Patch behavior:
+  - Added `slime.backends.sglang_utils.native_rope`, a narrow shim controlled
+    by `SLIME_SGLANG_FORCE_NATIVE_ROPE=1`.
+  - The shim patches SGLang `RotaryEmbedding` instances to use
+    `forward_native`, avoiding fused RoPE JIT compilation without setting
+    `rl_on_policy_target`.
+  - Added a tracked teacher launcher
+    `examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py`.
+  - Patched Slime's Ray SGLang engine child process target so rollout/eval
+    SGLang servers apply the same shim after Python `spawn`.
+  - Reset OPD/EVAL `SGLANG_RL_ON_POLICY_TARGET` defaults to empty so
+    deterministic batch-invariant matmul is not enabled by default.
+- Static validation before replacement submission:
+  - `bash -n` on changed shell/sbatch scripts passed.
+  - `python3 -m py_compile` on touched Python files passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Patch commit: `9ab04c1` (`Force native SGLang RoPE without deterministic
+  mode`), pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `158800`, `158801`, `158802`.
+- Replacement submit time: `2026-07-02T18:21:41-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158815`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g017` at
+  submission verification.
+- OPD final eval job: `158816`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158815`.
+- Base maybe-eval job: `158817`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158816`.
+- Final report job: `158818`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158817`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD/EVAL SGLang native-RoPE flags:
+  `SLIME_SGLANG_FORCE_NATIVE_ROPE=1`,
+  `OPD_SGLANG_RL_ON_POLICY_TARGET=<empty>`,
+  `EVAL_SGLANG_RL_ON_POLICY_TARGET=<empty>`.
+- Expected runtime validation: new OPD log should show
+  `SLIME SGLang force native RoPE: 1`, no deterministic
+  `rl_on_policy_target='fsdp'`, no fused-RoPE NVCC/GCC failure, no Triton
+  `Failed to find C compiler`, teacher `/health_generate`, SFT HF snapshot
+  load at `iter_0000096`, rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Native RoPE And Activation
+
+- Superseded retry: `158815`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-02T18:21:45-07:00` and failed before teacher
+  `/health_generate`.
+- Root cause: the narrow native-RoPE patch avoided the fused RoPE compiler
+  path, but SGLang's Qwen MLP activation still tried to JIT-compile
+  `silu_and_mul` during warmup. The runtime sandbox lacks `gcc`, so NVCC
+  failed with `gcc: No such file or directory` and
+  `nvcc fatal: Failed to preprocess host compiler properties`.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, or
+  dataset state was produced by `158815`; restart from final SFT HF weights
+  remains fidelity-safe.
+- Patch behavior:
+  - Extended `slime.backends.sglang_utils.native_rope` so
+    `SLIME_SGLANG_FORCE_NATIVE_ROPE=1` patches both SGLang
+    `RotaryEmbedding` and `SiluAndMul` objects to call their existing
+    `forward_native` implementations.
+  - This still leaves `OPD_SGLANG_RL_ON_POLICY_TARGET` and
+    `EVAL_SGLANG_RL_ON_POLICY_TARGET` empty, avoiding the deterministic
+    batch-invariant matmul path that previously failed under Triton.
+- Static validation before replacement submission:
+  - `python3 -m py_compile slime/backends/sglang_utils/native_rope.py`
+    passed.
+  - `git diff --check` passed.
+  - Targeted container regression passed: with SGLang global server args set,
+    a new `SiluAndMul` instance uses `forward_native`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Patch commit: `a48f652` (`Force native SGLang activation without
+  deterministic mode`), pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `158816`, `158817`, `158818`.
+- Replacement submit time: `2026-07-02T18:37:18-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `158832`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  at submission verification.
+- OPD final eval job: `158833`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158832`.
+- Base maybe-eval job: `158834`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:158833`.
+- Final report job: `158835`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:158834`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show the updated shim message
+  `patched SGLang RotaryEmbedding and SiluAndMul`, no deterministic
+  `rl_on_policy_target='fsdp'`, no fused RoPE or activation NVCC/GCC failure,
+  teacher `/health_generate`, SFT HF snapshot load at `iter_0000096`,
+  rollout `0`, and actor train.

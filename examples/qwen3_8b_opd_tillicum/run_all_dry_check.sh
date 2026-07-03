@@ -70,7 +70,11 @@ SHELL_FILES=(
 
 PYTHON_FILES=(
   examples/qwen3_8b_opd_tillicum/02_prepare_openthoughts3_math_sample.py
+  examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py
   examples/qwen3_8b_opd_tillicum/summarize_eval.py
+  slime/backends/sglang_utils/native_rope.py
+  slime/backends/sglang_utils/sglang_engine.py
+  slime/ray/rollout.py
 )
 
 echo "Checking shell syntax"
@@ -88,6 +92,7 @@ REQUIRED_CONTAINER_ENV=(
   OPD_RECOMPUTE_LOSS_FUNCTION
   OPD_OPTIMIZER_CPU_OFFLOAD
   OPD_DISABLE_CUDA_GRAPH
+  SLIME_SGLANG_FORCE_NATIVE_ROPE
   OPD_SGLANG_RL_ON_POLICY_TARGET
   OPD_SANITY_CHECK_ENABLED
   OPD_SANITY_REPORT_DIR
@@ -123,7 +128,7 @@ done
 if [[ "${RUN_CONTAINER_CHECKS:-0}" == "1" ]]; then
   if [[ -e "${SLIME_SIF}" ]]; then
     echo "Checking imports inside container"
-    "${SCRIPT_DIR}/container_exec.sh" python3 -c "import encodings, slime, sglang, torch, transformers, datasets; print('container imports ok')"
+    "${SCRIPT_DIR}/container_exec.sh" python3 -c "import encodings, slime, sglang, torch, transformers, datasets; import slime.backends.sglang_utils.native_rope; print('container imports ok')"
     echo "Checking comma-safe container env forwarding"
     REPORT_EXPERIMENT_NOTE="comma, spaces -> ok" \
       "${SCRIPT_DIR}/container_exec.sh" python3 -c "import os, sys; expected = 'comma, spaces -> ok'; actual = os.environ.get('REPORT_EXPERIMENT_NOTE'); sys.exit(0 if actual == expected else f'bad REPORT_EXPERIMENT_NOTE: {actual!r}')"
