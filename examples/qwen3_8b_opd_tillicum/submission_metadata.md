@@ -707,3 +707,59 @@ Recorded: 2026-07-01 17:28 PDT
   `disable_piecewise_cuda_graph=True`, no clamp-position NVCC/GCC failure,
   teacher `/health_generate`, SFT HF snapshot load at `iter_0000096`,
   rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With SGLang Allocator Scoping
+
+- Superseded retry: `158872`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-02T19:40:17-07:00` and failed after `00:03:23`.
+- Root cause: the direct teacher and SGLang native-op shims worked, but the
+  colocated rollout SGLang engines inherited
+  `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` while using SGLang
+  `TorchMemorySaver`. SGLang memory saver rejects expandable segments and
+  aborted during rollout engine model load with
+  `TorchMemorySaver is disabled for the current process because
+  expandable_segments is not supported yet`.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, sanity
+  report, or dataset state was produced by `158872`; restart from final SFT HF
+  weights remains fidelity-safe.
+- Patch behavior:
+  - Added `SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF`, default
+    `max_split_size_mb:128`, and forwarded it through the Tillicum container
+    wrapper and Ray runtime env.
+  - Scoped allocator override to SGLang rollout actors whose memory saver is
+    enabled, leaving the global Megatron/Ray driver
+    `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` unchanged.
+  - Added a runtime log line showing the SGLang actor allocator override.
+  - Added a focused regression test for the allocator helper.
+- Static validation before replacement submission:
+  - `python3 -m py_compile` on touched Python files passed.
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Focused pytest file was added; host `pytest` was unavailable in the login
+    environment, so it was syntax-checked with `py_compile` but not executed
+    there.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Patch commit: `a0f5b33` (`Scope SGLang memory saver allocator env`),
+  pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `158873`, `158874`, `158875`.
+- Replacement submit time: `2026-07-03T01:08:25-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159090`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  at submission verification with estimated start
+  `2026-07-03T03:47:20-07:00`.
+- OPD final eval job: `159091`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159090`.
+- Base maybe-eval job: `159092`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159091`.
+- Final report job: `159093`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159092`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show
+  `SGLang engine rank=... uses memory saver; PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128`,
+  no `TorchMemorySaver ... expandable_segments` failure, teacher
+  `/health_generate`, SFT HF snapshot load at `iter_0000096`, rollout `0`,
+  and actor train.
