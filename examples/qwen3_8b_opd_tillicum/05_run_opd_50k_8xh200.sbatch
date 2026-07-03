@@ -357,7 +357,7 @@ export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF}"
 RAY_VISIBLE_DEVICES="$(comma_range "${OPD_RAY_GPUS}")"
 echo "Ray CUDA_VISIBLE_DEVICES=${RAY_VISIBLE_DEVICES}"
-CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray start --head --node-ip-address "${MASTER_ADDR}" \
+SLIME_SGLANG_PATCH_SITE=0 CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray start --head --node-ip-address "${MASTER_ADDR}" \
   --num-gpus "${OPD_RAY_GPUS}" \
   --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
 
@@ -382,7 +382,7 @@ RUNTIME_ENV_JSON="{
   }
 }"
 
-CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray job submit --address="http://127.0.0.1:8265" \
+SLIME_SGLANG_PATCH_SITE=0 CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray job submit --address="http://127.0.0.1:8265" \
   --runtime-env-json="${RUNTIME_ENV_JSON}" \
   -- python3 train.py \
   --actor-num-nodes 1 \
