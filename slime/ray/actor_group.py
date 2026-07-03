@@ -4,7 +4,11 @@ import ray
 from ray.util.placement_group import PlacementGroup
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 
-from slime.ray.utils import NOSET_VISIBLE_DEVICES_ENV_VARS_LIST, add_default_ray_env_vars
+from slime.ray.utils import (
+    NOSET_VISIBLE_DEVICES_ENV_VARS_LIST,
+    add_default_ray_env_vars,
+    apply_sglang_memory_saver_allocator_env,
+)
 
 
 class RayTrainGroup:
@@ -63,6 +67,10 @@ class RayTrainGroup:
 
         if self.args.offload_train and self.args.train_backend == "megatron":
             import torch_memory_saver
+
+            # torch_memory_saver does not support PyTorch expandable segments.
+            # Scope the compatible allocator only to train actors that preload it.
+            env_vars = apply_sglang_memory_saver_allocator_env(env_vars, enable_memory_saver=True)
 
             for path in [
                 "torch_memory_saver_hook_mode_preload_cu12.abi3.so",
