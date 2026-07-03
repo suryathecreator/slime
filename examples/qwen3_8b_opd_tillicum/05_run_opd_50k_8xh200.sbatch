@@ -55,6 +55,7 @@ echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}
 echo "OPD colocate/offload train/offload rollout: ${OPD_COLOCATE}/${OPD_OFFLOAD_TRAIN}/${OPD_OFFLOAD_ROLLOUT}"
 echo "OPD recompute loss function: ${OPD_RECOMPUTE_LOSS_FUNCTION}"
 echo "OPD disable cuda graph: ${OPD_DISABLE_CUDA_GRAPH}"
+echo "OPD SGLang rl-on-policy target: ${OPD_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
 echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
@@ -94,6 +95,9 @@ TEACHER_SGLANG_ARGS=(
 )
 if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
   TEACHER_SGLANG_ARGS+=(--disable-cuda-graph)
+fi
+if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
+  TEACHER_SGLANG_ARGS+=(--rl-on-policy-target "${OPD_SGLANG_RL_ON_POLICY_TARGET}")
 fi
 
 CUDA_VISIBLE_DEVICES="${OPD_TEACHER_GPU}" python3 -m sglang.launch_server \
@@ -316,6 +320,9 @@ SGLANG_ARGS=(
 )
 if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
   SGLANG_ARGS+=(--sglang-disable-cuda-graph)
+fi
+if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
+  SGLANG_ARGS+=(--sglang-rl-on-policy-target "${OPD_SGLANG_RL_ON_POLICY_TARGET}")
 fi
 
 MISC_ARGS=(

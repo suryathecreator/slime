@@ -158,6 +158,7 @@ run_eval() {
   fi
 
   echo "Evaluating ${stage} from ${load_dir} train_samples=${train_samples}"
+  echo "Eval SGLang rl-on-policy target: ${EVAL_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
   ray stop --force >/dev/null 2>&1 || true
 
   NVLINK_COUNT=$(nvidia-smi topo -m 2>/dev/null | grep -o "NV[0-9][0-9]*" | wc -l || true)
@@ -242,6 +243,9 @@ run_eval() {
   )
   if [[ "${EVAL_DISABLE_CUDA_GRAPH}" == "1" ]]; then
     SGLANG_ARGS+=(--sglang-disable-cuda-graph)
+  fi
+  if [[ -n "${EVAL_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
+    SGLANG_ARGS+=(--sglang-rl-on-policy-target "${EVAL_SGLANG_RL_ON_POLICY_TARGET}")
   fi
 
   MISC_ARGS=(

@@ -486,3 +486,34 @@ Recorded: 2026-07-01 17:28 PDT
   `OPD disable cuda graph: 1`, teacher args with `disable_cuda_graph=True`,
   no SGLang fused-rope NVCC/GCC failure, teacher `/health_generate`, SFT HF
   snapshot load at `iter_0000096`, rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Native SGLang RoPE Path
+
+- Superseded retry: `158786`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-02T18:05:22` and failed before teacher `/health_generate`.
+- Root cause: disabling CUDA graphs was not sufficient. The Qwen3 teacher still
+  entered SGLang's fused RoPE JIT path during warmup and failed because the
+  sandbox lacks `gcc` / CUDA development headers:
+  `gcc: No such file or directory` and
+  `nvcc fatal: Failed to preprocess host compiler properties`.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, or
+  dataset state was produced by `158786`; restart from final SFT HF weights
+  remains fidelity-safe.
+- Patch behavior:
+  - Direct Qwen3-32B teacher server gets
+    `--rl-on-policy-target fsdp`.
+  - Student rollout SGLang engines get
+    `--sglang-rl-on-policy-target fsdp`.
+  - Eval SGLang engines get
+    `--sglang-rl-on-policy-target fsdp`.
+  - `OPD_SGLANG_RL_ON_POLICY_TARGET` and
+    `EVAL_SGLANG_RL_ON_POLICY_TARGET` are forwarded through Apptainer and
+    recorded in submit logs.
+  - The setting uses SGLang's on-policy/native path for Qwen rotary embeddings,
+    avoiding runtime fused RoPE NVCC compilation in this minimal sandbox.
+- Static validation before replacement submission:
+  - `bash -n` on changed shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Replacement job IDs will be recorded after resubmission.
