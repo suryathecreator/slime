@@ -1061,15 +1061,32 @@ Recorded: 2026-07-01 17:28 PDT
     `CP=3`, `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`, SFT HF
     initialization from `iter_0000096`, colocate/offload/recompute enabled,
     and native SGLang startup patches unchanged.
-- Diagnostics to archive before replacement submission:
-  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt`
-  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json`
-- Static validation target before replacement submission:
+- Archived diagnostics before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt.failed_159763`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json.failed_159763`
+- Static validation before replacement submission:
   - `bash -n` on touched shell/sbatch scripts.
   - `git diff --check`.
-  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1`.
-- Replacement submission will cancel stale jobs `159764`, `159765`, `159766`
-  and submit a no-dependency corrected chain with downstream `afterok` jobs.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `8e0b414` (`Lower colocate4 OPD packing to 4096`), pushed to
+  `origin/opd-reproduction`.
+- Canceled stale jobs: `159764`, `159765`, `159766`.
+- Replacement submit time: `2026-07-04T01:34:18-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159941`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  with scheduler node list `g012` at submission verification.
+- OPD final eval job: `159942`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159941`.
+- Base maybe-eval job: `159943`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159942`.
+- Final report job: `159944`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159943`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
 - Expected runtime validation: new OPD log should show
   `OPD_MAX_TOKENS_PER_GPU=4096`, SFT HF load from `iter_0000096`, no silent
   base fallback, no previous SGLang native RoPE/gcc/clamp or allocator
