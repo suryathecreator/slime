@@ -1119,15 +1119,34 @@ Recorded: 2026-07-01 17:28 PDT
     `OPD_MAX_TOKENS_PER_GPU=4096`, SFT HF initialization from
     `iter_0000096`, colocate/offload/recompute enabled, and native SGLang
     startup patches unchanged.
-- Diagnostics to archive before replacement submission:
-  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt`
-  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json`
-- Static validation target before replacement submission:
-  - `bash -n` on touched shell/sbatch scripts.
-  - `git diff --check`.
-  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1`.
-- Replacement submission will cancel stale jobs `159942`, `159943`, `159944`
-  and submit a no-dependency corrected chain with downstream `afterok` jobs.
+- Archived diagnostics before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt.failed_159941`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json.failed_159941`
+- Static validation before replacement submission:
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `ac6663d` (`Set zero train memory margin for colocate4 OPD`),
+  pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `159942`, `159943`, `159944`.
+- Replacement submit time: `2026-07-04T11:25:40-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `160260`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g003` at
+  submission verification.
+- OPD final eval job: `160261`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160260`.
+- Base maybe-eval job: `160262`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160261`.
+- Final report job: `160263`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:160262`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Initial runtime check: `160260` log shows `OPD train memory margin bytes: 0`;
+  deeper runtime validation is still pending while the job runs.
 - Expected runtime validation: new OPD log should show
   `OPD_MAX_TOKENS_PER_GPU=4096`, `OPD_TRAIN_MEMORY_MARGIN_BYTES=0`, parsed
   `train_memory_margin_bytes ....................... 0`, SFT HF load from
