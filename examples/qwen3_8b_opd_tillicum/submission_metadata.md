@@ -1092,3 +1092,45 @@ Recorded: 2026-07-01 17:28 PDT
   base fallback, no previous SGLang native RoPE/gcc/clamp or allocator
   failures, rollout `0`, and actor train completing rollout `0` without fused
   cross-entropy CUDA OOM.
+
+## Corrected SFT-Weights Colocate Retry With Zero Train Memory Margin
+
+- Superseded retry: `159941`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-04T02:06:35-07:00` and failed after rollout `0` reached actor
+  training.
+- Root cause: `OPD_MAX_TOKENS_PER_GPU=4096` was applied, but actor training
+  still hit fused cross-entropy backward CUDA OOM at microbatch `2/82`.
+  Torch-memory-saver repeatedly refused allocations with
+  `memory_margin_bytes=1073741824`, then PyTorch failed a `1.00 GiB`
+  allocation with about `1.68 GiB` free on GPU 0.
+- Progress decision: no optimizer step, OPD checkpoint, HF snapshot,
+  dataset-state checkpoint, or trained-data manifest completed. `rollout_0.pt`
+  and `samples_0_127.json` are diagnostics only and must not be used as
+  training progress. Restart from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Add `OPD_TRAIN_MEMORY_MARGIN_BYTES`, globally defaulting to Megatron's
+    current `1073741824` byte train memory-saver margin.
+  - Set `OPD_TRAIN_MEMORY_MARGIN_BYTES=0` only in the colocate4 submitter.
+  - Forward the variable through the container and pass it to training as
+    `--train-memory-margin-bytes`.
+  - Keep the 4-GPU corrected experiment shape unchanged: run label
+    `1k_32k_sft_colocate4`, actor/rollout/teacher `3/3/1`, actor `TP=1`,
+    `CP=3`, `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`,
+    `OPD_MAX_TOKENS_PER_GPU=4096`, SFT HF initialization from
+    `iter_0000096`, colocate/offload/recompute enabled, and native SGLang
+    startup patches unchanged.
+- Diagnostics to archive before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json`
+- Static validation target before replacement submission:
+  - `bash -n` on touched shell/sbatch scripts.
+  - `git diff --check`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1`.
+- Replacement submission will cancel stale jobs `159942`, `159943`, `159944`
+  and submit a no-dependency corrected chain with downstream `afterok` jobs.
+- Expected runtime validation: new OPD log should show
+  `OPD_MAX_TOKENS_PER_GPU=4096`, `OPD_TRAIN_MEMORY_MARGIN_BYTES=0`, parsed
+  `train_memory_margin_bytes ....................... 0`, SFT HF load from
+  `iter_0000096`, no silent base fallback, no previous SGLang native
+  RoPE/gcc/clamp or allocator failures, rollout `0`, and actor train
+  completing rollout `0` without fused cross-entropy CUDA OOM.
