@@ -1153,3 +1153,61 @@ Recorded: 2026-07-01 17:28 PDT
   `iter_0000096`, no silent base fallback, no previous SGLang native
   RoPE/gcc/clamp or allocator failures, rollout `0`, and actor train
   completing rollout `0` without fused cross-entropy CUDA OOM.
+
+## Corrected SFT-Weights Colocate Retry With 512 Logprob Chunking
+
+- Superseded retry: `160260`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-04T11:25:40-07:00` and failed after rollout `0` reached actor
+  training.
+- Root cause: `OPD_TRAIN_MEMORY_MARGIN_BYTES=0` worked, but actor training
+  still hit fused vocab cross-entropy/logprob CUDA OOM at microbatch `23/88`.
+  The failing temporary was a `float32` full-vocab buffer that tried to allocate
+  `2.00 GiB` with about `1.64 GiB` free on GPU 2.
+- Progress decision: no optimizer step, OPD checkpoint, HF snapshot,
+  dataset-state checkpoint, or trained-data manifest completed. `rollout_0.pt`
+  and `samples_0_127.json` are diagnostics only and must not be used as
+  training progress. Restart from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Add `OPD_LOG_PROBS_CHUNK_SIZE`, globally defaulting to the previous
+    `4096`.
+  - Set `OPD_LOG_PROBS_CHUNK_SIZE=512` only in the colocate4 submitter and
+    pass it as `--log-probs-chunk-size`.
+  - Lower colocate4 `OPD_MAX_TOKENS_PER_GPU` from `4096` to `2048`.
+  - Keep `OPD_TRAIN_MEMORY_MARGIN_BYTES=0`.
+  - Keep the 4-GPU corrected experiment shape unchanged: run label
+    `1k_32k_sft_colocate4`, actor/rollout/teacher `3/3/1`, actor `TP=1`,
+    `CP=3`, `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`, SFT HF
+    initialization from `iter_0000096`, colocate/offload/recompute enabled,
+    and native SGLang startup patches unchanged.
+- Archived diagnostics before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt.failed_160260`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json.failed_160260`
+- Static validation before replacement submission:
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `9d89b0d` (`Reduce colocate4 OPD logprob memory`), pushed to
+  `origin/opd-reproduction`.
+- Canceled stale jobs: `160261`, `160262`, `160263`.
+- Replacement submit time: `2026-07-04T13:07:15-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `160279`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  with scheduler node list `g002` and projected start
+  `2026-07-05T03:10:18` at submission verification.
+- OPD final eval job: `160280`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160279`.
+- Base maybe-eval job: `160281`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160280`.
+- Final report job: `160282`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:160281`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show
+  `OPD_MAX_TOKENS_PER_GPU=2048`, `OPD_LOG_PROBS_CHUNK_SIZE=512`, actual
+  `--log-probs-chunk-size 512`, parsed `train_memory_margin_bytes=0`, SFT HF
+  load from `iter_0000096`, no silent base fallback, rollout `0`, and actor
+  train completing rollout `0` without fused cross-entropy/logprob CUDA OOM.
