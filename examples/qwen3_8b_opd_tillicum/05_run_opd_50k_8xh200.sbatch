@@ -52,6 +52,7 @@ echo "OPD max response len: ${OPD_MAX_RESPONSE_LEN}"
 echo "OPD actor/rollout/teacher GPU counts: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/1"
 echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
 echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
+echo "OPD log probs chunk size: ${OPD_LOG_PROBS_CHUNK_SIZE}"
 echo "OPD train memory margin bytes: ${OPD_TRAIN_MEMORY_MARGIN_BYTES}"
 echo "OPD colocate/offload train/offload rollout: ${OPD_COLOCATE}/${OPD_OFFLOAD_TRAIN}/${OPD_OFFLOAD_ROLLOUT}"
 echo "OPD recompute loss function: ${OPD_RECOMPUTE_LOSS_FUNCTION}"
@@ -284,7 +285,7 @@ PERF_ARGS=(
   --recompute-num-layers 1
   --use-dynamic-batch-size
   --max-tokens-per-gpu "${OPD_MAX_TOKENS_PER_GPU}"
-  --log-probs-chunk-size 4096
+  --log-probs-chunk-size "${OPD_LOG_PROBS_CHUNK_SIZE}"
 )
 
 GRPO_ARGS=(
