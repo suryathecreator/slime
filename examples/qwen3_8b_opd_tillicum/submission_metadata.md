@@ -982,3 +982,40 @@ Recorded: 2026-07-01 17:28 PDT
   SGLang rollout engine memory-saver allocator override, train actors no longer
   failing on expandable segments, SFT HF snapshot load at `iter_0000096`,
   rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With 6144 Actor Packing
+
+- Superseded retry: `159422`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T14:19:28-07:00` and failed after rollout `0` reached actor
+  training.
+- Root cause: the previous SGLang/compiler/container/Ray allocator fixes
+  worked, and the job completed rollout generation, reference logprobs, and
+  actor logprobs. Actor training then hit CUDA OOM in fused cross-entropy
+  backward while allocating a `(3754, 1, 151936)` bf16 tensor: `1.06 GiB`
+  requested with only about `1.45 GiB` free on GPU 1.
+- Progress decision: no optimizer step, OPD checkpoint, HF snapshot, or
+  dataset-state checkpoint completed. `rollout_0.pt` and
+  `samples_0_127.json` are diagnostics only and must not be used as training
+  progress. Restart from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Lower only the colocate4 actor dynamic packing default from
+    `OPD_MAX_TOKENS_PER_GPU=11264` to `OPD_MAX_TOKENS_PER_GPU=6144`.
+  - Keep the 4-GPU corrected experiment shape unchanged: run label
+    `1k_32k_sft_colocate4`, actor/rollout/teacher `3/3/1`, actor `TP=1`,
+    `CP=3`, `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`, SFT HF
+    initialization from `iter_0000096`, colocate/offload/recompute enabled,
+    and native SGLang startup patches unchanged.
+- Diagnostics to archive before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json`
+- Static validation target before replacement submission:
+  - `bash -n` on touched shell/sbatch scripts.
+  - `git diff --check`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1`.
+- Replacement submission will cancel stale jobs `159423`, `159424`, `159425`
+  and submit a no-dependency corrected chain with downstream `afterok` jobs.
+- Expected runtime validation: new OPD log should show
+  `OPD_MAX_TOKENS_PER_GPU=6144`, no previous SGLang native RoPE/gcc/clamp or
+  allocator failures, SFT HF snapshot load at `iter_0000096`, rollout `0`,
+  and actor train completing rollout `0` without the fused cross-entropy CUDA
+  OOM.

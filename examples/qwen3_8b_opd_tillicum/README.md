@@ -94,10 +94,10 @@ downstream 1k OPD experiment:
 - OPD training horizon: 1,024 effective samples, `8` rollouts of `128`
   prompts each.
 - OPD response cap: `31744` generated tokens.
-- OPD actor/rollout/teacher GPUs: `6/1/1` on one 8xH200 node, with teacher on
-  physical GPU 7.
-- OPD actor parallelism: tensor parallel `2`, context parallel `3`,
-  `OPD_MAX_TOKENS_PER_GPU=11264`.
+- OPD actor/rollout/teacher GPUs: `3/3/1` on one 4xH200 allocation, with actor
+  and rollout colocated on GPUs `0,1,2` and the teacher on physical GPU 3.
+- OPD actor parallelism: tensor parallel `1`, context parallel `3`,
+  `OPD_MAX_TOKENS_PER_GPU=6144`.
 - OPD eval: final checkpoint only, stage `opd_001024`.
 - Final report: base -> final SFT -> final OPD.
 
@@ -119,9 +119,14 @@ The corrected 4-GPU default run label is `1k_32k_sft_colocate4`. It keeps the
 4-H200 ceiling by colocating actor training and student rollout engines on Ray
 GPUs `0,1,2`, with the Qwen3-32B teacher logprob server on physical GPU `3`.
 The actor uses `TP=1`, `CP=3`, `OPD_SEQ_LENGTH=32766`,
-`OPD_MAX_RESPONSE_LEN=31744`, and `OPD_MAX_TOKENS_PER_GPU=11264`, with
+`OPD_MAX_RESPONSE_LEN=31744`, and `OPD_MAX_TOKENS_PER_GPU=6144`, with
 `--colocate`, `--offload-train`, `--offload-rollout`, optimizer CPU offload,
 and `--recompute-loss-function` enabled.
+
+The `6144` actor packing default is a memory-scheduling guard for the colocated
+4-GPU retry after job `159422` reached actor training and OOMed in fused
+cross-entropy backward. It does not reduce the 31,744-token generation cap or
+the 1,024-sample OPD training horizon.
 
 The corrected 4-GPU chain also enables an OPD rollout sanity guard before actor
 updates. The guard logs `OPD_SANITY` metrics and writes JSON under
