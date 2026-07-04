@@ -128,6 +128,10 @@ The `4096` actor packing default is a memory-scheduling guard for the colocated
 in fused cross-entropy backward. It does not reduce the 31,744-token generation
 cap or the 1,024-sample OPD training horizon.
 
+The colocate4 submitter also sets `OPD_TRAIN_MEMORY_MARGIN_BYTES=0` so
+torch-memory-saver does not reserve its default 1 GiB train allocation margin.
+Other OPD entrypoints keep Megatron's default margin of `1073741824` bytes.
+
 The corrected 4-GPU chain also enables an OPD rollout sanity guard before actor
 updates. The guard logs `OPD_SANITY` metrics and writes JSON under
 `$OPD_SANITY_REPORT_DIR`; it fails fast on extreme collapse signals such as a
