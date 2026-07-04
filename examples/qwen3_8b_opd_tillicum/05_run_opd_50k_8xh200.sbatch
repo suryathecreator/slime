@@ -56,6 +56,7 @@ echo "OPD colocate/offload train/offload rollout: ${OPD_COLOCATE}/${OPD_OFFLOAD_
 echo "OPD recompute loss function: ${OPD_RECOMPUTE_LOSS_FUNCTION}"
 echo "OPD disable cuda graph: ${OPD_DISABLE_CUDA_GRAPH}"
 echo "SLIME SGLang force native RoPE: ${SLIME_SGLANG_FORCE_NATIVE_ROPE}"
+echo "SLIME SGLang startup site patch: ${SLIME_SGLANG_PATCH_SITE}"
 echo "OPD SGLang rl-on-policy target: ${OPD_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF=${SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF}"
@@ -356,7 +357,7 @@ export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF}"
 RAY_VISIBLE_DEVICES="$(comma_range "${OPD_RAY_GPUS}")"
 echo "Ray CUDA_VISIBLE_DEVICES=${RAY_VISIBLE_DEVICES}"
-CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray start --head --node-ip-address "${MASTER_ADDR}" \
+SLIME_SGLANG_PATCH_SITE=0 CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray start --head --node-ip-address "${MASTER_ADDR}" \
   --num-gpus "${OPD_RAY_GPUS}" \
   --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
 
@@ -369,6 +370,7 @@ RUNTIME_ENV_JSON="{
     \"HF_HOME\": \"${HF_HOME}\",
     \"PYTORCH_CUDA_ALLOC_CONF\": \"${PYTORCH_CUDA_ALLOC_CONF}\",
     \"SLIME_SGLANG_FORCE_NATIVE_ROPE\": \"${SLIME_SGLANG_FORCE_NATIVE_ROPE}\",
+    \"SLIME_SGLANG_PATCH_SITE\": \"${SLIME_SGLANG_PATCH_SITE}\",
     \"SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF\": \"${SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF}\",
     \"OPD_SANITY_CHECK_ENABLED\": \"${OPD_SANITY_CHECK_ENABLED}\",
     \"OPD_SANITY_FAIL_ON_COLLAPSE\": \"${OPD_SANITY_FAIL_ON_COLLAPSE}\",
@@ -380,7 +382,7 @@ RUNTIME_ENV_JSON="{
   }
 }"
 
-CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray job submit --address="http://127.0.0.1:8265" \
+SLIME_SGLANG_PATCH_SITE=0 CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray job submit --address="http://127.0.0.1:8265" \
   --runtime-env-json="${RUNTIME_ENV_JSON}" \
   -- python3 train.py \
   --actor-num-nodes 1 \

@@ -259,7 +259,7 @@ run_eval() {
 
   export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
   export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
-  ray start --head --node-ip-address "${MASTER_ADDR}" --num-gpus "${EVAL_ROLLOUT_NUM_GPUS}" \
+  SLIME_SGLANG_PATCH_SITE=0 ray start --head --node-ip-address "${MASTER_ADDR}" --num-gpus "${EVAL_ROLLOUT_NUM_GPUS}" \
     --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
 
   RUNTIME_ENV_JSON="{
@@ -269,11 +269,12 @@ run_eval() {
       \"NCCL_NVLS_ENABLE\": \"${HAS_NVLINK}\",
       \"WANDB_MODE\": \"${WANDB_MODE}\",
       \"HF_HOME\": \"${HF_HOME}\",
-      \"SLIME_SGLANG_FORCE_NATIVE_ROPE\": \"${SLIME_SGLANG_FORCE_NATIVE_ROPE}\"
+      \"SLIME_SGLANG_FORCE_NATIVE_ROPE\": \"${SLIME_SGLANG_FORCE_NATIVE_ROPE}\",
+      \"SLIME_SGLANG_PATCH_SITE\": \"${SLIME_SGLANG_FORCE_NATIVE_ROPE}\"
     }
   }"
 
-  ray job submit --address="http://127.0.0.1:8265" \
+  SLIME_SGLANG_PATCH_SITE=0 ray job submit --address="http://127.0.0.1:8265" \
     --runtime-env-json="${RUNTIME_ENV_JSON}" \
     -- python3 train.py \
     --debug-rollout-only \

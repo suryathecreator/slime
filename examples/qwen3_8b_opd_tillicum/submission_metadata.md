@@ -763,3 +763,332 @@ Recorded: 2026-07-01 17:28 PDT
   no `TorchMemorySaver ... expandable_segments` failure, teacher
   `/health_generate`, SFT HF snapshot load at `iter_0000096`, rollout `0`,
   and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Method-Level Native RoPE
+
+- Superseded retry: `159090`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T03:48:08-07:00` and failed after `00:04:55`.
+- Root cause: the allocator-scoping patch worked, but rollout SGLang engines
+  still entered `RotaryEmbedding.forward_cuda` during warmup. That path tried
+  to JIT-compile fused RoPE with NVCC/ninja; the runtime sandbox lacks `gcc`,
+  so NVCC failed with `gcc: No such file or directory` and
+  `ninja exited with status 1`.
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, sanity
+  report, or dataset state was produced by `159090`; restart from final SFT HF
+  weights remains fidelity-safe.
+- Patch behavior:
+  - Moved the rollout SGLang HTTP server import until after
+    `maybe_force_native_rope()` runs.
+  - Extended the native shim to patch `RotaryEmbedding.forward_cuda` itself to
+    call `forward_native`, not only the constructor's `_forward_method`.
+  - Updated already-cached RoPE objects in SGLang's `_ROPE_DICT` whenever the
+    shim runs.
+  - Kept the existing native `SiluAndMul`, `clamp_position`, and rollout
+    memory-saver allocator patches.
+- Static validation before replacement submission:
+  - `python3 -m py_compile slime/backends/sglang_utils/native_rope.py
+    slime/backends/sglang_utils/sglang_engine.py` passed.
+  - `git diff --check` passed.
+  - Targeted container regression passed: with
+    `SLIME_SGLANG_FORCE_NATIVE_ROPE=1`, `RotaryEmbedding.forward_cuda` was
+    replaced, one cached RoPE object was repaired, and a fresh RoPE object used
+    `forward_native`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, and the comma-env probe.
+- Patch commit: `072357b` (`Force native SGLang RoPE method path`), pushed to
+  `origin/opd-reproduction`.
+- Canceled stale jobs: `159091`, `159092`, `159093`.
+- Replacement submit time: `2026-07-03T04:18:54-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159189`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g024` at
+  submission verification.
+- OPD final eval job: `159190`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159189`.
+- Base maybe-eval job: `159191`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159190`.
+- Final report job: `159192`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159191`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show the method-level native
+  RoPE shim message, memory-saver allocator override, no fused-RoPE
+  NVCC/ninja failure, teacher `/health_generate`, SFT HF snapshot load at
+  `iter_0000096`, rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Startup Native RoPE Hook
+
+- Superseded retry: `159189`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T04:18:54-07:00` and failed after `00:03:43`.
+- Root cause: the method-level native RoPE patch was active in the Ray actor
+  process, but SGLang launched a fresh scheduler/model-worker Python process
+  during rollout engine startup. That child process did not call the shim
+  before importing SGLang RoPE code, so it still entered
+  `RotaryEmbedding.forward_cuda` and hit the no-compiler fused-RoPE JIT path
+  (`gcc: No such file or directory`, `ninja exited with status 1`).
+- Progress decision: no corrected OPD rollout, checkpoint, HF snapshot, sanity
+  report, or dataset state was produced by `159189`; restart from final SFT HF
+  weights remains fidelity-safe.
+- Patch behavior:
+  - Added a gated repo-root `sitecustomize.py` startup hook. When
+    `SLIME_SGLANG_PATCH_SITE=1`, every Python process with the repo on
+    `PYTHONPATH` applies `maybe_force_native_rope()` before user code imports
+    SGLang.
+  - Defaulted `SLIME_SGLANG_PATCH_SITE` to
+    `SLIME_SGLANG_FORCE_NATIVE_ROPE` in the Tillicum environment and forwarded
+    it through the Apptainer wrapper.
+  - Passed `SLIME_SGLANG_PATCH_SITE` through Ray runtime env and SGLang actor
+    env so rollout scheduler/model-worker subprocesses inherit it.
+  - Updated the direct teacher launcher to set the startup-hook env for any
+    SGLang child processes it creates.
+- Static validation before replacement submission:
+  - `python3 -m py_compile sitecustomize.py
+    slime/backends/sglang_utils/native_rope.py
+    slime/backends/sglang_utils/sglang_engine.py slime/ray/rollout.py
+    examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py` passed.
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Targeted container regression passed: with
+    `SLIME_SGLANG_PATCH_SITE=1` and `SLIME_SGLANG_FORCE_NATIVE_ROPE=1`,
+    `RotaryEmbedding.forward_cuda` was patched at Python startup before normal
+    code ran.
+  - Cached/fresh RoPE container regression passed: cached `_ROPE_DICT` objects
+    and newly constructed RoPE objects both used `forward_native`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `ddf36d8` (`Apply SGLang patches at Python startup`), pushed
+  to `origin/opd-reproduction`.
+- Canceled stale jobs: `159190`, `159191`, `159192`.
+- Replacement submit time: `2026-07-03T13:46:33-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159392`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g018` at
+  submission verification.
+- OPD final eval job: `159393`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159392`.
+- Base maybe-eval job: `159394`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159393`.
+- Final report job: `159395`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159394`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show
+  `SLIME_SGLANG_PATCH_SITE=1: applied SGLang native compatibility patches at
+  Python startup`, memory-saver allocator override, no fused-RoPE NVCC/ninja
+  failure, teacher `/health_generate`, SFT HF snapshot load at
+  `iter_0000096`, rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Ray Control-Plane Scoping
+
+- Superseded retry: `159392`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T13:46:34-07:00` and failed after `00:09:34`.
+- Root cause: the startup native RoPE hook fixed the earlier SGLang
+  fused-RoPE compiler failure, but it was still enabled globally for the Ray
+  control plane. `ray start` succeeded, then `ray job submit` failed through
+  the dashboard with `RuntimeError: Request failed with status code 504`.
+- Progress decision: the job failed before the Ray training job was submitted,
+  so no corrected OPD rollout, checkpoint, HF snapshot, sanity report, or
+  dataset state was produced. Restart from final SFT HF weights remains
+  fidelity-safe.
+- Patch behavior:
+  - Run `ray start` and `ray job submit` with `SLIME_SGLANG_PATCH_SITE=0` so
+    Ray dashboard/CLI/control-plane processes do not import SGLang/Torch via
+    `sitecustomize.py`.
+  - Keep `SLIME_SGLANG_PATCH_SITE=1` in the submitted Ray runtime env for OPD
+    and eval workers, so SGLang rollout/eval subprocesses still get the native
+    RoPE startup hook.
+  - Applied the same Ray-control-plane scoping to the SFT sbatch script to
+    avoid this failure mode in future SFT reruns.
+- Static validation before replacement submission:
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `ce640a4` (`Scope SGLang startup hook away from Ray control
+  plane`), pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `159393`, `159394`, `159395`.
+- Replacement submit time: `2026-07-03T14:04:05-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159409`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g018` at
+  submission verification.
+- OPD final eval job: `159410`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159409`.
+- Base maybe-eval job: `159411`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159410`.
+- Final report job: `159412`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159411`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show Ray starts and accepts
+  the job submission without a dashboard `504`, then SGLang worker processes
+  show the startup native RoPE hook, memory-saver allocator override, no
+  fused-RoPE NVCC/ninja failure, SFT HF snapshot load at `iter_0000096`,
+  rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With Train-Actor Allocator Scoping
+
+- Superseded retry: `159409`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T14:04:05-07:00` and failed after `00:05:45`.
+- Root cause: the Ray control-plane scoping patch worked: the Ray job was
+  submitted successfully and the rollout SGLang engines started. The next
+  failure was in Megatron train actor initialization. Because `--offload-train`
+  preloads `torch_memory_saver`, train actors cannot inherit
+  `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`; `torch_memory_saver`
+  aborted with `TorchMemorySaver is disabled for the current process because
+  expandable_segments is not supported yet`.
+- Progress decision: the job failed during actor initialization before any OPD
+  rollout/training/checkpoint/HF snapshot/dataset state was produced. Restart
+  from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Train actors now apply the same non-expandable allocator compatibility
+    override used by SGLang memory-saver rollout actors whenever
+    `offload_train` is enabled for Megatron.
+  - The top-level Ray job can keep `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`;
+    the train actor runtime env overrides it only for actors that preload
+    `torch_memory_saver`.
+- Static validation before replacement submission:
+  - `python3 -m py_compile slime/ray/actor_group.py slime/ray/utils.py`
+    passed.
+  - `git diff --check` passed.
+  - Focused pytest could not run in the login environment because `pytest` is
+    not installed there.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `519f5cd` (`Scope allocator for train memory saver actors`),
+  pushed to `origin/opd-reproduction`.
+- Canceled stale jobs: `159410`, `159411`, `159412`.
+- Replacement submit time: `2026-07-03T14:19:28-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159422`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g018` at
+  submission verification.
+- OPD final eval job: `159423`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159422`.
+- Base maybe-eval job: `159424`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159423`.
+- Final report job: `159425`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159424`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show Ray job submission,
+  SGLang rollout engine memory-saver allocator override, train actors no longer
+  failing on expandable segments, SFT HF snapshot load at `iter_0000096`,
+  rollout `0`, and actor train.
+
+## Corrected SFT-Weights Colocate Retry With 6144 Actor Packing
+
+- Superseded retry: `159422`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T14:19:28-07:00` and failed after rollout `0` reached actor
+  training.
+- Root cause: the previous SGLang/compiler/container/Ray allocator fixes
+  worked, and the job completed rollout generation, reference logprobs, and
+  actor logprobs. Actor training then hit CUDA OOM in fused cross-entropy
+  backward while allocating a `(3754, 1, 151936)` bf16 tensor: `1.06 GiB`
+  requested with only about `1.45 GiB` free on GPU 1.
+- Progress decision: no optimizer step, OPD checkpoint, HF snapshot, or
+  dataset-state checkpoint completed. `rollout_0.pt` and
+  `samples_0_127.json` are diagnostics only and must not be used as training
+  progress. Restart from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Lower only the colocate4 actor dynamic packing default from
+    `OPD_MAX_TOKENS_PER_GPU=11264` to `OPD_MAX_TOKENS_PER_GPU=6144`.
+  - Keep the 4-GPU corrected experiment shape unchanged: run label
+    `1k_32k_sft_colocate4`, actor/rollout/teacher `3/3/1`, actor `TP=1`,
+    `CP=3`, `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`, SFT HF
+    initialization from `iter_0000096`, colocate/offload/recompute enabled,
+    and native SGLang startup patches unchanged.
+- Archived diagnostics before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt.failed_159422`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json.failed_159422`
+- Static validation before replacement submission:
+  - `bash -n` on touched shell/sbatch scripts.
+  - `git diff --check`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `050a961` (`Lower colocate4 OPD actor packing`), pushed to
+  `origin/opd-reproduction`.
+- Canceled stale jobs: `159423`, `159424`, `159425`.
+- Replacement submit time: `2026-07-03T22:27:34-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159763`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, running on `g006` at
+  submission verification.
+- OPD final eval job: `159764`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159763`.
+- Base maybe-eval job: `159765`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159764`.
+- Final report job: `159766`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159765`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show
+  `OPD_MAX_TOKENS_PER_GPU=6144`, no previous SGLang native RoPE/gcc/clamp or
+  allocator failures, SFT HF snapshot load at `iter_0000096`, rollout `0`,
+  and actor train completing rollout `0` without the fused cross-entropy CUDA
+  OOM.
+
+## Corrected SFT-Weights Colocate Retry With 4096 Actor Packing
+
+- Superseded retry: `159763`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-03T22:27:35-07:00` and failed after rollout `0` reached actor
+  training.
+- Root cause: the `6144` actor packing patch worked enough to get farther:
+  container/SGLang startup passed, SFT HF-load path was entered, rollout
+  generation completed, reference logprobs and actor logprobs completed, and
+  actor train reached microbatch `8/83`. Fused cross-entropy backward then hit
+  CUDA OOM while allocating about `1.00 GiB` with about `1.91 GiB` free on GPU
+  1 and the train memory-saver margin still at `1073741824` bytes.
+- Progress decision: no optimizer step, OPD checkpoint, HF snapshot,
+  dataset-state checkpoint, or trained-data manifest completed. `rollout_0.pt`
+  and `samples_0_127.json` are diagnostics only and must not be used as
+  training progress. Restart from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Lower only the colocate4 actor dynamic packing default from
+    `OPD_MAX_TOKENS_PER_GPU=6144` to `OPD_MAX_TOKENS_PER_GPU=4096`.
+  - Keep `train-memory-margin-bytes` unchanged for this retry.
+  - Keep the 4-GPU corrected experiment shape unchanged: run label
+    `1k_32k_sft_colocate4`, actor/rollout/teacher `3/3/1`, actor `TP=1`,
+    `CP=3`, `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`, SFT HF
+    initialization from `iter_0000096`, colocate/offload/recompute enabled,
+    and native SGLang startup patches unchanged.
+- Archived diagnostics before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt.failed_159763`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json.failed_159763`
+- Static validation before replacement submission:
+  - `bash -n` on touched shell/sbatch scripts.
+  - `git diff --check`.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `8e0b414` (`Lower colocate4 OPD packing to 4096`), pushed to
+  `origin/opd-reproduction`.
+- Canceled stale jobs: `159764`, `159765`, `159766`.
+- Replacement submit time: `2026-07-04T01:34:18-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `159941`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  with scheduler node list `g012` at submission verification.
+- OPD final eval job: `159942`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159941`.
+- Base maybe-eval job: `159943`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:159942`.
+- Final report job: `159944`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:159943`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show
+  `OPD_MAX_TOKENS_PER_GPU=4096`, SFT HF load from `iter_0000096`, no silent
+  base fallback, no previous SGLang native RoPE/gcc/clamp or allocator
+  failures, rollout `0`, and actor train completing rollout `0` without fused
+  cross-entropy CUDA OOM.

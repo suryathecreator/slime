@@ -72,6 +72,7 @@ PYTHON_FILES=(
   examples/qwen3_8b_opd_tillicum/02_prepare_openthoughts3_math_sample.py
   examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py
   examples/qwen3_8b_opd_tillicum/summarize_eval.py
+  sitecustomize.py
   slime/backends/sglang_utils/native_rope.py
   slime/backends/sglang_utils/sglang_engine.py
   slime/ray/rollout.py
@@ -94,6 +95,7 @@ REQUIRED_CONTAINER_ENV=(
   OPD_OPTIMIZER_CPU_OFFLOAD
   OPD_DISABLE_CUDA_GRAPH
   SLIME_SGLANG_FORCE_NATIVE_ROPE
+  SLIME_SGLANG_PATCH_SITE
   SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF
   OPD_SGLANG_RL_ON_POLICY_TARGET
   OPD_SANITY_CHECK_ENABLED
