@@ -97,7 +97,8 @@ downstream 1k OPD experiment:
 - OPD actor/rollout/teacher GPUs: `3/3/1` on one 4xH200 allocation, with actor
   and rollout colocated on GPUs `0,1,2` and the teacher on physical GPU 3.
 - OPD actor parallelism: tensor parallel `1`, context parallel `3`,
-  `OPD_MAX_TOKENS_PER_GPU=4096`.
+  `OPD_MAX_TOKENS_PER_GPU=2048`.
+- OPD actor logprob chunking: `OPD_LOG_PROBS_CHUNK_SIZE=512`.
 - OPD eval: final checkpoint only, stage `opd_001024`.
 - Final report: base -> final SFT -> final OPD.
 
@@ -115,28 +116,39 @@ that SFT checkpoint across the TP mismatch. After OPD starts, its own full
 optimizer checkpoint under `$OPD_SAVE_DIR` is the fidelity-safe continuation
 point for more OPD.
 
+The corrected chain also sets `OPD_REF_LOAD_DIR=$SFT_FINAL_HF_DIR`, so logged
+`train/kl_loss` is a diagnostic KL against the final SFT policy rather than the
+base model. The coefficient remains `--kl-loss-coef 0.00`, so this does not
+change gradients or the OPD objective.
+
 The corrected 4-GPU default run label is `1k_32k_sft_colocate4`. It keeps the
 4-H200 ceiling by colocating actor training and student rollout engines on Ray
 GPUs `0,1,2`, with the Qwen3-32B teacher logprob server on physical GPU `3`.
 The actor uses `TP=1`, `CP=3`, `OPD_SEQ_LENGTH=32766`,
-`OPD_MAX_RESPONSE_LEN=31744`, and `OPD_MAX_TOKENS_PER_GPU=4096`, with
-`--colocate`, `--offload-train`, `--offload-rollout`, optimizer CPU offload,
-and `--recompute-loss-function` enabled.
+`OPD_MAX_RESPONSE_LEN=31744`, `OPD_MAX_TOKENS_PER_GPU=2048`, and
+`OPD_LOG_PROBS_CHUNK_SIZE=512`, with `--colocate`, `--offload-train`,
+`--offload-rollout`, optimizer CPU offload, and `--recompute-loss-function`
+enabled.
 
-The `4096` actor packing default is a memory-scheduling guard for the colocated
-4-GPU retry after jobs `159422` and `159763` reached actor training and OOMed
-in fused cross-entropy backward. It does not reduce the 31,744-token generation
-cap or the 1,024-sample OPD training horizon.
+The `2048` actor packing default and `512` logprob chunk size are
+memory-scheduling guards for colocated 4-GPU retries that reached actor
+training and OOMed in fused cross-entropy/logprob computation. They do not
+reduce the 31,744-token generation cap or the 1,024-sample OPD training
+horizon.
 
 The colocate4 submitter also sets `OPD_TRAIN_MEMORY_MARGIN_BYTES=0` so
 torch-memory-saver does not reserve its default 1 GiB train allocation margin.
 Other OPD entrypoints keep Megatron's default margin of `1073741824` bytes.
 
-The corrected 4-GPU chain also enables an OPD rollout sanity guard before actor
+The corrected 4-GPU chain also enables OPD rollout sanity logging before actor
 updates. The guard logs `OPD_SANITY` metrics and writes JSON under
-`$OPD_SANITY_REPORT_DIR`; it fails fast on extreme collapse signals such as a
-high cap-hit rate or almost no final-answer formatting. This is a training
-guard only: MATH-500 scoring remains the source of accuracy numbers.
+`$OPD_SANITY_REPORT_DIR`, but corrected colocate4 sets
+`OPD_SANITY_FAIL_ON_COLLAPSE=0`, so threshold violations are diagnostic and do
+not stop training. The wrapper writes `opd_sanity_summary.{json,csv,md}` under
+`$OPD_SANITY_SUMMARY_DIR`; logprob/KL values are response-token-weighted rollout
+means, response lengths are sample statistics, and cap/completion/final-answer
+rates are sample fractions. MATH-500 scoring remains the source of accuracy
+numbers.
 
 ## Reproducing On Another Slurm Cluster
 
@@ -266,4 +278,12 @@ curve with light-blue SFT shading and light-purple OPD shading.
 Tracked result snapshots live under `results/`. The accidental base -> OPD
 salvage eval is recorded in `results/accidental_base_opd_salvage_summary.json`
 and `results/accidental_base_opd_salvage_summary.csv`; it is diagnostic only
-and not the corrected SFT -> OPD experiment.
+and not the corrected SFT -> OPD experiment. The corrected colocate4 diagnostic
+note is recorded in `results/corrected_colocate4_diagnostics.md`; it defines the
+sanity/KL table columns, averaging rules, dataset facts, and the accidental
+base -> OPD loader/ref-sync issue.
+
+The completed corrected SFT -> OPD colocate4 1k/32k result is recorded under
+`results/corrected_sft_opd_colocate4_1k_32k/`. It includes the combined
+base -> SFT -> OPD MATH-500 summaries, the generated curve data, and the OPD
+rollout reward/logprob/sanity tables.

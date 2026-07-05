@@ -1153,3 +1153,195 @@ Recorded: 2026-07-01 17:28 PDT
   `iter_0000096`, no silent base fallback, no previous SGLang native
   RoPE/gcc/clamp or allocator failures, rollout `0`, and actor train
   completing rollout `0` without fused cross-entropy CUDA OOM.
+
+## Corrected SFT-Weights Colocate Retry With 512 Logprob Chunking
+
+- Superseded retry: `160260`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-04T11:25:40-07:00` and failed after rollout `0` reached actor
+  training.
+- Root cause: `OPD_TRAIN_MEMORY_MARGIN_BYTES=0` worked, but actor training
+  still hit fused vocab cross-entropy/logprob CUDA OOM at microbatch `23/88`.
+  The failing temporary was a `float32` full-vocab buffer that tried to allocate
+  `2.00 GiB` with about `1.64 GiB` free on GPU 2.
+- Progress decision: no optimizer step, OPD checkpoint, HF snapshot,
+  dataset-state checkpoint, or trained-data manifest completed. `rollout_0.pt`
+  and `samples_0_127.json` are diagnostics only and must not be used as
+  training progress. Restart from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Add `OPD_LOG_PROBS_CHUNK_SIZE`, globally defaulting to the previous
+    `4096`.
+  - Set `OPD_LOG_PROBS_CHUNK_SIZE=512` only in the colocate4 submitter and
+    pass it as `--log-probs-chunk-size`.
+  - Lower colocate4 `OPD_MAX_TOKENS_PER_GPU` from `4096` to `2048`.
+  - Keep `OPD_TRAIN_MEMORY_MARGIN_BYTES=0`.
+  - Keep the 4-GPU corrected experiment shape unchanged: run label
+    `1k_32k_sft_colocate4`, actor/rollout/teacher `3/3/1`, actor `TP=1`,
+    `CP=3`, `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`, SFT HF
+    initialization from `iter_0000096`, colocate/offload/recompute enabled,
+    and native SGLang startup patches unchanged.
+- Archived diagnostics before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt.failed_160260`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json.failed_160260`
+- Static validation before replacement submission:
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, startup native shim, and the
+    comma-env probe.
+- Patch commit: `9d89b0d` (`Reduce colocate4 OPD logprob memory`), pushed to
+  `origin/opd-reproduction`.
+- Canceled stale jobs: `160261`, `160262`, `160263`.
+- Replacement submit time: `2026-07-04T13:07:15-07:00`.
+- Dependency policy: replacement train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `160279`, `slime-qwen3-opd1k-sft4g`,
+  `gpu:h200:4`, `time=18:00:00`, `Dependency=(null)`, pending for resources
+  with scheduler node list `g002` and projected start
+  `2026-07-05T03:10:18` at submission verification.
+- OPD final eval job: `160280`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160279`.
+- Base maybe-eval job: `160281`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160280`.
+- Final report job: `160282`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:160281`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- Expected runtime validation: new OPD log should show
+  `OPD_MAX_TOKENS_PER_GPU=2048`, `OPD_LOG_PROBS_CHUNK_SIZE=512`, actual
+  `--log-probs-chunk-size 512`, parsed `train_memory_margin_bytes=0`, SFT HF
+  load from `iter_0000096`, no silent base fallback, rollout `0`, and actor
+  train completing rollout `0` without fused cross-entropy/logprob CUDA OOM.
+
+## Corrected SFT-Weights Colocate Retry With Non-Fatal Sanity
+
+- Superseded retry: `160279`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-04` and reached corrected SFT-loaded colocate4 OPD training.
+- Progress observed: rollouts `0..3` completed actor training. Rollout `4`
+  generated successfully but did not train because the old OPD sanity guard
+  hard-stopped before reward postprocessing/training.
+- Trigger: rollout `4` had `avg_response_tokens=16131.8125`,
+  `median_response_tokens=16579`, `min_response_tokens=2`,
+  `max_response_tokens=31744`, `cap_hit_rate=0.1640625`,
+  `completed_rate=0.8359375`, and `final_answer_rate=0.984375`.
+- Healthy loader/sync signal before the hard-stop: Megatron-vs-SGLang absolute
+  logprob differences for rollouts `0..3` were `0.0216`, `0.0232`, `0.0226`,
+  and `0.0217`, not the older accidental-run pathological `~11.9`.
+- Progress decision: no final OPD optimizer checkpoint, HF snapshot,
+  dataset-state checkpoint, or trained-data manifest completed. Rollout and
+  sanity JSON files from `160279` are diagnostics only and must not be used as
+  training progress. Restart from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Keep `OPD_SANITY_CHECK_ENABLED=1` but set corrected colocate4
+    `OPD_SANITY_FAIL_ON_COLLAPSE=0`, so violations are logged/reported and do
+    not stop training.
+  - Add thresholds, `violations`, and `sanity_passed` to every `OPD_SANITY`
+    JSON record.
+  - Add `summarize_opd_sanity.py`, which writes
+    `opd_sanity_summary.{json,csv,md}` from sanity JSON and train-log metrics.
+    Its tables define columns and state that logprob/KL/loss diagnostics are
+    response-token-weighted rollout means; response lengths are sample
+    statistics; cap/completion/final-answer rates are sample fractions.
+  - Run the sanity summary helper best-effort from the OPD train wrapper on
+    exit, so a table is produced even if training later fails.
+  - Set corrected colocate4 `OPD_REF_LOAD_DIR` to the final SFT HF snapshot
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`.
+    The reference model for logged `train/kl_loss` therefore matches final SFT.
+    `kl_loss_coef=0.00`, so this changes diagnostics only, not gradients.
+  - Copy/link the sanity summary into the combined report output when report
+    aggregation runs.
+- Documentation added:
+  `examples/qwen3_8b_opd_tillicum/results/corrected_colocate4_diagnostics.md`
+  records the `160279` trigger table, dataset facts used in the long-trace
+  analysis, the accidental base -> OPD loader/ref-sync issue, metric averaging
+  rules, and the OPD pipeline/debugging semantics.
+- Patch commit: `91233ff` (`Make colocate4 sanity nonfatal`), pushed to
+  `origin/opd-reproduction` before replacement submission.
+- Static validation before replacement submission:
+  - `python3 -m py_compile` on touched Python files passed.
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, native SGLang shim, and the
+    comma-env forwarding probe.
+  - `summarize_opd_sanity.py` successfully regenerated a `160279` sanity
+    table in `/tmp/opd_sanity_160279_check` and marked rollout `4` violated
+    but nonfatal.
+- Archived diagnostics before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_1.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_2.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_3.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_4.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_128_255.json.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_256_383.json.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_384_511.json.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_512_639.json.failed_160279`
+- Canceled stale downstream jobs: `160280`, `160281`, and `160282`.
+- Replacement submit time: `2026-07-04T20:42:36-07:00`.
+- Replacement dependency policy: train has no dependency; downstream jobs use
+  `afterok`.
+- OPD train job: `160424`, `slime-qwen3-opd1k-sft4g`, `gpu:h200:4`,
+  `time=18:00:00`, `Dependency=(null)`, running on `g018` at submission
+  verification.
+- OPD final eval job: `160425`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160424`.
+- Base maybe-eval job: `160426`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160425`.
+- Final report job: `160427`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:160426`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load and reference load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`.
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim`.
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_colocate4_final`.
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_colocate4`.
+- Expected runtime validation: new OPD log should show
+  `OPD_SANITY_CHECK_ENABLED=1`, `OPD_SANITY_FAIL_ON_COLLAPSE=0`,
+  `OPD_REF_LOAD_DIR` pointing at final SFT HF `iter_0000096`, SFT HF actor
+  load from `iter_0000096`, logged SFT-reference KL rather than base-reference
+  KL, small Megatron-vs-SGLang abs diff, and continuation past any sanity
+  violation instead of a hard-stop.
+
+## Corrected SFT-Weights Colocate Final Result
+
+- Jobs completed successfully on `2026-07-05`:
+  - OPD train `160424`: `COMPLETED`, `0:0`, elapsed `05:40:59`.
+  - OPD eval `160425`: `COMPLETED`, `0:0`, elapsed `04:33:04`.
+  - maybe-base eval `160426`: `COMPLETED`, `0:0`, elapsed `00:00:05`.
+  - final report `160427`: `COMPLETED`, `0:0`, elapsed `00:00:03`.
+- Final full OPD checkpoint:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim/iter_0000007`.
+- Final OPD HF snapshot:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_eval_snapshots/iter_0000007`.
+- Trained-data manifest:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim/opd_trained_manifest.json`.
+- Checkpoint size reported by the wrapper:
+  `114672812172` bytes for `iter_0000007`.
+- Final MATH-500 points:
+  - Base: `accuracy=0.638`, `accuracy_on_parseable=0.7595238095`,
+    `parse_failure_rate=0.160`, `cap_hit_rate=0.036`,
+    `avg_generated_tokens=1686.402`.
+  - Final SFT: `accuracy=0.750`, `accuracy_on_parseable=0.78125`,
+    `parse_failure_rate=0.040`, `cap_hit_rate=0.576`,
+    `avg_generated_tokens=18574.302`.
+  - SFT + OPD 1024: `accuracy=0.724`,
+    `accuracy_on_parseable=0.7685774947`, `parse_failure_rate=0.058`,
+    `cap_hit_rate=0.832`, `avg_generated_tokens=26567.282`.
+- OPD rollout diagnostics:
+  - Mean response tokens over rollout means: `15845.8916`
+    (`min=14218.9375`, `max=18577.8125`).
+  - Mean `opd_reverse_kl`: `0.485068`.
+  - Mean Megatron actor vs SGLang rollout abs logprob diff: `0.022237`.
+  - Mean logged SFT-reference KL loss: `0.001396`.
+  - Rollouts `5` and `7` exceeded the `16000` average-token sanity threshold
+    but continued/trained because `OPD_SANITY_FAIL_ON_COLLAPSE=0`.
+- Tracked result artifacts were added under
+  `examples/qwen3_8b_opd_tillicum/results/corrected_sft_opd_colocate4_1k_32k/`,
+  including `summary_all.json`, `combined_accuracy_curve.csv`,
+  `combined_accuracy_curve.svg`, `opd_001024_summary.json`, and
+  `opd_sanity_summary.{json,csv,md}`.

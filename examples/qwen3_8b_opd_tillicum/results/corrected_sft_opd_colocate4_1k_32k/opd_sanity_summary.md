@@ -1,0 +1,42 @@
+# OPD Sanity Summary
+
+Averaging: logprob/KL/loss diagnostics are response-token-weighted rollout means. Response length statistics are sample statistics over the rollout. Cap/completion/final-answer rates are sample fractions.
+
+| column | definition |
+| --- | --- |
+| `rollout_id` | Rollout/update index, derived from sample range when Slime did not attach a rollout id. |
+| `sample_index_min` | First OPD data row offset represented in the sanity batch. |
+| `sample_index_max` | Last OPD data row offset represented in the sanity batch. |
+| `n` | Number of samples in the rollout batch. |
+| `avg_response_tokens` | Mean generated response length over samples. |
+| `median_response_tokens` | Median generated response length over samples when present in the Slurm perf log. |
+| `min_response_tokens` | Minimum generated response length over samples when present in the Slurm perf log. |
+| `max_response_tokens` | Maximum generated response length over samples. |
+| `cap_hit_rate` | Fraction of samples that hit the response cap or were marked truncated. |
+| `completed_rate` | Fraction of samples marked completed. |
+| `final_answer_rate` | Fraction of samples whose response tail contained a conservative final-answer marker. |
+| `rollout_log_probs` | SGLang rollout-student logprobs, response-token-weighted over the rollout. |
+| `actor_log_probs` | Megatron actor logprobs before update, response-token-weighted over the rollout. |
+| `ref_log_probs` | Megatron reference logprobs, response-token-weighted over the rollout. |
+| `teacher_log_probs` | Qwen3-32B teacher logprobs, response-token-weighted over the rollout. |
+| `opd_reverse_kl` | Mean actor_log_probs - teacher_log_probs over response tokens. |
+| `advantages` | Mean post-OPD advantage over response tokens. |
+| `train_rollout_logprob_abs_diff` | Mean absolute difference between Megatron actor and SGLang rollout logprobs over response tokens. |
+| `kl_loss` | Diagnostic reference-KL loss, response-token-weighted; coefficient is currently zero. |
+| `pg_clipfrac` | Fraction of response tokens clipped by PPO-style policy loss. |
+| `ppo_kl` | Mean old-vs-current actor KL used for policy-ratio diagnostics. |
+| `grad_norm` | Megatron actor gradient norm after the rollout update. |
+| `sanity_passed` | Whether the configured sanity thresholds were satisfied. |
+| `violations` | Semicolon-separated threshold violations. |
+| `ref_load` | Reference checkpoint path used for logged KL diagnostics. |
+
+| rollout_id | sample_index_min | sample_index_max | n | avg_response_tokens | median_response_tokens | min_response_tokens | max_response_tokens | cap_hit_rate | completed_rate | final_answer_rate | rollout_log_probs | actor_log_probs | ref_log_probs | teacher_log_probs | opd_reverse_kl | advantages | train_rollout_logprob_abs_diff | kl_loss | pg_clipfrac | ppo_kl | grad_norm | sanity_passed | violations | ref_load |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 | 127 | 128 | 15409.0859375 |  |  | 31744 | 0.171875 | 0.828125 | 0.984375 | -1.3622563779354095 | -1.363400012254715 | -1.363400012254715 | -1.8640632629394531 | 0.5006631165742874 | -0.5006631165742874 | 0.02140304073691368 | 0.0 | 0.0 | 0.0 | 14.243451136173237 | True |  | /gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096 |
+| 1 | 128 | 255 | 128 | 14848.8125 |  |  | 31744 | 0.1796875 | 0.8203125 | 0.984375 | -1.5616677403450012 | -1.5627737045288086 | -1.562792181968689 | -2.069807767868042 | 0.5070340484380722 | -0.5070340484380722 | 0.023459933698177338 | 0.0011632456444203854 | 0.0 | 0.0 | 14.951930525535145 | True |  | /gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096 |
+| 2 | 256 | 383 | 128 | 14218.9375 |  |  | 31744 | 0.171875 | 0.828125 | 1.0 | -1.434321403503418 | -1.4354659020900726 | -1.435382217168808 | -1.9240166544914246 | 0.48855040967464447 | -0.48855040967464447 | 0.021888311952352524 | 0.0011730741243809462 | 0.0 | 0.0 | 13.952064738727126 | True |  | /gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096 |
+| 3 | 384 | 511 | 128 | 15013.671875 |  |  | 31744 | 0.1171875 | 0.8828125 | 0.9921875 | -1.3337154686450958 | -1.3350496888160706 | -1.3349239230155945 | -1.844313621520996 | 0.5092639923095703 | -0.5092639923095703 | 0.022715304046869278 | 0.0013634099159389734 | 0.0 | 0.0 | 14.530953352986847 | True |  | /gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096 |
+| 4 | 512 | 639 | 128 | 15976.6796875 |  |  | 31744 | 0.1640625 | 0.8359375 | 0.9765625 | -1.3610948622226715 | -1.3623796701431274 | -1.362746685743332 | -1.858828365802765 | 0.4964488446712494 | -0.4964488446712494 | 0.022434091195464134 | 0.0016497146571055055 | 0.0 | 0.0 | 13.351168212068677 | True |  | /gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096 |
+| 5 | 640 | 767 | 128 | 18577.8125 |  |  | 31744 | 0.2578125 | 0.7421875 | 0.9921875 | -1.2954465448856354 | -1.296449452638626 | -1.2970519363880157 | -1.7490193247795105 | 0.45257043838500977 | -0.45257043838500977 | 0.021632295101881027 | 0.0018086076015606523 | 0.0 | 0.0 | 13.133416665163 | False | avg_response_tokens 18577.8 > 16000.0 | /gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096 |
+| 6 | 768 | 895 | 128 | 15737.1796875 |  |  | 31744 | 0.171875 | 0.828125 | 0.9453125 | -1.4887464344501495 | -1.4898537993431091 | -1.490554004907608 | -1.9861707091331482 | 0.49631698429584503 | -0.49631698429584503 | 0.022789442911744118 | 0.001970817567780614 | 0.0 | 0.0 | 12.746341554440667 | True |  | /gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096 |
+| 7 | 896 | 1023 | 128 | 16984.953125 |  |  | 31744 | 0.171875 | 0.828125 | 1.0 | -1.3607779443264008 | -1.3619657456874847 | -1.362615942955017 | -1.7916598320007324 | 0.42969465255737305 | -0.42969465255737305 | 0.021572574973106384 | 0.0020388574339449406 | 0.0 | 0.0 | 12.12809037614228 | False | avg_response_tokens 16985.0 > 16000.0 | /gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096 |
