@@ -1211,3 +1211,60 @@ Recorded: 2026-07-01 17:28 PDT
   `--log-probs-chunk-size 512`, parsed `train_memory_margin_bytes=0`, SFT HF
   load from `iter_0000096`, no silent base fallback, rollout `0`, and actor
   train completing rollout `0` without fused cross-entropy/logprob CUDA OOM.
+
+## Corrected SFT-Weights Colocate Retry With Non-Fatal Sanity
+
+- Superseded retry: `160279`, `slime-qwen3-opd1k-sft4g`, started on
+  `2026-07-04` and reached corrected SFT-loaded colocate4 OPD training.
+- Progress observed: rollouts `0..3` completed actor training. Rollout `4`
+  generated successfully but did not train because the old OPD sanity guard
+  hard-stopped before reward postprocessing/training.
+- Trigger: rollout `4` had `avg_response_tokens=16131.8125`,
+  `median_response_tokens=16579`, `min_response_tokens=2`,
+  `max_response_tokens=31744`, `cap_hit_rate=0.1640625`,
+  `completed_rate=0.8359375`, and `final_answer_rate=0.984375`.
+- Healthy loader/sync signal before the hard-stop: Megatron-vs-SGLang absolute
+  logprob differences for rollouts `0..3` were `0.0216`, `0.0232`, `0.0226`,
+  and `0.0217`, not the older accidental-run pathological `~11.9`.
+- Progress decision: no final OPD optimizer checkpoint, HF snapshot,
+  dataset-state checkpoint, or trained-data manifest completed. Rollout and
+  sanity JSON files from `160279` are diagnostics only and must not be used as
+  training progress. Restart from final SFT HF weights remains fidelity-safe.
+- Patch behavior:
+  - Keep `OPD_SANITY_CHECK_ENABLED=1` but set corrected colocate4
+    `OPD_SANITY_FAIL_ON_COLLAPSE=0`, so violations are logged/reported and do
+    not stop training.
+  - Add thresholds, `violations`, and `sanity_passed` to every `OPD_SANITY`
+    JSON record.
+  - Add `summarize_opd_sanity.py`, which writes
+    `opd_sanity_summary.{json,csv,md}` from sanity JSON and train-log metrics.
+    Its tables define columns and state that logprob/KL/loss diagnostics are
+    response-token-weighted rollout means; response lengths are sample
+    statistics; cap/completion/final-answer rates are sample fractions.
+  - Run the sanity summary helper best-effort from the OPD train wrapper on
+    exit, so a table is produced even if training later fails.
+  - Set corrected colocate4 `OPD_REF_LOAD_DIR` to the final SFT HF snapshot
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`.
+    The reference model for logged `train/kl_loss` therefore matches final SFT.
+    `kl_loss_coef=0.00`, so this changes diagnostics only, not gradients.
+  - Copy/link the sanity summary into the combined report output when report
+    aggregation runs.
+- Documentation added:
+  `examples/qwen3_8b_opd_tillicum/results/corrected_colocate4_diagnostics.md`
+  records the `160279` trigger table, dataset facts used in the long-trace
+  analysis, the accidental base -> OPD loader/ref-sync issue, metric averaging
+  rules, and the OPD pipeline/debugging semantics.
+- Planned preservation before replacement submission:
+  archive `rollout_0.pt` through `rollout_4.pt` and
+  `samples_0_127.json` through `samples_512_639.json` with a
+  `.failed_160279` suffix.
+- Planned cancellation before replacement submission: stale downstream jobs
+  `160280`, `160281`, and `160282`.
+- Replacement dependency policy: train has no dependency; downstream jobs use
+  `afterok`.
+- Expected runtime validation: new OPD log should show
+  `OPD_SANITY_CHECK_ENABLED=1`, `OPD_SANITY_FAIL_ON_COLLAPSE=0`,
+  `OPD_REF_LOAD_DIR` pointing at final SFT HF `iter_0000096`, SFT HF actor
+  load from `iter_0000096`, logged SFT-reference KL rather than base-reference
+  KL, small Megatron-vs-SGLang abs diff, and continuation past any sanity
+  violation instead of a hard-stop.

@@ -116,6 +116,11 @@ that SFT checkpoint across the TP mismatch. After OPD starts, its own full
 optimizer checkpoint under `$OPD_SAVE_DIR` is the fidelity-safe continuation
 point for more OPD.
 
+The corrected chain also sets `OPD_REF_LOAD_DIR=$SFT_FINAL_HF_DIR`, so logged
+`train/kl_loss` is a diagnostic KL against the final SFT policy rather than the
+base model. The coefficient remains `--kl-loss-coef 0.00`, so this does not
+change gradients or the OPD objective.
+
 The corrected 4-GPU default run label is `1k_32k_sft_colocate4`. It keeps the
 4-H200 ceiling by colocating actor training and student rollout engines on Ray
 GPUs `0,1,2`, with the Qwen3-32B teacher logprob server on physical GPU `3`.
@@ -135,11 +140,15 @@ The colocate4 submitter also sets `OPD_TRAIN_MEMORY_MARGIN_BYTES=0` so
 torch-memory-saver does not reserve its default 1 GiB train allocation margin.
 Other OPD entrypoints keep Megatron's default margin of `1073741824` bytes.
 
-The corrected 4-GPU chain also enables an OPD rollout sanity guard before actor
+The corrected 4-GPU chain also enables OPD rollout sanity logging before actor
 updates. The guard logs `OPD_SANITY` metrics and writes JSON under
-`$OPD_SANITY_REPORT_DIR`; it fails fast on extreme collapse signals such as a
-high cap-hit rate or almost no final-answer formatting. This is a training
-guard only: MATH-500 scoring remains the source of accuracy numbers.
+`$OPD_SANITY_REPORT_DIR`, but corrected colocate4 sets
+`OPD_SANITY_FAIL_ON_COLLAPSE=0`, so threshold violations are diagnostic and do
+not stop training. The wrapper writes `opd_sanity_summary.{json,csv,md}` under
+`$OPD_SANITY_SUMMARY_DIR`; logprob/KL values are response-token-weighted rollout
+means, response lengths are sample statistics, and cap/completion/final-answer
+rates are sample fractions. MATH-500 scoring remains the source of accuracy
+numbers.
 
 ## Reproducing On Another Slurm Cluster
 
@@ -269,4 +278,7 @@ curve with light-blue SFT shading and light-purple OPD shading.
 Tracked result snapshots live under `results/`. The accidental base -> OPD
 salvage eval is recorded in `results/accidental_base_opd_salvage_summary.json`
 and `results/accidental_base_opd_salvage_summary.csv`; it is diagnostic only
-and not the corrected SFT -> OPD experiment.
+and not the corrected SFT -> OPD experiment. The corrected colocate4 diagnostic
+note is recorded in `results/corrected_colocate4_diagnostics.md`; it defines the
+sanity/KL table columns, averaging rules, dataset facts, and the accidental
+base -> OPD loader/ref-sync issue.

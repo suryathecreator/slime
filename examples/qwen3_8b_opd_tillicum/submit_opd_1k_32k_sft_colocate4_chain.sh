@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 export OPD_RUN_LABEL="${OPD_RUN_LABEL:-1k_32k_sft_colocate4}"
 export OPD_INITIAL_LOAD_MODE="${OPD_INITIAL_LOAD_MODE:-hf}"
+_USER_OPD_REF_LOAD_DIR="${OPD_REF_LOAD_DIR:-}"
 export OPD_ACTOR_GPUS="${OPD_ACTOR_GPUS:-3}"
 export OPD_ROLLOUT_GPUS="${OPD_ROLLOUT_GPUS:-3}"
 export OPD_RAY_GPUS="${OPD_RAY_GPUS:-3}"
@@ -21,6 +22,7 @@ export OPD_OFFLOAD_TRAIN="${OPD_OFFLOAD_TRAIN:-1}"
 export OPD_OFFLOAD_ROLLOUT="${OPD_OFFLOAD_ROLLOUT:-1}"
 export OPD_OPTIMIZER_CPU_OFFLOAD="${OPD_OPTIMIZER_CPU_OFFLOAD:-1}"
 export OPD_RECOMPUTE_LOSS_FUNCTION="${OPD_RECOMPUTE_LOSS_FUNCTION:-1}"
+export OPD_SANITY_FAIL_ON_COLLAPSE="${OPD_SANITY_FAIL_ON_COLLAPSE:-0}"
 export GPU_GRES="${GPU_GRES:-gpu:h200:4}"
 export EVAL_GPU_GRES="${EVAL_GPU_GRES:-gpu:h200:4}"
 export EVAL_ROLLOUT_NUM_GPUS="${EVAL_ROLLOUT_NUM_GPUS:-4}"
@@ -30,6 +32,12 @@ export CORRECTED_AFTERANY_DEPENDENCY="${CORRECTED_AFTERANY_DEPENDENCY:-none}"
 export REPORT_EXPERIMENT_NOTE="${REPORT_EXPERIMENT_NOTE:-Corrected SFT -> OPD run: OPD initializes from the final SFT HF weights at rollout 96 with a fresh OPD optimizer. The 4-GPU corrected run colocates actor and student rollout engines on GPUs 0,1,2 with CP=3 and keeps the teacher on GPU 3. The earlier 1k_32k run is an accidental base -> OPD test because it used an HF snapshot as Megatron --load without the explicit HF-load path and fell back to base.}"
 
 source "${SCRIPT_DIR}/env.sh"
+if [[ -n "${_USER_OPD_REF_LOAD_DIR}" ]]; then
+  export OPD_REF_LOAD_DIR="${_USER_OPD_REF_LOAD_DIR}"
+else
+  export OPD_REF_LOAD_DIR="${SFT_FINAL_HF_DIR}"
+fi
+unset _USER_OPD_REF_LOAD_DIR
 export BASE_EVAL_REUSE_DIR="${BASE_EVAL_REUSE_DIR:-${OUTPUT_ROOT}/math500_eval_base_25k_opd_1k_32k}"
 
 cd "${SLIME_REPO_ROOT}"
@@ -55,6 +63,7 @@ for required_path in \
   "${SFT_FINAL_FULL_CKPT_DIR}/.metadata" \
   "${SFT_FINAL_FULL_CKPT_DIR}/common.pt" \
   "${SFT_FINAL_HF_DIR}" \
+  "${OPD_REF_LOAD_DIR}" \
   "${SFT_FINAL_SUMMARY}" \
   "${TEACHER_HF_DIR}" \
   "${STUDENT_HF_DIR}" \
@@ -109,6 +118,25 @@ case "${OPD_INITIAL_LOAD_MODE}" in
     ;;
 esac
 
+if [[ -f "${OPD_REF_LOAD_DIR}/latest_checkpointed_iteration.txt" ]]; then
+  if [[ ! -f "${OPD_REF_LOAD_DIR}/$(printf "iter_%07d" "$(cat "${OPD_REF_LOAD_DIR}/latest_checkpointed_iteration.txt")")/.metadata" ]]; then
+    echo "OPD_REF_LOAD_DIR looks Megatron-like but latest iter is incomplete: ${OPD_REF_LOAD_DIR}" >&2
+    exit 1
+  fi
+else
+  if [[ ! -f "${OPD_REF_LOAD_DIR}/config.json" ]]; then
+    echo "OPD_REF_LOAD_DIR is missing HF config.json or Megatron latest file: ${OPD_REF_LOAD_DIR}" >&2
+    exit 1
+  fi
+  shopt -s nullglob
+  ref_weight_files=("${OPD_REF_LOAD_DIR}"/model*.safetensors "${OPD_REF_LOAD_DIR}"/pytorch_model*.bin)
+  shopt -u nullglob
+  if [[ ! -f "${OPD_REF_LOAD_DIR}/model.safetensors.index.json" && "${#ref_weight_files[@]}" -eq 0 ]]; then
+    echo "OPD_REF_LOAD_DIR is missing HF model weights: ${OPD_REF_LOAD_DIR}" >&2
+    exit 1
+  fi
+fi
+
 submit_log="${SLURM_LOG_DIR}/submit_opd_${OPD_RUN_LABEL}_$(date +%Y%m%d_%H%M%S).txt"
 
 echo "Submitting corrected SFT-loaded OPD ${OPD_RUN_LABEL} chain"
@@ -118,6 +146,7 @@ echo "wait dependency: ${TRAIN_DEP_LABEL}"
 echo "train/eval gres: ${GPU_GRES}/${EVAL_GPU_GRES}"
 echo "OPD initial load mode: ${OPD_INITIAL_LOAD_MODE}"
 echo "OPD initial load: ${OPD_INITIAL_LOAD_DIR}"
+echo "OPD reference load for logged KL: ${OPD_REF_LOAD_DIR}"
 echo "OPD actor/rollout/teacher GPU counts: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/1"
 echo "OPD teacher physical GPU: ${OPD_TEACHER_GPU}"
 echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
@@ -129,7 +158,7 @@ echo "OPD optimizer CPU offload/recompute loss function: ${OPD_OPTIMIZER_CPU_OFF
 echo "OPD/EVAL disable cuda graph: ${OPD_DISABLE_CUDA_GRAPH}/${EVAL_DISABLE_CUDA_GRAPH}"
 echo "SLIME SGLang force native RoPE: ${SLIME_SGLANG_FORCE_NATIVE_ROPE}"
 echo "OPD/EVAL SGLang rl-on-policy target: ${OPD_SGLANG_RL_ON_POLICY_TARGET:-<none>}/${EVAL_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
-echo "OPD sanity guard: enabled=${OPD_SANITY_CHECK_ENABLED} max_rollout=${OPD_SANITY_MAX_ROLLOUT_ID} max_cap_hit=${OPD_SANITY_MAX_CAP_HIT_RATE} max_avg_tokens=${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS} min_final_answer=${OPD_SANITY_MIN_FINAL_ANSWER_RATE}"
+echo "OPD sanity guard: enabled=${OPD_SANITY_CHECK_ENABLED} fail=${OPD_SANITY_FAIL_ON_COLLAPSE} max_rollout=${OPD_SANITY_MAX_ROLLOUT_ID} max_cap_hit=${OPD_SANITY_MAX_CAP_HIT_RATE} max_avg_tokens=${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS} min_final_answer=${OPD_SANITY_MIN_FINAL_ANSWER_RATE}"
 echo "Eval GPUs/batch/concurrency: ${EVAL_ROLLOUT_NUM_GPUS}/${EVAL_ROLLOUT_BATCH_SIZE}/${EVAL_SGLANG_SERVER_CONCURRENCY}"
 
 jid_opd="$(
@@ -174,6 +203,7 @@ jid_report="$(
   echo "SFT_SAVE_DIR=${SFT_SAVE_DIR}"
   echo "OPD_INITIAL_LOAD_MODE=${OPD_INITIAL_LOAD_MODE}"
   echo "OPD_INITIAL_LOAD_DIR=${OPD_INITIAL_LOAD_DIR}"
+  echo "OPD_REF_LOAD_DIR=${OPD_REF_LOAD_DIR}"
   echo "OPD_COLOCATE=${OPD_COLOCATE}"
   echo "OPD_OFFLOAD_TRAIN=${OPD_OFFLOAD_TRAIN}"
   echo "OPD_OFFLOAD_ROLLOUT=${OPD_OFFLOAD_ROLLOUT}"
@@ -187,7 +217,9 @@ jid_report="$(
   echo "OPD_SGLANG_RL_ON_POLICY_TARGET=${OPD_SGLANG_RL_ON_POLICY_TARGET}"
   echo "EVAL_SGLANG_RL_ON_POLICY_TARGET=${EVAL_SGLANG_RL_ON_POLICY_TARGET}"
   echo "OPD_SANITY_CHECK_ENABLED=${OPD_SANITY_CHECK_ENABLED}"
+  echo "OPD_SANITY_FAIL_ON_COLLAPSE=${OPD_SANITY_FAIL_ON_COLLAPSE}"
   echo "OPD_SANITY_REPORT_DIR=${OPD_SANITY_REPORT_DIR}"
+  echo "OPD_SANITY_SUMMARY_DIR=${OPD_SANITY_SUMMARY_DIR}"
   echo "SFT_FINAL_FULL_CKPT_DIR=${SFT_FINAL_FULL_CKPT_DIR}"
   echo "SFT_FINAL_HF_DIR=${SFT_FINAL_HF_DIR}"
   echo "SFT_FINAL_SUMMARY=${SFT_FINAL_SUMMARY}"

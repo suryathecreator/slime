@@ -105,4 +105,10 @@ else
   echo "No per-stage summaries available for combined report yet."
 fi
 
+if [[ -d "${OPD_SANITY_SUMMARY_DIR}" ]]; then
+  echo "Copying OPD sanity summaries into combined report: ${OPD_SANITY_SUMMARY_DIR}"
+  mkdir -p "${COMBINED_EVAL_OUTPUT_DIR}/opd_sanity"
+  cp -f "${OPD_SANITY_SUMMARY_DIR}"/opd_sanity_summary.* "${COMBINED_EVAL_OUTPUT_DIR}/opd_sanity/" 2>/dev/null || true
+fi
+
 echo "Finished MATH-500 report aggregation at $(date)"

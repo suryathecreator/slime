@@ -19,11 +19,12 @@ fi
 source "${SCRIPT_DIR}/env.sh"
 source "${SCRIPT_DIR}/checkpoint_utils.sh"
 
-mkdir -p "${SLURM_LOG_DIR}" "${OPD_SAVE_DIR}" "${OPD_HF_SNAPSHOT_DIR}" "${OPD_ROLLOUT_LOG_DIR}" "${TEACHER_LOG_DIR}" "${CHECKPOINT_REPORT_DIR}" "${OPD_SANITY_REPORT_DIR}"
+mkdir -p "${SLURM_LOG_DIR}" "${OPD_SAVE_DIR}" "${OPD_HF_SNAPSHOT_DIR}" "${OPD_ROLLOUT_LOG_DIR}" "${TEACHER_LOG_DIR}" "${CHECKPOINT_REPORT_DIR}" "${OPD_SANITY_REPORT_DIR}" "${OPD_SANITY_SUMMARY_DIR}"
+OPD_TRAIN_LOG="${SLURM_LOG_DIR}/${SLURM_JOB_NAME:-slime-qwen3-opd}_${SLURM_JOB_ID:-manual}.log"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   export RAY_TMPDIR="/tmp/${USER:-suryadv}/slime-ray-${SLURM_JOB_ID}"
   mkdir -p "${RAY_TMPDIR}"
-  exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
+  exec >"${OPD_TRAIN_LOG}" 2>&1
 fi
 
 for required_path in \
@@ -32,6 +33,7 @@ for required_path in \
   "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" \
   "${TEACHER_HF_DIR}" \
   "${SFT_FINAL_HF_DIR}" \
+  "${OPD_REF_LOAD_DIR}" \
   "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" \
   "${SFT_FINAL_FULL_CKPT_DIR}/.metadata" \
   "${SFT_FINAL_FULL_CKPT_DIR}/common.pt"; do
@@ -69,14 +71,29 @@ echo "HF eval snapshots: ${OPD_HF_SNAPSHOT_DIR}"
 echo "Expected final OPD rollout id: ${OPD_FINAL_ROLLOUT_ID}"
 echo "Initial OPD load mode: ${OPD_INITIAL_LOAD_MODE}"
 echo "Initial OPD load dir: ${OPD_INITIAL_LOAD_DIR}"
+echo "OPD reference load dir for logged KL: ${OPD_REF_LOAD_DIR}"
 echo "SFT full checkpoint dir: ${SFT_FINAL_FULL_CKPT_DIR}"
 echo "OPD optimizer CPU offload: ${OPD_OPTIMIZER_CPU_OFFLOAD}"
 echo "OPD sanity guard: enabled=${OPD_SANITY_CHECK_ENABLED}, fail=${OPD_SANITY_FAIL_ON_COLLAPSE}, max rollout=${OPD_SANITY_MAX_ROLLOUT_ID}, max cap-hit=${OPD_SANITY_MAX_CAP_HIT_RATE}, max avg tokens=${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}, min final-answer=${OPD_SANITY_MIN_FINAL_ANSWER_RATE}"
 echo "OPD sanity reports: ${OPD_SANITY_REPORT_DIR}"
+echo "OPD sanity summary: ${OPD_SANITY_SUMMARY_DIR}"
 
 checkpoint_start_pruner opd "${OPD_SAVE_DIR}" "${CHECKPOINT_PRUNE_INTERVAL_SECONDS}" "${CHECKPOINT_REPORT_DIR}"
 cleanup_pruner() {
+  local status=$?
+  set +e
   checkpoint_stop_pruner "${CHECKPOINT_PRUNER_PID:-}"
+  python3 "${SLIME_REPO_ROOT}/examples/qwen3_8b_opd_tillicum/summarize_opd_sanity.py" \
+    --sanity-dir "${OPD_SANITY_REPORT_DIR}" \
+    --train-log "${OPD_TRAIN_LOG}" \
+    --output-dir "${OPD_SANITY_SUMMARY_DIR}" \
+    --ref-load "${OPD_REF_LOAD_DIR}" \
+    --rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}" \
+    --max-cap-hit-rate "${OPD_SANITY_MAX_CAP_HIT_RATE}" \
+    --max-avg-response-tokens "${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}" \
+    --min-final-answer-rate "${OPD_SANITY_MIN_FINAL_ANSWER_RATE}" \
+    || echo "Warning: OPD sanity summary generation failed." >&2
+  exit "${status}"
 }
 trap cleanup_pruner EXIT
 
@@ -239,10 +256,18 @@ else
   esac
 fi
 
+if [[ -f "${OPD_REF_LOAD_DIR}/latest_checkpointed_iteration.txt" ]]; then
+  echo "Loading logged KL reference from Megatron checkpoint ${OPD_REF_LOAD_DIR}"
+  validate_megatron_load_dir "opd_ref" "${OPD_REF_LOAD_DIR}"
+else
+  echo "Loading logged KL reference from HF checkpoint ${OPD_REF_LOAD_DIR}"
+  validate_hf_load_dir "opd_ref" "${OPD_REF_LOAD_DIR}"
+fi
+
 CKPT_ARGS=(
   --megatron-to-hf-mode bridge
   --hf-checkpoint "${CKPT_HF_CHECKPOINT}"
-  --ref-load "${STUDENT_TORCH_DIST_DIR}"
+  --ref-load "${OPD_REF_LOAD_DIR}"
   --load "${OPD_LOAD_DIR}"
   --save "${OPD_SAVE_DIR}"
   --save-interval "${OPD_SAVE_INTERVAL}"

@@ -71,6 +71,7 @@ SHELL_FILES=(
 PYTHON_FILES=(
   examples/qwen3_8b_opd_tillicum/02_prepare_openthoughts3_math_sample.py
   examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py
+  examples/qwen3_8b_opd_tillicum/summarize_opd_sanity.py
   examples/qwen3_8b_opd_tillicum/summarize_eval.py
   sitecustomize.py
   slime/backends/sglang_utils/native_rope.py
@@ -93,6 +94,7 @@ REQUIRED_CONTAINER_ENV=(
   OPD_OFFLOAD_ROLLOUT
   OPD_RECOMPUTE_LOSS_FUNCTION
   OPD_OPTIMIZER_CPU_OFFLOAD
+  OPD_REF_LOAD_DIR
   OPD_LOG_PROBS_CHUNK_SIZE
   OPD_TRAIN_MEMORY_MARGIN_BYTES
   OPD_DISABLE_CUDA_GRAPH
@@ -102,6 +104,7 @@ REQUIRED_CONTAINER_ENV=(
   OPD_SGLANG_RL_ON_POLICY_TARGET
   OPD_SANITY_CHECK_ENABLED
   OPD_SANITY_REPORT_DIR
+  OPD_SANITY_SUMMARY_DIR
   EVAL_DISABLE_CUDA_GRAPH
   EVAL_SGLANG_RL_ON_POLICY_TARGET
 )

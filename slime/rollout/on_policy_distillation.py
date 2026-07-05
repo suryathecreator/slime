@@ -86,7 +86,32 @@ def maybe_check_rollout_sanity(args, samples: list[Sample]) -> None:
     if rollout_id is not None and rollout_id > max_rollout_id:
         return
 
+    violations = []
+    max_cap_hit_rate = float(os.environ.get("OPD_SANITY_MAX_CAP_HIT_RATE", "1.0"))
+    max_avg_tokens = float(os.environ.get("OPD_SANITY_MAX_AVG_RESPONSE_TOKENS", "inf"))
+    min_final_answer_rate = float(os.environ.get("OPD_SANITY_MIN_FINAL_ANSWER_RATE", "0.0"))
+    fail_on_collapse = _env_bool("OPD_SANITY_FAIL_ON_COLLAPSE", True)
     summary = summarize_rollout_sanity(args, samples)
+
+    if summary["cap_hit_rate"] > max_cap_hit_rate:
+        violations.append(f"cap_hit_rate {summary['cap_hit_rate']:.3f} > {max_cap_hit_rate:.3f}")
+    if summary["avg_response_tokens"] > max_avg_tokens:
+        violations.append(f"avg_response_tokens {summary['avg_response_tokens']:.1f} > {max_avg_tokens:.1f}")
+    if summary["final_answer_rate"] < min_final_answer_rate:
+        violations.append(
+            f"final_answer_rate {summary['final_answer_rate']:.3f} < {min_final_answer_rate:.3f}"
+        )
+
+    summary["thresholds"] = {
+        "max_rollout_id": max_rollout_id,
+        "max_cap_hit_rate": max_cap_hit_rate,
+        "max_avg_response_tokens": max_avg_tokens,
+        "min_final_answer_rate": min_final_answer_rate,
+        "fail_on_collapse": fail_on_collapse,
+    }
+    summary["violations"] = violations
+    summary["sanity_passed"] = not violations
+
     report_dir = os.environ.get("OPD_SANITY_REPORT_DIR")
     if report_dir:
         if rollout_id is not None:
@@ -99,21 +124,7 @@ def maybe_check_rollout_sanity(args, samples: list[Sample]) -> None:
 
     print(f"OPD_SANITY {json.dumps(summary, ensure_ascii=False)}", flush=True)
 
-    violations = []
-    max_cap_hit_rate = float(os.environ.get("OPD_SANITY_MAX_CAP_HIT_RATE", "1.0"))
-    max_avg_tokens = float(os.environ.get("OPD_SANITY_MAX_AVG_RESPONSE_TOKENS", "inf"))
-    min_final_answer_rate = float(os.environ.get("OPD_SANITY_MIN_FINAL_ANSWER_RATE", "0.0"))
-
-    if summary["cap_hit_rate"] > max_cap_hit_rate:
-        violations.append(f"cap_hit_rate {summary['cap_hit_rate']:.3f} > {max_cap_hit_rate:.3f}")
-    if summary["avg_response_tokens"] > max_avg_tokens:
-        violations.append(f"avg_response_tokens {summary['avg_response_tokens']:.1f} > {max_avg_tokens:.1f}")
-    if summary["final_answer_rate"] < min_final_answer_rate:
-        violations.append(
-            f"final_answer_rate {summary['final_answer_rate']:.3f} < {min_final_answer_rate:.3f}"
-        )
-
-    if violations and _env_bool("OPD_SANITY_FAIL_ON_COLLAPSE", True):
+    if violations and fail_on_collapse:
         raise RuntimeError("OPD sanity check failed: " + "; ".join(violations))
 
 
