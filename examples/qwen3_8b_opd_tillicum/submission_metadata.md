@@ -1254,14 +1254,52 @@ Recorded: 2026-07-01 17:28 PDT
   records the `160279` trigger table, dataset facts used in the long-trace
   analysis, the accidental base -> OPD loader/ref-sync issue, metric averaging
   rules, and the OPD pipeline/debugging semantics.
-- Planned preservation before replacement submission:
-  archive `rollout_0.pt` through `rollout_4.pt` and
-  `samples_0_127.json` through `samples_512_639.json` with a
-  `.failed_160279` suffix.
-- Planned cancellation before replacement submission: stale downstream jobs
-  `160280`, `160281`, and `160282`.
+- Patch commit: `91233ff` (`Make colocate4 sanity nonfatal`), pushed to
+  `origin/opd-reproduction` before replacement submission.
+- Static validation before replacement submission:
+  - `python3 -m py_compile` on touched Python files passed.
+  - `bash -n` on touched shell/sbatch scripts passed.
+  - `git diff --check` passed.
+  - Full colocate4 dry check with `RUN_CONTAINER_CHECKS=1` passed, including
+    Slurm `sbatch --test-only`, container imports, native SGLang shim, and the
+    comma-env forwarding probe.
+  - `summarize_opd_sanity.py` successfully regenerated a `160279` sanity
+    table in `/tmp/opd_sanity_160279_check` and marked rollout `4` violated
+    but nonfatal.
+- Archived diagnostics before replacement submission:
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_0.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_1.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_2.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_3.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_rollout_logs/rollout_4.pt.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_0_127.json.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_128_255.json.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_256_383.json.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_384_511.json.failed_160279`
+  - `opd_1k_32k_sft_colocate4_sanity/samples_512_639.json.failed_160279`
+- Canceled stale downstream jobs: `160280`, `160281`, and `160282`.
+- Replacement submit time: `2026-07-04T20:42:36-07:00`.
 - Replacement dependency policy: train has no dependency; downstream jobs use
   `afterok`.
+- OPD train job: `160424`, `slime-qwen3-opd1k-sft4g`, `gpu:h200:4`,
+  `time=18:00:00`, `Dependency=(null)`, running on `g018` at submission
+  verification.
+- OPD final eval job: `160425`, `slime-qwen3-opd1k-sft4g-eval`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160424`.
+- Base maybe-eval job: `160426`, `slime-qwen3-base-math500-maybe`,
+  `gpu:h200:4`, `time=05:00:00`, dependency `afterok:160425`.
+- Final report job: `160427`, `slime-qwen3-final-report-sft4g`,
+  `gpu:h200:1`, `time=00:30:00`, dependency `afterok:160426`.
+- Mail for all replacement jobs: `MailUser=suryadv@cs.washington.edu`,
+  `MailType=END,FAIL`.
+- OPD initial load and reference load:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_eval_snapshots/iter_0000096`.
+- OPD save dir:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim`.
+- OPD eval output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_1k_32k_sft_colocate4_final`.
+- Combined final report output:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_colocate4`.
 - Expected runtime validation: new OPD log should show
   `OPD_SANITY_CHECK_ENABLED=1`, `OPD_SANITY_FAIL_ON_COLLAPSE=0`,
   `OPD_REF_LOAD_DIR` pointing at final SFT HF `iter_0000096`, SFT HF actor
