@@ -1,0 +1,4 @@
+phase,stage,train_samples,x_value,sample_label,step_label,accuracy,accuracy_on_parseable,avg_generated_tokens,parse_failure_rate,cap_hit_rate
+base,base,0,0,0,base,0.638,0.7595238095238095,1686.402,0.16,0.036
+sft,sft_024832,24832,24832,24832,SFT r96,0.75,0.78125,18574.302,0.04,0.576
+opd,opd_001024,1024,25856,SFT+1024,OPD r7,0.724,0.7685774946921444,26567.282,0.058,0.832

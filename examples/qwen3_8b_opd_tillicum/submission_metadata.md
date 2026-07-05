@@ -1306,3 +1306,42 @@ Recorded: 2026-07-01 17:28 PDT
   load from `iter_0000096`, logged SFT-reference KL rather than base-reference
   KL, small Megatron-vs-SGLang abs diff, and continuation past any sanity
   violation instead of a hard-stop.
+
+## Corrected SFT-Weights Colocate Final Result
+
+- Jobs completed successfully on `2026-07-05`:
+  - OPD train `160424`: `COMPLETED`, `0:0`, elapsed `05:40:59`.
+  - OPD eval `160425`: `COMPLETED`, `0:0`, elapsed `04:33:04`.
+  - maybe-base eval `160426`: `COMPLETED`, `0:0`, elapsed `00:00:05`.
+  - final report `160427`: `COMPLETED`, `0:0`, elapsed `00:00:03`.
+- Final full OPD checkpoint:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim/iter_0000007`.
+- Final OPD HF snapshot:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_eval_snapshots/iter_0000007`.
+- Trained-data manifest:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim/opd_trained_manifest.json`.
+- Checkpoint size reported by the wrapper:
+  `114672812172` bytes for `iter_0000007`.
+- Final MATH-500 points:
+  - Base: `accuracy=0.638`, `accuracy_on_parseable=0.7595238095`,
+    `parse_failure_rate=0.160`, `cap_hit_rate=0.036`,
+    `avg_generated_tokens=1686.402`.
+  - Final SFT: `accuracy=0.750`, `accuracy_on_parseable=0.78125`,
+    `parse_failure_rate=0.040`, `cap_hit_rate=0.576`,
+    `avg_generated_tokens=18574.302`.
+  - SFT + OPD 1024: `accuracy=0.724`,
+    `accuracy_on_parseable=0.7685774947`, `parse_failure_rate=0.058`,
+    `cap_hit_rate=0.832`, `avg_generated_tokens=26567.282`.
+- OPD rollout diagnostics:
+  - Mean response tokens over rollout means: `15845.8916`
+    (`min=14218.9375`, `max=18577.8125`).
+  - Mean `opd_reverse_kl`: `0.485068`.
+  - Mean Megatron actor vs SGLang rollout abs logprob diff: `0.022237`.
+  - Mean logged SFT-reference KL loss: `0.001396`.
+  - Rollouts `5` and `7` exceeded the `16000` average-token sanity threshold
+    but continued/trained because `OPD_SANITY_FAIL_ON_COLLAPSE=0`.
+- Tracked result artifacts were added under
+  `examples/qwen3_8b_opd_tillicum/results/corrected_sft_opd_colocate4_1k_32k/`,
+  including `summary_all.json`, `combined_accuracy_curve.csv`,
+  `combined_accuracy_curve.svg`, `opd_001024_summary.json`, and
+  `opd_sanity_summary.{json,csv,md}`.

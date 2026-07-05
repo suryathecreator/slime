@@ -282,3 +282,8 @@ and not the corrected SFT -> OPD experiment. The corrected colocate4 diagnostic
 note is recorded in `results/corrected_colocate4_diagnostics.md`; it defines the
 sanity/KL table columns, averaging rules, dataset facts, and the accidental
 base -> OPD loader/ref-sync issue.
+
+The completed corrected SFT -> OPD colocate4 1k/32k result is recorded under
+`results/corrected_sft_opd_colocate4_1k_32k/`. It includes the combined
+base -> SFT -> OPD MATH-500 summaries, the generated curve data, and the OPD
+rollout reward/logprob/sanity tables.

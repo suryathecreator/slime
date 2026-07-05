@@ -1,0 +1,54 @@
+{
+  "points": [
+    {
+      "phase": "base",
+      "stage": "base",
+      "train_samples": 0,
+      "x_value": 0,
+      "sample_label": "0",
+      "step_label": "base",
+      "accuracy": 0.638,
+      "accuracy_on_parseable": 0.7595238095238095,
+      "parse_failure_rate": 0.16,
+      "cap_hit_rate": 0.036,
+      "avg_generated_tokens": 1686.402
+    },
+    {
+      "phase": "sft",
+      "stage": "sft_024832",
+      "train_samples": 24832,
+      "x_value": 24832,
+      "sample_label": "24832",
+      "step_label": "SFT r96",
+      "accuracy": 0.75,
+      "accuracy_on_parseable": 0.78125,
+      "parse_failure_rate": 0.04,
+      "cap_hit_rate": 0.576,
+      "avg_generated_tokens": 18574.302
+    },
+    {
+      "phase": "opd",
+      "stage": "opd_001024",
+      "train_samples": 1024,
+      "x_value": 25856,
+      "sample_label": "SFT+1024",
+      "step_label": "OPD r7",
+      "accuracy": 0.724,
+      "accuracy_on_parseable": 0.7685774946921444,
+      "parse_failure_rate": 0.058,
+      "cap_hit_rate": 0.832,
+      "avg_generated_tokens": 26567.282
+    }
+  ],
+  "artifacts": {
+    "csv": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_colocate4/combined_accuracy_curve.csv",
+    "svg": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_colocate4/combined_accuracy_curve.svg",
+    "png": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_combined_25k_opd_1k_32k_sft_colocate4/combined_accuracy_curve.png"
+  },
+  "note": "Combined curve uses light blue shading for SFT and light purple shading for OPD. Corrected SFT -> OPD run: OPD initializes from the final SFT HF weights at rollout 96 with a fresh OPD optimizer. The 4-GPU corrected run colocates actor and student rollout engines on GPUs 0,1,2 with CP=3 and keeps the teacher on GPU 3. The earlier 1k_32k run is an accidental base -> OPD test because it used an HF snapshot as Megatron --load without the explicit HF-load path and fell back to base.",
+  "experiment_note": "Corrected SFT -> OPD run: OPD initializes from the final SFT HF weights at rollout 96 with a fresh OPD optimizer. The 4-GPU corrected run colocates actor and student rollout engines on GPUs 0,1,2 with CP=3 and keeps the teacher on GPU 3. The earlier 1k_32k run is an accidental base -> OPD test because it used an HF snapshot as Megatron --load without the explicit HF-load path and fell back to base.",
+  "opd_x_offset_samples": 24832,
+  "opd_label_prefix": "SFT+",
+  "sft_final_only": true,
+  "opd_final_only": true
+}
