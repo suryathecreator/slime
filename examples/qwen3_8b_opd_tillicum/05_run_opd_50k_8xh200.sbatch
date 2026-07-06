@@ -72,6 +72,7 @@ echo "Expected final OPD rollout id: ${OPD_FINAL_ROLLOUT_ID}"
 echo "Initial OPD load mode: ${OPD_INITIAL_LOAD_MODE}"
 echo "Initial OPD load dir: ${OPD_INITIAL_LOAD_DIR}"
 echo "OPD reference load dir for logged KL: ${OPD_REF_LOAD_DIR}"
+echo "OPD allow opt-param scheduler mismatch: ${OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH}"
 echo "OPD skip rollout data-state load: ${OPD_SKIP_ROLLOUT_DATA_STATE_LOAD}"
 echo "OPD already-trained samples before this run: ${OPD_ALREADY_TRAINED_SAMPLES}"
 echo "SFT full checkpoint dir: ${SFT_FINAL_FULL_CKPT_DIR}"
@@ -343,6 +344,10 @@ if [[ "${OPD_OPTIMIZER_CPU_OFFLOAD}" == "1" ]]; then
     --overlap-cpu-optimizer-d2h-h2d
     --use-precision-aware-optimizer
   )
+fi
+if [[ "${OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH}" == "1" ]]; then
+  echo "Allowing optimizer-parameter scheduler horizon changes via --override-opt-param-scheduler"
+  OPTIMIZER_ARGS+=(--override-opt-param-scheduler)
 fi
 
 WANDB_ARGS=()
