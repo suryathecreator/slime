@@ -287,3 +287,16 @@ The completed corrected SFT -> OPD colocate4 1k/32k result is recorded under
 `results/corrected_sft_opd_colocate4_1k_32k/`. It includes the combined
 base -> SFT -> OPD MATH-500 summaries, the generated curve data, and the OPD
 rollout reward/logprob/sanity tables.
+
+For the 25k continuation experiment, use
+`submit_opd_continue_1k_to_25k_val100_chain.sh`. This continues from the full
+optimizer checkpoint of the completed corrected 1k OPD run at
+`qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim/iter_0000007`, runs a
+seeded MATH-500 val100 eval on that current checkpoint first, then alternates
+1k-ish OPD continuation segments with 1-GPU val100 eval jobs until `24,960`
+total OPD samples. The continuation data prep extracts the actual first 1,024
+trained OPD `source_row_id`s from rollout debug artifacts and generates new OPD
+prompts excluding both those rows and all 25k SFT rows. The first continuation
+segment intentionally skips loading the old rollout dataset state, because that
+state points into the old 10k OPD pool; subsequent segments resume the new
+continuation dataset state normally.

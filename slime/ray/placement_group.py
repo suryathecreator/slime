@@ -211,8 +211,14 @@ def create_training_models(args, pgs, rollout_manager, actor_cls=None):
     if args.use_critic:
         critic_model.set_rollout_manager(rollout_manager)
 
-    if args.rollout_global_dataset:
+    if args.rollout_global_dataset and not args.skip_rollout_data_source_load:
         ray.get(rollout_manager.load.remote(args.start_rollout_id - 1))
+    elif args.rollout_global_dataset:
+        logger.info(
+            "Skipping rollout data-source state load before rollout %s because "
+            "--skip-rollout-data-source-load is set.",
+            args.start_rollout_id,
+        )
 
     return actor_model, critic_model
 

@@ -1345,3 +1345,27 @@ Recorded: 2026-07-01 17:28 PDT
   including `summary_all.json`, `combined_accuracy_curve.csv`,
   `combined_accuracy_curve.svg`, `opd_001024_summary.json`, and
   `opd_sanity_summary.{json,csv,md}`.
+
+## Planned 1k -> 25k OPD Continuation With Val100
+
+- Purpose: continue the completed corrected SFT -> OPD colocate4 run from the
+  full optimizer checkpoint at OPD rollout `7` / `1,024` samples to rollout
+  `194` / `24,960` total OPD samples.
+- Submitter: `submit_opd_continue_1k_to_25k_val100_chain.sh`.
+- Starting full optimizer checkpoint:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim/iter_0000007`.
+- Starting HF snapshot for the first val100 eval:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_eval_snapshots/iter_0000007`.
+- Continuation policy: load model/optimizer from the old OPD full checkpoint,
+  but skip the old rollout dataset-state load for the first continuation
+  segment so the new no-repeat continuation pool starts at offset `0`.
+  Subsequent segments resume from the new continuation save dir and load the
+  new dataset state normally.
+- No-repeat data policy: extract the actual `1,024` trained OPD source row ids
+  from the successful rollout debug files, then generate continuation OPD rows
+  excluding both those rows and all 25k SFT source row ids.
+- Eval policy: run seeded MATH-500 val100 on `opd_001024` first, then after
+  every 1k-ish endpoint through `opd_024960`; run a parallel 1-GPU full
+  MATH-500 eval at `opd_012544`.
+- Resource policy: OPD continuation jobs use `gpu:h200:4`; val100 and
+  midpoint full eval jobs use `gpu:h200:1`; final report uses `gpu:h200:1`.

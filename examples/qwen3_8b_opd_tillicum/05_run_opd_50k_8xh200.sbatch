@@ -72,6 +72,8 @@ echo "Expected final OPD rollout id: ${OPD_FINAL_ROLLOUT_ID}"
 echo "Initial OPD load mode: ${OPD_INITIAL_LOAD_MODE}"
 echo "Initial OPD load dir: ${OPD_INITIAL_LOAD_DIR}"
 echo "OPD reference load dir for logged KL: ${OPD_REF_LOAD_DIR}"
+echo "OPD skip rollout data-state load: ${OPD_SKIP_ROLLOUT_DATA_STATE_LOAD}"
+echo "OPD already-trained samples before this run: ${OPD_ALREADY_TRAINED_SAMPLES}"
 echo "SFT full checkpoint dir: ${SFT_FINAL_FULL_CKPT_DIR}"
 echo "OPD optimizer CPU offload: ${OPD_OPTIMIZER_CPU_OFFLOAD}"
 echo "OPD sanity guard: enabled=${OPD_SANITY_CHECK_ENABLED}, fail=${OPD_SANITY_FAIL_ON_COLLAPSE}, max rollout=${OPD_SANITY_MAX_ROLLOUT_ID}, max cap-hit=${OPD_SANITY_MAX_CAP_HIT_RATE}, max avg tokens=${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}, min final-answer=${OPD_SANITY_MIN_FINAL_ANSWER_RATE}"
@@ -238,7 +240,7 @@ else
     megatron)
       OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
       OPD_LOAD_KIND="sft_full_optim_initial"
-      echo "Starting OPD from full SFT optimizer checkpoint ${OPD_LOAD_DIR}"
+      echo "Starting OPD from full Megatron optimizer checkpoint ${OPD_LOAD_DIR}"
       validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
       ;;
     hf)
@@ -289,6 +291,9 @@ ROLLOUT_ARGS=(
   --balance-data
   --save-debug-rollout-data "${OPD_ROLLOUT_LOG_DIR}/rollout_{rollout_id}.pt"
 )
+if [[ "${OPD_SKIP_ROLLOUT_DATA_STATE_LOAD}" == "1" ]]; then
+  ROLLOUT_ARGS+=(--skip-rollout-data-source-load)
+fi
 
 RM_ARGS=(
   --custom-rm-path slime.rollout.on_policy_distillation.reward_func
@@ -439,6 +444,9 @@ if [[ ! -d "${OPD_FINAL_HF_DIR}" ]]; then
   exit 1
 fi
 
+if [[ "${OPD_MANIFEST_FROM_ROLLOUT_LOGS}" == "1" ]]; then
+  "${SCRIPT_DIR}/container_exec.sh" python3 examples/qwen3_8b_opd_tillicum/write_opd_trained_manifest.py
+else
 python3 - <<'PY'
 import json
 import os
@@ -513,6 +521,7 @@ manifest_path.write_text(manifest_text, encoding="utf-8")
 print(f"Wrote OPD trained manifest: {manifest_path}")
 print(f"Copied OPD trained manifest to: {hf_dir / 'opd_trained_manifest.json'}")
 PY
+fi
 
 if [[ -f "${SPLIT_METADATA}" ]]; then
   cp -f "${SPLIT_METADATA}" "${OPD_SAVE_DIR}/split_metadata.json"

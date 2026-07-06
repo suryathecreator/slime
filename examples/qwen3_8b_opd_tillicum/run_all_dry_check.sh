@@ -56,8 +56,10 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_sft_colocate4_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_opd_1k_32k_sft_offload4_chain.sh
+  examples/qwen3_8b_opd_tillicum/submit_opd_continue_1k_to_25k_val100_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_cleanup_base_opd_2gpu.sh
   examples/qwen3_8b_opd_tillicum/02_prepare_data_25k_10k.sbatch
+  examples/qwen3_8b_opd_tillicum/02_prepare_opd_continuation_25k_val100.sbatch
   examples/qwen3_8b_opd_tillicum/03_convert_models_if_needed.sbatch
   examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
   examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch
@@ -73,9 +75,14 @@ PYTHON_FILES=(
   examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py
   examples/qwen3_8b_opd_tillicum/summarize_opd_sanity.py
   examples/qwen3_8b_opd_tillicum/summarize_eval.py
+  examples/qwen3_8b_opd_tillicum/prepare_math500_subset.py
+  examples/qwen3_8b_opd_tillicum/prepare_opd_continuation_pool.py
+  examples/qwen3_8b_opd_tillicum/write_opd_trained_manifest.py
   sitecustomize.py
   slime/backends/sglang_utils/native_rope.py
   slime/backends/sglang_utils/sglang_engine.py
+  slime/utils/arguments.py
+  slime/ray/placement_group.py
   slime/ray/rollout.py
   slime/ray/utils.py
 )
@@ -94,6 +101,15 @@ REQUIRED_CONTAINER_ENV=(
   OPD_OFFLOAD_ROLLOUT
   OPD_RECOMPUTE_LOSS_FUNCTION
   OPD_OPTIMIZER_CPU_OFFLOAD
+  OPD_SKIP_ROLLOUT_DATA_STATE_LOAD
+  OPD_ALREADY_TRAINED_SAMPLES
+  OPD_PREVIOUS_RUN_LABEL
+  OPD_PREVIOUS_SAVE_DIR
+  OPD_PREVIOUS_HF_SNAPSHOT_DIR
+  OPD_PREVIOUS_ROLLOUT_LOG_DIR
+  OPD_PREVIOUS_TRAINED_MANIFEST
+  OPD_CONTINUATION_METADATA
+  OPD_MANIFEST_FROM_ROLLOUT_LOGS
   OPD_REF_LOAD_DIR
   OPD_LOG_PROBS_CHUNK_SIZE
   OPD_TRAIN_MEMORY_MARGIN_BYTES
@@ -107,6 +123,9 @@ REQUIRED_CONTAINER_ENV=(
   OPD_SANITY_SUMMARY_DIR
   EVAL_DISABLE_CUDA_GRAPH
   EVAL_SGLANG_RL_ON_POLICY_TARGET
+  MATH500_VAL100_JSONL
+  MATH500_VAL100_CONFIG
+  MATH500_VAL100_METADATA
 )
 for name in "${REQUIRED_CONTAINER_ENV[@]}"; do
   if ! grep -Eq "^[[:space:]]+${name}$" examples/qwen3_8b_opd_tillicum/container_exec.sh; then
@@ -120,6 +139,7 @@ python3 -m py_compile "${PYTHON_FILES[@]}"
 
 SBATCH_FILES=(
   examples/qwen3_8b_opd_tillicum/02_prepare_data_25k_10k.sbatch
+  examples/qwen3_8b_opd_tillicum/02_prepare_opd_continuation_25k_val100.sbatch
   examples/qwen3_8b_opd_tillicum/03_convert_models_if_needed.sbatch
   examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
   examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch
