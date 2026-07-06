@@ -1369,3 +1369,60 @@ Recorded: 2026-07-01 17:28 PDT
   MATH-500 eval at `opd_012544`.
 - Resource policy: OPD continuation jobs use `gpu:h200:4`; val100 and
   midpoint full eval jobs use `gpu:h200:1`; final report uses `gpu:h200:1`.
+
+## Submitted 1k -> 25k OPD Continuation With Val100
+
+- Implementation commit: `24359e6` (`Add OPD 25k continuation val100 chain`),
+  pushed to `origin/opd-reproduction` before submission.
+- Submit time/log: `2026-07-05 23:55 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_opd_continue_1k_to_25k_val100_20260705_235549.txt`.
+- Scheduler validation after submission: data job pending for `Priority`;
+  downstream sampled jobs pending on expected dependencies; no sampled job is
+  `DependencyNeverSatisfied`; sampled jobs have
+  `MailUser=suryadv@cs.washington.edu` and `MailType=END,FAIL`.
+- Pre-submit data validation: container extractor read exactly `1,024` unique
+  old OPD trained `source_row_id`s from
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/opd_1k_32k_sft_colocate4_rollout_logs`.
+- Output paths:
+  - Continuation data:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_math_opd_continue_1k_to_25k_seed1234.jsonl`.
+  - Continuation metadata:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_math_sft_25000_opd_continue_1k_to_25k_seed1234_metadata.json`.
+  - Val100 eval:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_25k_32k_sft_colocate4_continue_val100`.
+  - Midpoint full500 eval:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_25k_32k_sft_colocate4_continue_mid_full500`.
+  - Continuation save dir:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_25k_32k_sft_colocate4_continue_full_optim`.
+  - Continuation HF snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_25k_32k_sft_colocate4_continue_eval_snapshots`.
+- Job IDs:
+  - Data prep: `161481`.
+  - Current 1k val100: `161482`.
+  - Train/eval pairs:
+    `2048=(161483,161484)`, `3072=(161485,161486)`,
+    `4096=(161487,161488)`, `5120=(161489,161490)`,
+    `6144=(161491,161492)`, `7168=(161493,161494)`,
+    `8192=(161495,161496)`, `9216=(161497,161498)`,
+    `10240=(161499,161500)`, `11264=(161501,161502)`,
+    `12288=(161503,161504)`, `12544=(161505,161506)`,
+    `13312=(161508,161509)`, `14336=(161510,161511)`,
+    `15360=(161512,161513)`, `16384=(161514,161515)`,
+    `17408=(161516,161517)`, `18432=(161518,161519)`,
+    `19456=(161520,161521)`, `20480=(161522,161523)`,
+    `21504=(161524,161525)`, `22528=(161526,161527)`,
+    `23552=(161528,161529)`, `24576=(161530,161531)`,
+    `24960=(161532,161533)`.
+  - Midpoint full500 at `12,544`: `161507`.
+  - Final report: `161534`, dependency `afterany:161533:161507`.
+- Runtime validation targets:
+  - `161481` writes val100 JSONL/config/metadata and continuation data with
+    `SFT ∩ new_OPD = ∅` and `old_1k_OPD ∩ new_OPD = ∅`.
+  - `161482` writes `opd_001024/summary.json` with exactly 100 samples.
+  - `161483` logs old full optimizer load from `iter_0000007`,
+    `OPD_SKIP_ROLLOUT_DATA_STATE_LOAD=1`, and rollout start at `8`.
+  - Later train jobs log normal dataset-state resume from the continuation
+    save dir.
+  - `161507` writes the 1-GPU full MATH-500 midpoint summary for
+    `opd_012544`.
+  - `161533` writes the final val100 summary for `opd_024960`.
