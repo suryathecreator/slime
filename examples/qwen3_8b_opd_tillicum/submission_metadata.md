@@ -1423,6 +1423,88 @@ Recorded: 2026-07-01 17:28 PDT
     `OPD_SKIP_ROLLOUT_DATA_STATE_LOAD=1`, and rollout start at `8`.
   - Later train jobs log normal dataset-state resume from the continuation
     save dir.
-  - `161507` writes the 1-GPU full MATH-500 midpoint summary for
+
+## OPD 25k Continuation Resume Patch and Replacement Chain
+
+- Latest failure: first continuation train job `161483` failed before rollout
+  or training while loading the completed 1k OPD full optimizer checkpoint.
+- Fatal error:
+  `OptimizerParamScheduler: class input value 24960 and checkpointvalue 1024 for total number of iterations do not match`.
+- Root cause:
+  - The old 1k OPD optimizer checkpoint persisted an LR scheduler horizon for
+    `1,024` samples.
+  - The continuation submitter had also leaked final-run derived env values
+    through `--export=ALL`, so the first segment logged the final rollout
+    horizon instead of endpoint-specific values.
+- Preserved progress:
+  - Data prep `161481` completed and is reused.
+  - Current 1k val100 `161482` completed and is reused:
+    `accuracy=0.700`, `accuracy_on_parseable=0.7526881720`,
+    `parse_failure_rate=0.070`, `cap_hit_rate=0.840`.
+  - No output from failed train `161483` is used as progress; the continuation
+    save dir still had no `latest_checkpointed_iteration.txt`.
+- Patch commit: `05e238b` (`Fix OPD continuation segmented resume`), pushed to
+  `origin/opd-reproduction` before replacement submission.
+- Patch behavior:
+  - Continuation train jobs set
+    `OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH=1`, which passes Megatron's
+    `--override-opt-param-scheduler`; model weights and optimizer state still
+    load from the 1k full checkpoint, while the freshly constructed scheduler
+    uses the current continuation segment horizon.
+  - The submitter now explicitly exports per-endpoint derived values:
+    `OPD_TRAIN_SIZE`, `OPD_NUM_ROLLOUT`, `OPD_FINAL_ROLLOUT_ID`,
+    `OPD_EFFECTIVE_TRAIN_SAMPLES`, `OPD_FINAL_HF_DIR`,
+    `OPD_MILESTONE_ROLLOUT_IDS`, and `OPD_SANITY_MAX_ROLLOUT_ID`.
+  - The submitter can reuse existing data/current-val artifacts; for this retry
+    `OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL=1`.
+- Validation before submission:
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `python3 -m py_compile` on touched/related Python helpers: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+  - Targeted container CLI check confirmed Megatron exposes
+    `--override-opt-param-scheduler`.
+- Canceled stale downstream jobs from the failed chain:
+  `161484` through `161534`.
+- Replacement submit time/log: `2026-07-06 12:38 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_opd_continue_1k_to_25k_val100_20260706_123823.txt`.
+- Replacement job IDs:
+  - Preserved data/current val:
+    `data=preserved_existing_data`,
+    `val100_current_001024=preserved_existing_opd_001024_val100`.
+  - Train/eval pairs:
+    `2048=(161751,161752)`, `3072=(161753,161754)`,
+    `4096=(161755,161756)`, `5120=(161757,161758)`,
+    `6144=(161759,161760)`, `7168=(161761,161762)`,
+    `8192=(161763,161764)`, `9216=(161765,161766)`,
+    `10240=(161767,161768)`, `11264=(161769,161770)`,
+    `12288=(161771,161772)`, `12544=(161773,161774)`,
+    `13312=(161776,161777)`, `14336=(161778,161779)`,
+    `15360=(161780,161781)`, `16384=(161782,161783)`,
+    `17408=(161784,161785)`, `18432=(161786,161787)`,
+    `19456=(161788,161789)`, `20480=(161790,161791)`,
+    `21504=(161792,161793)`, `22528=(161794,161795)`,
+    `23552=(161796,161797)`, `24576=(161798,161799)`,
+    `24960=(161800,161801)`.
+  - Midpoint full500 at `12,544`: `161775`.
+  - Final report: `161802`, dependency `afterany:161801:161775`.
+- Scheduler validation after replacement submission:
+  - First replacement train `161751` is pending for `Priority` with no
+    dependency and estimated start `2026-07-06 16:39 PDT`.
+  - `scontrol show job -o 161751` shows endpoint-specific exports:
+    `OPD_TRAIN_SIZE=2048`, `OPD_NUM_ROLLOUT=16`,
+    `OPD_FINAL_ROLLOUT_ID=15`, `OPD_EFFECTIVE_TRAIN_SAMPLES=2048`,
+    `OPD_SKIP_ROLLOUT_DATA_STATE_LOAD=1`, and
+    `OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH=1`.
+  - Representative jobs `161751`, `161752`, `161775`, and `161802` have
+    `MailUser=suryadv@cs.washington.edu` and `MailType=END,FAIL`.
+  - No replacement job is `DependencyNeverSatisfied` at submission check.
+- Runtime validation targets:
+  - `161751` log shows full optimizer load from old OPD `iter_0000007`.
+  - `161751` log shows
+    `Allowing optimizer-parameter scheduler horizon changes via --override-opt-param-scheduler`.
+  - `161751` starts rollout id `8` and writes first continuation checkpoint/HF
+    snapshot `iter_0000015`.
+  - `161775` writes the 1-GPU full MATH-500 midpoint summary for
     `opd_012544`.
-  - `161533` writes the final val100 summary for `opd_024960`.
+  - `161801` writes the final val100 summary for `opd_024960`.
