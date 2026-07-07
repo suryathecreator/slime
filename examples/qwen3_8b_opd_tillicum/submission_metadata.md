@@ -1508,3 +1508,38 @@ Recorded: 2026-07-01 17:28 PDT
   - `161775` writes the 1-GPU full MATH-500 midpoint summary for
     `opd_012544`.
   - `161801` writes the final val100 summary for `opd_024960`.
+
+## Planned Serialized 4-GPU Val100/Eval Replacement for OPD 25k Continuation
+
+- Reason for patch:
+  - First replacement train `161751` completed and produced the valid
+    continuation checkpoint/HF snapshot for `opd_002048` at rollout `15`.
+  - Follow-up val100 `161752` was running as a 1-GPU eval and had not yet
+    written `opd_002048/summary.json` or a complete `debug_eval_0.pt` when
+    inspected, so there was no fidelity-safe partial artifact to append.
+  - Downstream jobs `161753` through `161802` were still the old serialized
+    train/1-GPU-val chain.
+- Patch behavior:
+  - Continuation val100 and midpoint full MATH-500 eval jobs now default to
+    `gpu:h200:4`, `EVAL_ROLLOUT_NUM_GPUS=4`,
+    `EVAL_ROLLOUT_BATCH_SIZE=64`, eval `TP=1`, eval `CP=1`, and
+    `EVAL_SGLANG_SERVER_CONCURRENCY=2`.
+  - Report-only jobs use `gpu:h200:1`.
+  - The submitter detects a completed continuation endpoint checkpoint. If its
+    val100 summary is missing, it preserves the train checkpoint and submits
+    only that endpoint's val100. If the summary already exists, it skips the
+    endpoint entirely.
+  - The midpoint full MATH-500 eval at `opd_012544` now depends on
+    `val100_012544`, and later training depends on the full eval, preventing
+    any intentional overlap between training, val100, full eval, and report
+    jobs.
+- Preservation policy for `161752`:
+  - If `opd_002048/summary.json` appears before cancellation, preserve it.
+  - Else if a complete `debug_eval_0.pt` appears, summarize and preserve it.
+  - Otherwise cancel `161752`; partial in-memory generations are not reused.
+- Resource policy after patch:
+  - OPD train: `gpu:h200:4`.
+  - Val100 and midpoint full MATH-500 eval: `gpu:h200:4`.
+  - Report: `gpu:h200:1`.
+  - Dependencies are strict enough that no chain job should run in parallel
+    with another chain train/eval/report job.

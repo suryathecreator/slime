@@ -28,10 +28,12 @@ export OPD_MANIFEST_FROM_ROLLOUT_LOGS="${OPD_MANIFEST_FROM_ROLLOUT_LOGS:-1}"
 export OPD_INITIAL_LOAD_MODE="${OPD_INITIAL_LOAD_MODE:-megatron}"
 export OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH="${OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH:-1}"
 export OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL="${OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL:-auto}"
+export OPD_CONTINUE_RESUME_ENDPOINT="${OPD_CONTINUE_RESUME_ENDPOINT:-auto}"
 export GPU_GRES="${GPU_GRES:-gpu:h200:4}"
-export VAL_GPU_GRES="${VAL_GPU_GRES:-gpu:h200:1}"
-export EVAL_ROLLOUT_NUM_GPUS="${EVAL_ROLLOUT_NUM_GPUS:-1}"
-export EVAL_ROLLOUT_BATCH_SIZE="${EVAL_ROLLOUT_BATCH_SIZE:-16}"
+export VAL_GPU_GRES="${VAL_GPU_GRES:-gpu:h200:4}"
+export REPORT_GPU_GRES="${REPORT_GPU_GRES:-gpu:h200:1}"
+export EVAL_ROLLOUT_NUM_GPUS="${EVAL_ROLLOUT_NUM_GPUS:-4}"
+export EVAL_ROLLOUT_BATCH_SIZE="${EVAL_ROLLOUT_BATCH_SIZE:-64}"
 export EVAL_TENSOR_MODEL_PARALLEL_SIZE="${EVAL_TENSOR_MODEL_PARALLEL_SIZE:-1}"
 export EVAL_CONTEXT_PARALLEL_SIZE="${EVAL_CONTEXT_PARALLEL_SIZE:-1}"
 export EVAL_SGLANG_SERVER_CONCURRENCY="${EVAL_SGLANG_SERVER_CONCURRENCY:-2}"
@@ -101,7 +103,7 @@ fi
 SBATCH_DATA=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres "${VAL_GPU_GRES}" --cpus-per-task=8)
 SBATCH_TRAIN=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres "${GPU_GRES}" --cpus-per-task=32)
 SBATCH_EVAL=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres "${VAL_GPU_GRES}" --cpus-per-task=8)
-SBATCH_REPORT=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres "${VAL_GPU_GRES}" --cpus-per-task=4)
+SBATCH_REPORT=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres "${REPORT_GPU_GRES}" --cpus-per-task=4)
 
 submit_log="${SLURM_LOG_DIR}/submit_opd_continue_1k_to_25k_val100_$(date +%Y%m%d_%H%M%S).txt"
 
@@ -113,7 +115,7 @@ echo "OPD continuation metadata: ${OPD_CONTINUATION_METADATA}"
 echo "Previous OPD checkpoint: ${OPD_PREVIOUS_SAVE_DIR}/iter_0000007"
 echo "Val100 output: ${OPD_VAL100_EVAL_OUTPUT_DIR}"
 echo "Midpoint full500 output: ${OPD_MID_FULL_EVAL_OUTPUT_DIR}"
-echo "Train/eval GRES: ${GPU_GRES}/${VAL_GPU_GRES}"
+echo "Train/eval/report GRES: ${GPU_GRES}/${VAL_GPU_GRES}/${REPORT_GPU_GRES}"
 echo "Eval GPUs/batch/concurrency: ${EVAL_ROLLOUT_NUM_GPUS}/${EVAL_ROLLOUT_BATCH_SIZE}/${EVAL_SGLANG_SERVER_CONCURRENCY}"
 
 format_iter_dir() {
@@ -133,6 +135,22 @@ segment_export_vars() {
     "${endpoint}" "${num_rollout}" "${rollout_id}" "${endpoint}" "${final_hf_dir}" "${rollout_id}" "${rollout_id}"
 }
 
+stage_name_for_endpoint() {
+  local endpoint="$1"
+  printf "opd_%06d" "${endpoint}"
+}
+
+checkpoint_ready_for_endpoint() {
+  local endpoint="$1"
+  local rollout_id=$((endpoint / OPD_ROLLOUT_BATCH_SIZE - 1))
+  [[ -f "$(format_iter_dir "${OPD_SAVE_DIR}" "${rollout_id}")/.metadata" && -d "$(format_iter_dir "${OPD_HF_SNAPSHOT_DIR}" "${rollout_id}")" ]]
+}
+
+val_summary_for_endpoint() {
+  local endpoint="$1"
+  printf "%s/%s/summary.json" "${OPD_VAL100_EVAL_OUTPUT_DIR}" "$(stage_name_for_endpoint "${endpoint}")"
+}
+
 current_val_summary="${OPD_VAL100_EVAL_OUTPUT_DIR}/opd_001024/summary.json"
 skip_initial=0
 case "${OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL}" in
@@ -150,6 +168,50 @@ case "${OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL}" in
   *)
     echo "OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL must be auto, 0, or 1; got ${OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL}" >&2
     exit 1
+    ;;
+esac
+
+ENDPOINTS=()
+for samples in 2048 3072 4096 5120 6144 7168 8192 9216 10240 11264 12288 12544 13312 14336 15360 16384 17408 18432 19456 20480 21504 22528 23552 24576 24960; do
+  ENDPOINTS+=("${samples}")
+done
+
+resume_endpoint="0"
+case "${OPD_CONTINUE_RESUME_ENDPOINT}" in
+  none|0)
+    resume_endpoint="0"
+    ;;
+  auto)
+    for endpoint in "${ENDPOINTS[@]}"; do
+      if checkpoint_ready_for_endpoint "${endpoint}" && [[ ! -f "$(val_summary_for_endpoint "${endpoint}")" ]]; then
+        resume_endpoint="${endpoint}"
+        break
+      fi
+    done
+    ;;
+  ''|*[!0-9]*)
+    echo "OPD_CONTINUE_RESUME_ENDPOINT must be auto, none, 0, or an endpoint sample count; got ${OPD_CONTINUE_RESUME_ENDPOINT}" >&2
+    exit 1
+    ;;
+  *)
+    resume_endpoint="${OPD_CONTINUE_RESUME_ENDPOINT}"
+    found_resume_endpoint=0
+    for endpoint in "${ENDPOINTS[@]}"; do
+      if [[ "${endpoint}" -eq "${resume_endpoint}" ]]; then
+        found_resume_endpoint=1
+        break
+      fi
+    done
+    if [[ "${found_resume_endpoint}" != "1" ]]; then
+      echo "OPD_CONTINUE_RESUME_ENDPOINT=${resume_endpoint} is not one of the configured endpoints." >&2
+      exit 1
+    fi
+    if ! checkpoint_ready_for_endpoint "${resume_endpoint}"; then
+      echo "Cannot resume from endpoint ${resume_endpoint}; missing full checkpoint or HF snapshot." >&2
+      echo "  full checkpoint: $(format_iter_dir "${OPD_SAVE_DIR}" "$((resume_endpoint / OPD_ROLLOUT_BATCH_SIZE - 1))")/.metadata" >&2
+      echo "  HF snapshot: $(format_iter_dir "${OPD_HF_SNAPSHOT_DIR}" "$((resume_endpoint / OPD_ROLLOUT_BATCH_SIZE - 1))")" >&2
+      exit 1
+    fi
     ;;
 esac
 
@@ -182,7 +244,7 @@ else
   jid_current_val="$(
     sbatch --parsable "${SBATCH_EVAL[@]}" \
       --dependency=afterok:${jid_data} \
-      --time=08:00:00 \
+      --time=05:00:00 \
       --job-name=slime-qwen3-opd1k-val100 \
       --export=ALL,${current_val_exports},OPD_HF_SNAPSHOT_DIR="${OPD_PREVIOUS_HF_SNAPSHOT_DIR}",EVAL_TARGETS=opd,EVAL_OUTPUT_DIR="${OPD_VAL100_EVAL_OUTPUT_DIR}",OPD_EVAL_OUTPUT_DIR="${OPD_VAL100_EVAL_OUTPUT_DIR}",MATH500_JSONL="${MATH500_VAL100_JSONL}",MATH500_CONFIG="${MATH500_VAL100_CONFIG}",EVAL_EXPECTED_SAMPLES=100,EVAL_SKIP_COMPLETED=1 \
       examples/qwen3_8b_opd_tillicum/06_eval_math500_greedy_1x.sbatch
@@ -190,17 +252,52 @@ else
   prior_dep="${jid_current_val}"
 fi
 
-ENDPOINTS=()
-for samples in 2048 3072 4096 5120 6144 7168 8192 9216 10240 11264 12288 12544 13312 14336 15360 16384 17408 18432 19456 20480 21504 22528 23552 24576 24960; do
-  ENDPOINTS+=("${samples}")
-done
-
 mid_full_jid=""
 train_jobs=()
 val_jobs=("${jid_current_val}")
 
 for endpoint in "${ENDPOINTS[@]}"; do
   rid=$((endpoint / OPD_ROLLOUT_BATCH_SIZE - 1))
+  endpoint_exports="$(segment_export_vars "${endpoint}" "${rid}" "${OPD_HF_SNAPSHOT_DIR}")"
+  endpoint_val_summary="$(val_summary_for_endpoint "${endpoint}")"
+  if checkpoint_ready_for_endpoint "${endpoint}" && [[ -f "${endpoint_val_summary}" ]]; then
+    train_jobs+=("preserved_existing_train_${endpoint}")
+    val_jobs+=("preserved_existing_val100_${endpoint}")
+    prior_dep=""
+    continue
+  fi
+  if [[ "${resume_endpoint}" != "0" && "${endpoint}" -lt "${resume_endpoint}" ]]; then
+    if [[ ! -f "${endpoint_val_summary}" ]]; then
+      echo "Cannot skip endpoint ${endpoint}; missing prior val100 summary: ${endpoint_val_summary}" >&2
+      exit 1
+    fi
+    train_jobs+=("preserved_existing_train_${endpoint}")
+    val_jobs+=("preserved_existing_val100_${endpoint}")
+    continue
+  fi
+  if [[ "${resume_endpoint}" != "0" && "${endpoint}" -eq "${resume_endpoint}" ]]; then
+    train_jobs+=("preserved_existing_train_${endpoint}")
+    if [[ -f "${endpoint_val_summary}" ]]; then
+      jid_val="preserved_existing_val100_${endpoint}"
+      prior_dep=""
+    else
+      val_dependency_args=()
+      if [[ -n "${prior_dep}" ]]; then
+        val_dependency_args=(--dependency=afterok:${prior_dep})
+      fi
+      jid_val="$(
+        sbatch --parsable "${SBATCH_EVAL[@]}" \
+          "${val_dependency_args[@]}" \
+          --time=05:00:00 \
+          --job-name="$(printf "slime-qwen3-val100-%05d" "${endpoint}")" \
+          --export=ALL,${endpoint_exports},OPD_HF_SNAPSHOT_DIR="${OPD_HF_SNAPSHOT_DIR}",EVAL_TARGETS=opd,EVAL_OUTPUT_DIR="${OPD_VAL100_EVAL_OUTPUT_DIR}",OPD_EVAL_OUTPUT_DIR="${OPD_VAL100_EVAL_OUTPUT_DIR}",MATH500_JSONL="${MATH500_VAL100_JSONL}",MATH500_CONFIG="${MATH500_VAL100_CONFIG}",EVAL_EXPECTED_SAMPLES=100,EVAL_SKIP_COMPLETED=1 \
+          examples/qwen3_8b_opd_tillicum/06_eval_math500_greedy_1x.sbatch
+      )"
+      prior_dep="${jid_val}"
+    fi
+    val_jobs+=("${jid_val}")
+    continue
+  fi
   train_time="08:00:00"
   if [[ "${endpoint}" -eq 12544 ]]; then
     train_time="03:00:00"
@@ -212,7 +309,6 @@ for endpoint in "${ENDPOINTS[@]}"; do
     skip_data_state_load=1
   fi
   num_rollout=$((rid + 1))
-  endpoint_exports="$(segment_export_vars "${endpoint}" "${rid}" "${OPD_HF_SNAPSHOT_DIR}")"
   train_dependency_args=()
   if [[ -n "${prior_dep}" ]]; then
     train_dependency_args=(--dependency=afterok:${prior_dep})
@@ -231,7 +327,7 @@ for endpoint in "${ENDPOINTS[@]}"; do
   jid_val="$(
     sbatch --parsable "${SBATCH_EVAL[@]}" \
       --dependency=afterok:${jid_train} \
-      --time=08:00:00 \
+      --time=05:00:00 \
       --job-name="$(printf "slime-qwen3-val100-%05d" "${endpoint}")" \
       --export=ALL,${endpoint_exports},OPD_HF_SNAPSHOT_DIR="${OPD_HF_SNAPSHOT_DIR}",EVAL_TARGETS=opd,EVAL_OUTPUT_DIR="${OPD_VAL100_EVAL_OUTPUT_DIR}",OPD_EVAL_OUTPUT_DIR="${OPD_VAL100_EVAL_OUTPUT_DIR}",MATH500_JSONL="${MATH500_VAL100_JSONL}",MATH500_CONFIG="${MATH500_VAL100_CONFIG}",EVAL_EXPECTED_SAMPLES=100,EVAL_SKIP_COMPLETED=1 \
       examples/qwen3_8b_opd_tillicum/06_eval_math500_greedy_1x.sbatch
@@ -241,15 +337,16 @@ for endpoint in "${ENDPOINTS[@]}"; do
   if [[ "${endpoint}" -eq 12544 ]]; then
     mid_full_jid="$(
       sbatch --parsable "${SBATCH_EVAL[@]}" \
-        --dependency=afterok:${jid_train} \
-        --time=36:00:00 \
+        --dependency=afterok:${jid_val} \
+        --time=20:00:00 \
         --job-name=slime-qwen3-opd12544-full500 \
         --export=ALL,${endpoint_exports},OPD_HF_SNAPSHOT_DIR="${OPD_HF_SNAPSHOT_DIR}",EVAL_TARGETS=opd,EVAL_OUTPUT_DIR="${OPD_MID_FULL_EVAL_OUTPUT_DIR}",OPD_EVAL_OUTPUT_DIR="${OPD_MID_FULL_EVAL_OUTPUT_DIR}",EVAL_EXPECTED_SAMPLES=500,EVAL_SKIP_COMPLETED=1 \
         examples/qwen3_8b_opd_tillicum/06_eval_math500_greedy_1x.sbatch
     )"
+    prior_dep="${mid_full_jid}"
+  else
+    prior_dep="${jid_val}"
   fi
-
-  prior_dep="${jid_val}"
 done
 
 report_dependency="afterany:${prior_dep}"
@@ -297,6 +394,8 @@ jid_report="$(
   echo "OPD_REF_LOAD_DIR=${OPD_REF_LOAD_DIR}"
   echo "OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH=${OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH}"
   echo "OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL=${OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL}"
+  echo "OPD_CONTINUE_RESUME_ENDPOINT=${OPD_CONTINUE_RESUME_ENDPOINT}"
+  echo "OPD_CONTINUE_RESUME_ENDPOINT_RESOLVED=${resume_endpoint}"
   echo "OPD_CONTINUE_INITIAL_STAGES_SKIPPED=${skip_initial}"
   echo "OPD_ALREADY_TRAINED_SAMPLES=${OPD_ALREADY_TRAINED_SAMPLES}"
   echo "OPD_EFFECTIVE_TRAIN_SAMPLES=${OPD_EFFECTIVE_TRAIN_SAMPLES}"
@@ -313,4 +412,6 @@ jid_report="$(
   echo "EVAL_ROLLOUT_NUM_GPUS=${EVAL_ROLLOUT_NUM_GPUS}"
   echo "EVAL_ROLLOUT_BATCH_SIZE=${EVAL_ROLLOUT_BATCH_SIZE}"
   echo "EVAL_SGLANG_SERVER_CONCURRENCY=${EVAL_SGLANG_SERVER_CONCURRENCY}"
+  echo "VAL_GPU_GRES=${VAL_GPU_GRES}"
+  echo "REPORT_GPU_GRES=${REPORT_GPU_GRES}"
 } | tee "${submit_log}"

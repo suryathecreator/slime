@@ -293,10 +293,16 @@ For the 25k continuation experiment, use
 optimizer checkpoint of the completed corrected 1k OPD run at
 `qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim/iter_0000007`, runs a
 seeded MATH-500 val100 eval on that current checkpoint first, then alternates
-1k-ish OPD continuation segments with 1-GPU val100 eval jobs until `24,960`
-total OPD samples. The continuation data prep extracts the actual first 1,024
+1k-ish OPD continuation segments with serialized 4-GPU val100 eval jobs until
+`24,960` total OPD samples. The midpoint full MATH-500 eval also uses 4 GPUs
+and waits for the `12,544` val100 job before later training resumes, so the
+continuation chain never intentionally runs more than one train/eval/report job
+at a time and never requests more than 4 H200s for any job. The continuation
+data prep extracts the actual first 1,024
 trained OPD `source_row_id`s from rollout debug artifacts and generates new OPD
 prompts excluding both those rows and all 25k SFT rows. The first continuation
 segment intentionally skips loading the old rollout dataset state, because that
 state points into the old 10k OPD pool; subsequent segments resume the new
-continuation dataset state normally.
+continuation dataset state normally. If a continuation checkpoint already
+exists, the submitter can resume at that endpoint by preserving the completed
+train checkpoint and submitting only the missing val100 stage.
