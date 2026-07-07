@@ -1543,3 +1543,68 @@ Recorded: 2026-07-01 17:28 PDT
   - Report: `gpu:h200:1`.
   - Dependencies are strict enough that no chain job should run in parallel
     with another chain train/eval/report job.
+
+## Submitted Serialized 4-GPU Val100/Eval Replacement for OPD 25k Continuation
+
+- Patch commit: `13ef32c` (`Serialize OPD continuation 4-GPU evals`), pushed
+  to `origin/opd-reproduction` before replacement submission.
+- Validation before submission:
+  - `bash -n examples/qwen3_8b_opd_tillicum/submit_opd_continue_1k_to_25k_val100_chain.sh`: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+- Salvage outcome:
+  - `opd_002048/summary.json` and `opd_002048/debug_eval_0.pt` were still
+    absent immediately before cancellation.
+  - Canceled incomplete 1-GPU val100 `161752` and stale downstream jobs
+    `161753` through `161802`.
+  - Preserved completed `opd_002048` train checkpoint/HF snapshot:
+    `iter_0000015`.
+- Replacement submit time/log: `2026-07-06 20:17 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_opd_continue_1k_to_25k_val100_20260706_201734.txt`.
+- Replacement job IDs:
+  - Preserved data/current val:
+    `data=preserved_existing_data`,
+    `val100_current_001024=preserved_existing_opd_001024_val100`.
+  - Preserved 2k train:
+    `train_2048=preserved_existing_train_2048`.
+  - Val/train chain:
+    `val100_2048=162217`, `3072=(162218,162219)`,
+    `4096=(162220,162221)`, `5120=(162222,162223)`,
+    `6144=(162224,162225)`, `7168=(162226,162227)`,
+    `8192=(162228,162229)`, `9216=(162230,162231)`,
+    `10240=(162232,162233)`, `11264=(162234,162235)`,
+    `12288=(162236,162237)`, `12544=(162238,162239)`,
+    `13312=(162241,162242)`, `14336=(162243,162244)`,
+    `15360=(162245,162246)`, `16384=(162247,162248)`,
+    `17408=(162249,162250)`, `18432=(162251,162252)`,
+    `19456=(162253,162254)`, `20480=(162255,162256)`,
+    `21504=(162257,162258)`, `22528=(162259,162260)`,
+    `23552=(162261,162262)`, `24576=(162263,162264)`,
+    `24960=(162265,162266)`.
+  - Midpoint full500 at `12,544`: `162240`.
+  - Final report: `162267`, dependency `afterany:162266:162240`.
+- Scheduler validation after submission:
+  - First replacement job `162217` is a 4-GPU val100 with no dependency,
+    pending for `Resources`, with scheduler start estimate
+    `2026-07-07 00:15 PDT`.
+  - `162218` waits on `afterok:162217`, so `opd_003072` training cannot start
+    until the 2k val100 finishes.
+  - `162240` waits on `afterok:162239`, and `162241` waits on
+    `afterok:162240`; the midpoint full500 eval is serialized between
+    `val100_012544` and later training.
+  - `162217`, `162218`, `162239`, `162240`, and `162241` each request
+    `gpu:h200:4`; final report `162267` requests `gpu:h200:1`.
+  - Representative jobs have `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No replacement job was `DependencyNeverSatisfied` at submission check.
+- Runtime validation targets:
+  - `162217` log shows `EVAL_ROLLOUT_NUM_GPUS=4`, eval `TP=1`, eval `CP=1`,
+    `EVAL_ROLLOUT_BATCH_SIZE=64`, and
+    `EVAL_SGLANG_SERVER_CONCURRENCY=2`.
+  - `162217` writes `opd_002048/summary.json` with exactly 100 samples.
+  - `162218` starts `opd_003072`; it must not rerun the completed
+    `opd_002048` train segment.
+  - `162240` writes the 4-GPU full MATH-500 midpoint summary for
+    `opd_012544`.
+  - `162266` writes the final val100 summary for `opd_024960`, then `162267`
+    refreshes the report.
