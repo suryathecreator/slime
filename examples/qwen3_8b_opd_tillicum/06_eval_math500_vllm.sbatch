@@ -31,7 +31,10 @@ echo "Eval output: ${EVAL_OUTPUT_DIR}"
 echo "vLLM venv: ${VLLM_EVAL_VENV}"
 echo "vLLM target site: ${VLLM_EVAL_SITE}"
 echo "vLLM workers/seqs/batched tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
+echo "vLLM force native sampler: ${VLLM_EVAL_FORCE_NATIVE_SAMPLER}"
 echo "Eval max response/context: ${EVAL_MAX_RESPONSE_LEN}/${EVAL_MAX_CONTEXT_LEN}"
+export SLIME_VLLM_PATCH_SITE="${VLLM_EVAL_FORCE_NATIVE_SAMPLER}"
+echo "vLLM startup site patch: ${SLIME_VLLM_PATCH_SITE}"
 
 if [[ -d "${VLLM_EVAL_SITE}/vllm" ]]; then
   export VLLM_EVAL_PYTHON_CMD="${VLLM_EVAL_PYTHON}"

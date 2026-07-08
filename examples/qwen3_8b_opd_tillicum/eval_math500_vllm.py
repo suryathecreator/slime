@@ -82,6 +82,10 @@ def build_prompt(tokenizer: Any, prompt: str) -> str:
 def run_shard(args: argparse.Namespace) -> None:
     import torch
     from transformers import AutoTokenizer
+    from slime.backends.vllm_utils.native_sampler import maybe_force_native_sampler
+
+    if maybe_force_native_sampler():
+        print("VLLM_EVAL_FORCE_NATIVE_SAMPLER=1: patched vLLM V1 sampler in eval parent")
     from vllm import LLM, SamplingParams
 
     data_path = Path(args.data)
