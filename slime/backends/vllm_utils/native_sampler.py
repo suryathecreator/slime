@@ -579,6 +579,36 @@ def _patch_bad_words(bad_words_mod: ModuleType) -> None:
     bad_words_mod.apply_bad_words = native_apply_bad_words
 
 
+def _patch_min_p(min_p_mod: ModuleType, states_mod: ModuleType | None = None) -> None:
+    import torch
+
+    if not hasattr(min_p_mod, "apply_min_p"):
+        return
+
+    def native_apply_min_p(
+        logits: torch.Tensor,
+        expanded_idx_mapping: torch.Tensor,
+        min_p: torch.Tensor,
+    ) -> None:
+        for token_idx in range(logits.shape[0]):
+            req_state_idx = int(expanded_idx_mapping[token_idx].item())
+            req_min_p = float(min_p[req_state_idx].item())
+            if req_min_p == 0.0:
+                continue
+            threshold = torch.max(logits[token_idx]).to(torch.float32) + torch.log(
+                torch.tensor(req_min_p, dtype=torch.float32, device=logits.device)
+            )
+            logits[token_idx] = torch.where(
+                logits[token_idx] < threshold.to(logits.dtype),
+                torch.full_like(logits[token_idx], -float("inf")),
+                logits[token_idx],
+            )
+
+    min_p_mod.apply_min_p = native_apply_min_p
+    if isinstance(states_mod, ModuleType):
+        states_mod.apply_min_p = native_apply_min_p
+
+
 def _patch_loaded_modules() -> bool:
     global _PATCH_INSTALLED
 
@@ -592,6 +622,7 @@ def _patch_loaded_modules() -> bool:
     structured_outputs_mod = sys.modules.get("vllm.v1.worker.gpu.structured_outputs")
     logit_bias_mod = sys.modules.get("vllm.v1.worker.gpu.sample.logit_bias")
     bad_words_mod = sys.modules.get("vllm.v1.worker.gpu.sample.bad_words")
+    min_p_mod = sys.modules.get("vllm.v1.worker.gpu.sample.min_p")
     if (
         gumbel_mod is None
         and sampler_mod is None
@@ -603,6 +634,7 @@ def _patch_loaded_modules() -> bool:
         and structured_outputs_mod is None
         and logit_bias_mod is None
         and bad_words_mod is None
+        and min_p_mod is None
     ):
         return False
 
@@ -632,6 +664,8 @@ def _patch_loaded_modules() -> bool:
         _patch_logit_bias(logit_bias_mod)
     if isinstance(bad_words_mod, ModuleType):
         _patch_bad_words(bad_words_mod)
+    if isinstance(min_p_mod, ModuleType):
+        _patch_min_p(min_p_mod, states_mod if isinstance(states_mod, ModuleType) else None)
 
     _PATCH_INSTALLED = True
     return True
@@ -650,6 +684,7 @@ def maybe_force_native_sampler() -> bool:
     from vllm.v1.worker.gpu import structured_outputs as structured_outputs_mod
     from vllm.v1.worker.gpu.sample import bad_words as bad_words_mod
     from vllm.v1.worker.gpu.sample import logit_bias as logit_bias_mod
+    from vllm.v1.worker.gpu.sample import min_p as min_p_mod
     from vllm.v1.worker.gpu.sample import penalties as penalties_mod
 
     del (
@@ -663,6 +698,7 @@ def maybe_force_native_sampler() -> bool:
         structured_outputs_mod,
         logit_bias_mod,
         bad_words_mod,
+        min_p_mod,
     )
     return _patch_loaded_modules()
 
