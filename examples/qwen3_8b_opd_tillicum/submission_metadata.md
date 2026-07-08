@@ -2687,3 +2687,58 @@ Recorded: 2026-07-01 17:28 PDT
     enter real request generation, and write
     `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus `summary.json`
     with 500 samples.
+
+## Cleaned Chain vLLM Min-P Fallback Retry
+
+- Base eval job `164825` got past the bad-words fallback and then failed during
+  vLLM V1 warmup in `vllm.v1.worker.gpu.sample.min_p.apply_min_p`, where
+  `_min_p_kernel` tried to launch Triton and failed with
+  `Failed to find C compiler`.
+- No eval samples were merged from `164825`, so there is no eval artifact to
+  preserve.
+- Patch commit: `a0933ee` (`Patch vLLM min-p fallback`), pushed to
+  `origin/opd-reproduction`.
+  - Adds a native torch fallback for vLLM V1 min-p filtering.
+  - Also patches the already-imported `sample.states.apply_min_p` reference,
+    because `states.py` imports `apply_min_p` directly.
+  - For the cleaned MATH-500 greedy eval path, requested min-p is the default
+    zero value; the fallback still preserves min-p masking if vLLM warmup or a
+    future request sets it nonzero.
+- Validation before resubmission:
+  - `python3 -m py_compile slime/backends/vllm_utils/native_sampler.py`: passed.
+  - `git diff --check`: passed.
+  - Targeted Apptainer/vLLM regression confirmed both
+    `min_p.apply_min_p` and `states.apply_min_p` are patched to
+    `native_apply_min_p` and apply the expected toy threshold.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Canceled stale downstream jobs from failed `164825`:
+  - `164826` through `164832`.
+- Replacement submit time/log: `2026-07-08 15:39 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_153934.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164870` (`gpu:h200:4`, `02:00:00`),
+    no dependency; reuses the existing complete smoke/data/convert artifacts.
+  - Base vLLM eval: `164871` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164870`.
+  - SFT 25k: `164872` (`gpu:h200:4`, `16:00:00`), `afterok:164871`.
+  - SFT vLLM eval: `164873` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164872`.
+  - OPD 1k: `164874` (`gpu:h200:4`, `08:00:00`), `afterok:164873`.
+  - OPD 1k vLLM eval: `164875` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164874`.
+  - OPD 5k: `164876` (`gpu:h200:4`, `24:00:00`), `afterok:164875`.
+  - OPD 5k vLLM eval: `164878` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164876`.
+  - Final report: `164879` (`gpu:h200:1`, `00:30:00`), `afterok:164878`.
+- Scheduler validation:
+  - `164871` has `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - `164871` requests 4 H200s and waits on `afterok:164870`; downstream jobs
+    remain a strict `afterok` chain.
+  - No job requests more than 4 H200s; final report requests 1 H200.
+- Runtime validation target:
+  - `164871` should avoid the min-p `Failed to find C compiler` failure, enter
+    real request generation, and write
+    `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus `summary.json`
+    with 500 samples.
