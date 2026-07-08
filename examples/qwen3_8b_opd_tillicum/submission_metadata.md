@@ -1685,3 +1685,56 @@ Recorded: 2026-07-01 17:28 PDT
   - `bash -n examples/qwen3_8b_opd_tillicum/submit_opd_continue_1k_to_25k_val100_chain.sh`: passed.
   - `git diff --check`: passed.
   - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+
+## Submitted OPD 25k Continuation Context-Overflow Replacement
+
+- Submitter correction commit: `471a8e2` (`Fix OPD continuation preserve detection`),
+  pushed to `origin/opd-reproduction`.
+- Replacement submit time/log: `2026-07-07 18:25 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_opd_continue_1k_to_25k_val100_20260707_182511.txt`.
+- Submitter detected latest existing continuation checkpoint:
+  `latest_checkpointed_iteration.txt = 31`, endpoint `4096`.
+- Preserved endpoints in replacement submit:
+  - `train_2048=preserved_existing_train_2048`,
+    `val100_2048=preserved_existing_val100_2048`.
+  - `train_3072=preserved_existing_train_3072`,
+    `val100_3072=preserved_existing_val100_3072`.
+  - `train_4096=preserved_existing_train_4096`,
+    `val100_4096=preserved_existing_val100_4096`.
+- Replacement job IDs:
+  - `5120=(163315,163316)`, `6144=(163317,163318)`,
+    `7168=(163319,163320)`, `8192=(163321,163322)`,
+    `9216=(163323,163324)`, `10240=(163325,163326)`,
+    `11264=(163327,163328)`, `12288=(163329,163330)`,
+    `12544=(163331,163332)`, `13312=(163334,163335)`,
+    `14336=(163336,163337)`, `15360=(163338,163339)`,
+    `16384=(163340,163341)`, `17408=(163342,163343)`,
+    `18432=(163344,163345)`, `19456=(163346,163347)`,
+    `20480=(163348,163349)`, `21504=(163350,163351)`,
+    `22528=(163352,163353)`, `23552=(163354,163355)`,
+    `24576=(163356,163357)`, `24960=(163358,163359)`.
+  - Midpoint full500 at `12,544`: `163333`.
+  - Final report: `163360`, dependency `afterany:163359:163333`.
+- Scheduler validation after submission:
+  - `163315` started immediately on `g011` with no dependency.
+  - `163316` waits on `afterok:163315`.
+  - `163333` waits on `afterok:163332`.
+  - `163360` waits on `afterany:163359:163333`.
+  - Representative jobs have `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - Train/eval jobs request `gpu:h200:4`; final report requests `gpu:h200:1`.
+  - No replacement job was `DependencyNeverSatisfied` at scheduler check.
+- Runtime validation observed after `163315` started:
+  - Log shows `OPD_ROLLOUT_MAX_CONTEXT_LEN=32766` as
+    `OPD rollout max context len: 32766`.
+  - Log shows endpoint-specific values for `opd_005120`:
+    `OPD train rows requested: 5120`, `OPD effective samples: 5120`,
+    final rollout id `39`.
+  - Log shows the preserved latest checkpoint report for `iter=31`.
+- Remaining runtime validation targets:
+  - `163315` loads/resumes the full optimizer checkpoint from `iter_0000031`.
+  - Rollout generation starts at rollout id `32`.
+  - Long prompts log per-sample response-cap clamps instead of SGLang HTTP
+    `400 Requested token count exceeds the model's maximum context length`.
+  - First replacement checkpoint/HF snapshot writes endpoint `opd_005120`,
+    rollout `iter_0000039`.
