@@ -168,10 +168,22 @@ export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
 SLIME_SGLANG_PATCH_SITE=0 ray start --head --node-ip-address "${MASTER_ADDR}" --num-gpus "${SFT_ACTOR_GPUS}" \
   --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
 
+if [[ -z "${SFT_CUDA_DEVICE_MAX_CONNECTIONS:-}" ]]; then
+  case "${SFT_ZERO_STAGE}" in
+    2|3)
+      SFT_CUDA_DEVICE_MAX_CONNECTIONS=8
+      ;;
+    *)
+      SFT_CUDA_DEVICE_MAX_CONNECTIONS=1
+      ;;
+  esac
+fi
+echo "SFT CUDA_DEVICE_MAX_CONNECTIONS=${SFT_CUDA_DEVICE_MAX_CONNECTIONS}"
+
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
     \"PYTHONPATH\": \"/root/Megatron-LM:${SLIME_REPO_ROOT}\",
-    \"CUDA_DEVICE_MAX_CONNECTIONS\": \"1\",
+    \"CUDA_DEVICE_MAX_CONNECTIONS\": \"${SFT_CUDA_DEVICE_MAX_CONNECTIONS}\",
     \"NCCL_NVLS_ENABLE\": \"${HAS_NVLINK}\",
     \"PYTORCH_CUDA_ALLOC_CONF\": \"expandable_segments:True\",
     \"WANDB_MODE\": \"${WANDB_MODE}\",
