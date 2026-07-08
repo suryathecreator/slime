@@ -314,6 +314,26 @@ Recorded: 2026-07-01 17:28 PDT
   - `163643` was running after `163642` completed, confirming the strict
     `afterok` chain advanced past setup.
 
+## Canceled Older OPD Continuation Chain
+
+- Cleanup request: remove the older OPD continuation/val100 chain so it does
+  not run alongside the new cleaned OpenThoughts experiment.
+- Canceled jobs:
+  - Running train job: `163315` (`slime-qwen3-opd-cont-05120`).
+  - Pending continuation/eval/report jobs:
+    `163316 163317 163318 163319 163320 163321 163322 163323 163324 163325
+    163326 163327 163328 163329 163330 163331 163332 163333 163334 163335
+    163336 163337 163338 163339 163340 163341 163342 163343 163344 163345
+    163346 163347 163348 163349 163350 163351 163352 163353 163354 163355
+    163356 163357 163358 163359 163360`.
+- Verification:
+  - Post-cancel `squeue -u suryadv` showed no older
+    `slime-qwen3-opd-cont-*`, `slime-qwen3-val100-*`,
+    `slime-qwen3-opd12544-full500`, or `slime-qwen3-opd25k-val-report` jobs.
+  - The active cleaned chain was left untouched: `163643` was running and
+    cleaned downstream jobs `163644` through `163653` remained pending on the
+    cleaned dependency chain.
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD
