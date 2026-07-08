@@ -79,58 +79,13 @@ def build_prompt(tokenizer: Any, prompt: str) -> str:
         return prompt
 
 
-def maybe_force_native_sampler() -> None:
-    if os.environ.get("VLLM_EVAL_FORCE_NATIVE_SAMPLER", "0") != "1":
-        return
-
-    import torch
-    from vllm.v1.worker.gpu.sample import gumbel as gumbel_mod
-    from vllm.v1.worker.gpu.sample import sampler as sampler_mod
-    from vllm.v1.worker.gpu.sample import states as states_mod
-
-    def native_apply_temperature(
-        logits: torch.Tensor,
-        expanded_idx_mapping: torch.Tensor,
-        temperature: torch.Tensor,
-    ) -> None:
-        token_temperature = temperature[expanded_idx_mapping].to(torch.float32)
-        needs_scale = (token_temperature != 0.0) & (token_temperature != 1.0)
-        if torch.any(needs_scale):
-            logits[needs_scale] = logits[needs_scale] / token_temperature[needs_scale].unsqueeze(-1)
-
-    def native_gumbel_sample(
-        logits: torch.Tensor,
-        expanded_idx_mapping: torch.Tensor,
-        temperature: torch.Tensor,
-        seed: torch.Tensor,
-        pos: torch.Tensor,
-        apply_temperature: bool,
-        output_processed_logits: torch.Tensor | None = None,
-        output_processed_logits_col: torch.Tensor | None = None,
-        use_fp64: bool = False,
-    ) -> torch.Tensor:
-        del seed, pos, output_processed_logits_col, use_fp64
-        if apply_temperature:
-            native_apply_temperature(logits, expanded_idx_mapping, temperature)
-        if output_processed_logits is not None:
-            raise RuntimeError(
-                "VLLM_EVAL_FORCE_NATIVE_SAMPLER supports greedy eval only, "
-                "not processed-logit output."
-            )
-        return torch.argmax(logits, dim=-1).to(torch.int64)
-
-    gumbel_mod.apply_temperature = native_apply_temperature
-    gumbel_mod.gumbel_sample = native_gumbel_sample
-    states_mod.apply_temperature = native_apply_temperature
-    sampler_mod.gumbel_sample = native_gumbel_sample
-    print("VLLM_EVAL_FORCE_NATIVE_SAMPLER=1: patched vLLM V1 sampler to native greedy argmax path")
-
-
 def run_shard(args: argparse.Namespace) -> None:
     import torch
     from transformers import AutoTokenizer
+    from slime.backends.vllm_utils.native_sampler import maybe_force_native_sampler
 
-    maybe_force_native_sampler()
+    if maybe_force_native_sampler():
+        print("VLLM_EVAL_FORCE_NATIVE_SAMPLER=1: patched vLLM V1 sampler in eval parent")
     from vllm import LLM, SamplingParams
 
     data_path = Path(args.data)

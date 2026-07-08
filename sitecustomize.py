@@ -20,3 +20,12 @@ if _enabled("SLIME_SGLANG_PATCH_SITE"):
             "SLIME_SGLANG_PATCH_SITE=1: applied SGLang native compatibility patches at Python startup.",
             file=sys.stderr,
         )
+
+if _enabled("SLIME_VLLM_PATCH_SITE"):
+    from slime.backends.vllm_utils.native_sampler import install_native_sampler_import_hook
+
+    if install_native_sampler_import_hook():
+        print(
+            "SLIME_VLLM_PATCH_SITE=1: registered vLLM V1 native sampler startup patch.",
+            file=sys.stderr,
+        )
