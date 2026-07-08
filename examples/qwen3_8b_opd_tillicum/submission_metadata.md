@@ -2158,3 +2158,43 @@ Recorded: 2026-07-01 17:28 PDT
   - The SFT wrapper now honors `SFT_SKIP_LOG_REDIRECT=1`, and the smoke job
     sets it for nested SFT calls so future smoke reruns keep the outer
     row-count/stage markers in the Slurm log instead of truncating them.
+
+## Cleaned Chain Stable Smoke Resubmission
+
+- Superseded replacement:
+  - Smoke job `164126` completed tiny ZeRO stage 1 artifacts
+    (`tiny_stage_1_full_optim/iter_0000000/.metadata` and
+    `tiny_stage_1_hf/iter_0000000/config.json`) but exited `FAILED 2:0`.
+  - Cause: the SFT wrapper was edited while `164126` was still executing it,
+    which made bash read an inconsistent script tail and report
+    `unexpected EOF while looking for matching '"'`.
+  - Canceled stale downstream jobs `164127` through `164134`.
+- Stable code commit: `7479671` (`Record cleaned smoke replacement`), pushed
+  to `origin/opd-reproduction`.
+- Stable replacement submit time/log: `2026-07-08 11:00 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_110057.txt`.
+- Stable replacement job IDs:
+  - ZeRO smoke: `164148` (`gpu:h200:4`, `02:00:00`), no dependency.
+  - Base vLLM eval: `164149` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164148`.
+  - SFT 25k: `164150` (`gpu:h200:4`, `16:00:00`), `afterok:164149`.
+  - SFT vLLM eval: `164151` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164150`.
+  - OPD 1k: `164152` (`gpu:h200:4`, `08:00:00`), `afterok:164151`.
+  - OPD 1k vLLM eval: `164153` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164152`.
+  - OPD 5k: `164154` (`gpu:h200:4`, `24:00:00`), `afterok:164153`.
+  - OPD 5k vLLM eval: `164155` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164154`.
+  - Final report: `164156` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164155`.
+- Runtime validation observed for stable smoke:
+  - `164148` started immediately on `g011`.
+  - Log shows `SFT ZeRO smoke data row count: 4`.
+  - Log shows stage 1 skipped from the complete tiny artifact and stage 2
+    started on the same 4-row smoke data file.
+  - Downstream jobs use strict `afterok` dependencies and none were
+    `DependencyNeverSatisfied` at scheduler check.
+  - `164148` shows
+    `MailUser=suryadv@cs.washington.edu MailType=END,FAIL`; no replacement
+    job requests more than 4 H200s.
