@@ -2455,3 +2455,70 @@ Recorded: 2026-07-01 17:28 PDT
     `patched vLLM V1 sampler to native greedy argmax path`, then write
     `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` and `summary.json`
     with 500 samples.
+
+## Cleaned Chain vLLM Spawned-Worker and V1 Bookkeeping Fallbacks
+
+- Follow-up failures after the first native sampler patch:
+  - `164486` failed because the parent-process monkeypatch did not reach vLLM
+    V1 spawned EngineCore workers; those workers still entered the original
+    Triton gumbel path and failed without a C compiler.
+  - Patch commit `5d37220` (`Patch vLLM sampler in spawned workers`) added a
+    startup `sitecustomize.py` import hook controlled by
+    `SLIME_VLLM_PATCH_SITE=1`, so spawned workers also patch the greedy sampler.
+  - Replacement base eval `164523` then got past gumbel sampling but failed in
+    vLLM V1 `get_num_sampled_and_rejected`, another small Triton warmup helper.
+  - Patch commit `6a2e184`
+    (`Patch vLLM sampler warmup counter fallback`) replaced that helper with a
+    native torch implementation for the greedy eval path.
+  - Replacement base eval `164563` then got past both sampler helpers but failed
+    in vLLM V1 `buffer_utils._apply_write_kernel` during request-state staged
+    writes, again because the runtime has no usable compiler.
+  - A host-GCC bind was probed and rejected: the host compiler/binutils are not
+    ABI-clean inside this Apptainer image without replacing libc paths, and
+    replacing those paths breaks container Python preflight.
+- Latest patch commit: `5ac1431`
+  (`Patch vLLM V1 bookkeeping fallbacks`), pushed to
+  `origin/opd-reproduction`.
+  - Broadens the startup hook to patch vLLM V1 greedy-eval bookkeeping helpers:
+    staged writes, fused staged writes, block-table gather/slot mapping, and
+    input-batch preparation/update helpers.
+  - Keeps eval semantics unchanged for this experiment: four 1-GPU vLLM
+    workers, greedy decoding, dynamic per-prompt cap, and the same scorer.
+- Validation before resubmission:
+  - `python3 -m py_compile` on touched Python files: passed.
+  - `git diff --check`: passed.
+  - Targeted Apptainer/vLLM regression confirmed sampler, sampled/rejected
+    counter, staged-write, block-table, and input-batch methods are patched.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Canceled stale downstream jobs:
+  - From failed `164523`: `164524` through `164530`.
+  - From failed `164563`: `164564` through `164570`.
+- Replacement submit time/log: `2026-07-08 14:30 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_143058.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164634` (`gpu:h200:4`, `02:00:00`),
+    no dependency; reuses the existing complete smoke artifact.
+  - Base vLLM eval: `164635` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164634`.
+  - SFT 25k: `164636` (`gpu:h200:4`, `16:00:00`), `afterok:164635`.
+  - SFT vLLM eval: `164637` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164636`.
+  - OPD 1k: `164638` (`gpu:h200:4`, `08:00:00`), `afterok:164637`.
+  - OPD 1k vLLM eval: `164639` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164638`.
+  - OPD 5k: `164640` (`gpu:h200:4`, `24:00:00`), `afterok:164639`.
+  - OPD 5k vLLM eval: `164641` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164640`.
+  - Final report: `164642` (`gpu:h200:1`, `00:30:00`), `afterok:164641`.
+- Scheduler validation:
+  - Downstream jobs are strict `afterok` dependencies and none is
+    `DependencyNeverSatisfied` at submission check time.
+  - Replacement jobs have `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No job requests more than 4 H200s; final report requests 1 H200.
+- Runtime validation target:
+  - `164635` should show `SLIME_VLLM_PATCH_SITE=1` in spawned workers, avoid
+    the gumbel/counter/staged-write `Failed to find C compiler` failures, and
+    write `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus
+    `summary.json` with 500 samples.
