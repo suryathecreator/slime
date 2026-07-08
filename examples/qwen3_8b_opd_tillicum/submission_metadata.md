@@ -2198,3 +2198,101 @@ Recorded: 2026-07-01 17:28 PDT
   - `164148` shows
     `MailUser=suryadv@cs.washington.edu MailType=END,FAIL`; no replacement
     job requests more than 4 H200s.
+
+## Cleaned Chain ZeRO Stage-2 Smoke Fixes
+
+- Stable smoke job `164148` failed during ZeRO stage 2 before training:
+  - Stage 1 was skipped from complete tiny artifacts.
+  - Stage 2 started on the 4-row smoke JSONL.
+  - Megatron-FSDP aborted with
+    `FSDP always requires CUDA_DEVICE_MAX_CONNECTIONS value large than one`.
+- Patch commit: `28d384c` (`Fix SFT FSDP CUDA connections`), pushed to
+  `origin/opd-reproduction`.
+  - SFT now defaults `CUDA_DEVICE_MAX_CONNECTIONS=8` for
+    `SFT_ZERO_STAGE=2` or `3`, while keeping `1` for non-FSDP stages.
+  - Canceled stale downstream jobs `164149` through `164156`.
+- Replacement after CUDA-connection fix:
+  - Submit time/log: `2026-07-08 11:14 PDT`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_111429.txt`.
+  - Job IDs: smoke `164173`, base eval `164174`, SFT `164175`,
+    SFT eval `164176`, OPD-1k `164177`, OPD-1k eval `164178`,
+    OPD-5k `164179`, OPD-5k eval `164180`, report `164181`.
+- Smoke job `164173` failed during ZeRO stage 2 before training:
+  - Log showed `SFT CUDA_DEVICE_MAX_CONNECTIONS=8`.
+  - Megatron-FSDP then aborted with
+    `Megatron FSDP only supports fsdp_dtensor checkpoint format`.
+- Patch commit: `f23ad89` (`Fix ZeRO stage 2 smoke checkpoint format`),
+  pushed to `origin/opd-reproduction`.
+  - Smoke stages 2 and 3 now use `SFT_CKPT_FORMAT=fsdp_dtensor`.
+  - Stage 1 remains `torch_dist`.
+  - Canceled stale downstream jobs `164174` through `164181`.
+- Replacement after checkpoint-format fix:
+  - Submit time/log: `2026-07-08 11:21 PDT`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_112100.txt`.
+  - Job IDs: smoke `164211`, base eval `164212`, SFT `164213`,
+    SFT eval `164214`, OPD-1k `164215`, OPD-1k eval `164216`,
+    OPD-5k `164217`, OPD-5k eval `164218`, report `164219`.
+- Smoke job `164211` failed during ZeRO stage 2 before training:
+  - Log showed `SFT CUDA_DEVICE_MAX_CONNECTIONS=8`.
+  - Log showed `--ckpt-format fsdp_dtensor`.
+  - Megatron-FSDP then aborted while constructing PyTorch `DeviceMesh`:
+    `RuntimeError: ProcessGroup name not set`.
+  - This is a Megatron-FSDP/PyTorch process-group compatibility issue: the
+    process groups are valid, but this container's PyTorch `DeviceMesh`
+    requires `group.group_name` and these Megatron-created groups do not have
+    a name set.
+
+## Cleaned Chain DeviceMesh Smoke Replacement
+
+- Patch commit: `7cf5d9a` (`Patch Megatron FSDP DeviceMesh group names`),
+  pushed to `origin/opd-reproduction`.
+- Patch details:
+  - Added a narrow Megatron compatibility shim in
+    `slime/backends/megatron_utils/megatron_patch/device_mesh_process_group_name_patch.py`.
+  - If `DeviceMesh.from_group` raises `ProcessGroup name not set`, the shim
+    rebuilds the `DeviceMesh` with deterministic synthetic names and stores the
+    actual process groups in DeviceMesh's private registry.
+  - This does not change cleaned data, SFT/OPD hyperparameters, checkpoint
+    retention, or the actual training objective.
+- Validation before resubmission:
+  - `python3 -m py_compile` on the new patch module and patch package:
+    passed.
+  - `bash -n` on smoke/SFT/submitter scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+  - Direct container import of the new patch via `container_exec.sh`: passed.
+- Canceled stale downstream jobs from `164211`:
+  - `164212` through `164219` were no longer present in `squeue` at check
+    time; `scancel 164212 ... 164219` returned cleanly.
+- Replacement submit time/log: `2026-07-08 11:31 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_113151.txt`.
+- Replacement job IDs:
+  - ZeRO smoke: `164234` (`gpu:h200:4`, `02:00:00`), no dependency.
+  - Base vLLM eval: `164235` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164234`.
+  - SFT 25k: `164236` (`gpu:h200:4`, `16:00:00`), `afterok:164235`.
+  - SFT vLLM eval: `164237` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164236`.
+  - OPD 1k: `164238` (`gpu:h200:4`, `08:00:00`), `afterok:164237`.
+  - OPD 1k vLLM eval: `164239` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164238`.
+  - OPD 5k: `164240` (`gpu:h200:4`, `24:00:00`), `afterok:164239`.
+  - OPD 5k vLLM eval: `164241` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164240`.
+  - Final report: `164242` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164241`.
+- Scheduler validation:
+  - `164234` started immediately on `g011`.
+  - Downstream jobs are pending on strict `afterok` dependencies, not
+    `DependencyNeverSatisfied`.
+  - All jobs show `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No job requests more than 4 H200s; final report requests 1 H200.
+- Runtime validation targets:
+  - Smoke log should skip complete stage 1, run stage 2 with
+    `CUDA_DEVICE_MAX_CONNECTIONS=8` and `fsdp_dtensor`, and no longer fail on
+    `ProcessGroup name not set`.
+  - ZeRO stages 2 and 3 should each write `iter_0000000/.metadata` plus HF
+    `iter_0000000/config.json`.
+  - No smoke stage should train past rollout `0`.
