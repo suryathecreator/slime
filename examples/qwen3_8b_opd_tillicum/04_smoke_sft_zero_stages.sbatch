@@ -47,7 +47,7 @@ fi
 for stage in 1 2 3; do
   echo "Running SFT ZeRO stage ${stage} smoke"
   ckpt_format="torch_dist"
-  if [[ "${stage}" == "3" ]]; then
+  if [[ "${stage}" == "2" || "${stage}" == "3" ]]; then
     ckpt_format="fsdp_dtensor"
   fi
 
