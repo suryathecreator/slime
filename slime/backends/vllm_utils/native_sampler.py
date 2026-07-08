@@ -358,6 +358,92 @@ def _patch_input_batch(input_batch_mod: ModuleType) -> None:
     input_batch_mod.expand_idx_mapping = native_expand_idx_mapping
 
 
+def _patch_penalties(penalties_mod: ModuleType) -> None:
+    import torch
+
+    if not hasattr(penalties_mod, "bincount"):
+        return
+
+    def native_bincount(
+        expanded_idx_mapping: torch.Tensor,
+        all_token_ids: torch.Tensor,
+        prompt_len: torch.Tensor,
+        prefill_len: torch.Tensor,
+        prompt_bin_mask: torch.Tensor,
+        output_bin_counts: torch.Tensor,
+        max_prefill_len: int,
+    ) -> None:
+        del max_prefill_len
+        idx_long = expanded_idx_mapping.long()
+        prompt_bin_mask.index_fill_(0, idx_long, 0)
+        output_bin_counts.index_fill_(0, idx_long, 0)
+
+        for req_idx_tensor in expanded_idx_mapping:
+            req_idx = int(req_idx_tensor.item())
+            prompt = int(prompt_len[req_idx].item())
+            prefill = int(prefill_len[req_idx].item())
+
+            for token in all_token_ids[req_idx, :prompt].to(torch.long).tolist():
+                packed_idx = int(token) // 32
+                bit_idx = int(token) % 32
+                prompt_bin_mask[req_idx, packed_idx] |= 1 << bit_idx
+
+            if prefill > prompt:
+                output_tokens = all_token_ids[req_idx, prompt:prefill].to(torch.long)
+                output_bin_counts[req_idx].scatter_add_(
+                    0,
+                    output_tokens,
+                    torch.ones_like(output_tokens, dtype=output_bin_counts.dtype),
+                )
+
+    def native_apply_penalties(
+        logits: torch.Tensor,
+        expanded_idx_mapping: torch.Tensor,
+        token_ids: torch.Tensor,
+        expanded_local_pos: torch.Tensor,
+        repetition_penalty: torch.Tensor,
+        frequency_penalty: torch.Tensor,
+        presence_penalty: torch.Tensor,
+        prompt_bin_mask: torch.Tensor,
+        output_bin_counts: torch.Tensor,
+    ) -> None:
+        vocab_size = logits.shape[1]
+        bit_offsets = torch.arange(32, dtype=torch.int32, device=logits.device)
+        for token_idx in range(logits.shape[0]):
+            req_idx = int(expanded_idx_mapping[token_idx].item())
+            rep = float(repetition_penalty[req_idx].item())
+            freq = float(frequency_penalty[req_idx].item())
+            pres = float(presence_penalty[req_idx].item())
+            if rep == 1.0 and freq == 0.0 and pres == 0.0:
+                continue
+
+            counts = output_bin_counts[req_idx].to(torch.float32)
+            pos = int(expanded_local_pos[token_idx].item())
+            if pos > 0:
+                start = token_idx - pos
+                prev_tokens = token_ids[start + 1 : start + pos + 1].to(torch.long)
+                counts = counts.clone()
+                counts.scatter_add_(0, prev_tokens, torch.ones_like(prev_tokens, dtype=counts.dtype))
+            output_mask = counts > 0
+
+            if rep != 1.0:
+                packed = prompt_bin_mask[req_idx]
+                prompt_mask = ((packed[:, None] >> bit_offsets[None, :]) & 1).reshape(-1)
+                prompt_mask = prompt_mask[:vocab_size].to(torch.bool)
+                seen_mask = prompt_mask | output_mask
+                row = logits[token_idx]
+                positive = row > 0
+                row[seen_mask & positive] /= rep
+                row[seen_mask & ~positive] *= rep
+            if freq != 0.0:
+                logits[token_idx] -= freq * counts.to(logits.dtype)
+            if pres != 0.0:
+                logits[token_idx] -= pres * output_mask.to(logits.dtype)
+
+    penalties_mod.bincount = native_bincount
+    penalties_mod.apply_penalties = native_apply_penalties
+
+
 def _patch_loaded_modules() -> bool:
     global _PATCH_INSTALLED
 
@@ -367,6 +453,7 @@ def _patch_loaded_modules() -> bool:
     input_batch_mod = sys.modules.get("vllm.v1.worker.gpu.input_batch")
     buffer_utils_mod = sys.modules.get("vllm.v1.worker.gpu.buffer_utils")
     block_table_mod = sys.modules.get("vllm.v1.worker.gpu.block_table")
+    penalties_mod = sys.modules.get("vllm.v1.worker.gpu.sample.penalties")
     if (
         gumbel_mod is None
         and sampler_mod is None
@@ -374,6 +461,7 @@ def _patch_loaded_modules() -> bool:
         and input_batch_mod is None
         and buffer_utils_mod is None
         and block_table_mod is None
+        and penalties_mod is None
     ):
         return False
 
@@ -395,6 +483,8 @@ def _patch_loaded_modules() -> bool:
         _patch_buffer_utils(buffer_utils_mod)
     if isinstance(block_table_mod, ModuleType):
         _patch_block_table(block_table_mod)
+    if isinstance(penalties_mod, ModuleType):
+        _patch_penalties(penalties_mod)
 
     _PATCH_INSTALLED = True
     return True
@@ -410,8 +500,17 @@ def maybe_force_native_sampler() -> bool:
     from vllm.v1.worker.gpu import input_batch as input_batch_mod
     from vllm.v1.worker.gpu import buffer_utils as buffer_utils_mod
     from vllm.v1.worker.gpu import block_table as block_table_mod
+    from vllm.v1.worker.gpu.sample import penalties as penalties_mod
 
-    del gumbel_mod, sampler_mod, states_mod, input_batch_mod, buffer_utils_mod, block_table_mod
+    del (
+        gumbel_mod,
+        sampler_mod,
+        states_mod,
+        input_batch_mod,
+        buffer_utils_mod,
+        block_table_mod,
+        penalties_mod,
+    )
     return _patch_loaded_modules()
 
 
