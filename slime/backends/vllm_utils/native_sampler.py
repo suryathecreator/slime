@@ -508,6 +508,77 @@ def _patch_logit_bias(logit_bias_mod: ModuleType) -> None:
     logit_bias_mod.apply_logit_bias = native_apply_logit_bias
 
 
+def _patch_bad_words(bad_words_mod: ModuleType) -> None:
+    import torch
+
+    if not hasattr(bad_words_mod, "apply_bad_words"):
+        return
+
+    def native_apply_bad_words(
+        logits: torch.Tensor,
+        expanded_idx_mapping: torch.Tensor,
+        bad_word_token_ids: torch.Tensor,
+        bad_word_offsets: torch.Tensor,
+        num_bad_words: torch.Tensor,
+        all_token_ids: torch.Tensor,
+        prompt_len: torch.Tensor,
+        total_len: torch.Tensor,
+        input_ids: torch.Tensor,
+        expanded_local_pos: torch.Tensor,
+        max_num_bad_words: int,
+    ) -> None:
+        del max_num_bad_words
+        for token_idx in range(logits.shape[0]):
+            req_state_idx = int(expanded_idx_mapping[token_idx].item())
+            num_req_bad_words = int(num_bad_words[req_state_idx].item())
+            if num_req_bad_words == 0:
+                continue
+
+            pos = int(expanded_local_pos[token_idx].item())
+            cur_req_first_pos = token_idx - pos
+            req_prompt_len = int(prompt_len[req_state_idx].item())
+            req_total_len = int(total_len[req_state_idx].item())
+            output_len = req_total_len - req_prompt_len
+            effective_len = output_len + pos
+
+            for bad_word_idx in range(num_req_bad_words):
+                start = int(bad_word_offsets[req_state_idx, bad_word_idx].item())
+                end = int(bad_word_offsets[req_state_idx, bad_word_idx + 1].item())
+                bad_word_len = end - start
+                if bad_word_len <= 0:
+                    continue
+
+                prefix_len = bad_word_len - 1
+                if prefix_len > effective_len:
+                    continue
+
+                matched = True
+                for prefix_idx in range(prefix_len):
+                    expected = int(
+                        bad_word_token_ids[req_state_idx, start + prefix_idx].item()
+                    )
+                    actual_pos = effective_len - prefix_len + prefix_idx
+                    if actual_pos >= output_len:
+                        spec_offset = actual_pos - output_len
+                        actual = int(input_ids[cur_req_first_pos + spec_offset].item())
+                    else:
+                        actual = int(
+                            all_token_ids[
+                                req_state_idx,
+                                req_prompt_len + actual_pos,
+                            ].item()
+                        )
+                    if expected != actual:
+                        matched = False
+                        break
+
+                if matched:
+                    last_token = int(bad_word_token_ids[req_state_idx, end - 1].item())
+                    logits[token_idx, last_token] = -float("inf")
+
+    bad_words_mod.apply_bad_words = native_apply_bad_words
+
+
 def _patch_loaded_modules() -> bool:
     global _PATCH_INSTALLED
 
@@ -520,6 +591,7 @@ def _patch_loaded_modules() -> bool:
     penalties_mod = sys.modules.get("vllm.v1.worker.gpu.sample.penalties")
     structured_outputs_mod = sys.modules.get("vllm.v1.worker.gpu.structured_outputs")
     logit_bias_mod = sys.modules.get("vllm.v1.worker.gpu.sample.logit_bias")
+    bad_words_mod = sys.modules.get("vllm.v1.worker.gpu.sample.bad_words")
     if (
         gumbel_mod is None
         and sampler_mod is None
@@ -530,6 +602,7 @@ def _patch_loaded_modules() -> bool:
         and penalties_mod is None
         and structured_outputs_mod is None
         and logit_bias_mod is None
+        and bad_words_mod is None
     ):
         return False
 
@@ -557,6 +630,8 @@ def _patch_loaded_modules() -> bool:
         _patch_structured_outputs(structured_outputs_mod)
     if isinstance(logit_bias_mod, ModuleType):
         _patch_logit_bias(logit_bias_mod)
+    if isinstance(bad_words_mod, ModuleType):
+        _patch_bad_words(bad_words_mod)
 
     _PATCH_INSTALLED = True
     return True
@@ -573,6 +648,7 @@ def maybe_force_native_sampler() -> bool:
     from vllm.v1.worker.gpu import buffer_utils as buffer_utils_mod
     from vllm.v1.worker.gpu import block_table as block_table_mod
     from vllm.v1.worker.gpu import structured_outputs as structured_outputs_mod
+    from vllm.v1.worker.gpu.sample import bad_words as bad_words_mod
     from vllm.v1.worker.gpu.sample import logit_bias as logit_bias_mod
     from vllm.v1.worker.gpu.sample import penalties as penalties_mod
 
@@ -586,6 +662,7 @@ def maybe_force_native_sampler() -> bool:
         penalties_mod,
         structured_outputs_mod,
         logit_bias_mod,
+        bad_words_mod,
     )
     return _patch_loaded_modules()
 
