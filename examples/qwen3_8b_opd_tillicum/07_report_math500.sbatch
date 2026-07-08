@@ -31,6 +31,8 @@ echo "SFT eval dir: ${SFT_EVAL_OUTPUT_DIR}"
 echo "OPD eval dir: ${OPD_EVAL_OUTPUT_DIR}"
 echo "Combined report dir: ${COMBINED_EVAL_OUTPUT_DIR}"
 echo "Report include SFT: ${REPORT_INCLUDE_SFT}"
+echo "Report SFT final only: ${REPORT_SFT_FINAL_ONLY}"
+echo "Report OPD final only: ${REPORT_OPD_FINAL_ONLY}"
 
 aggregate_if_available() {
   local dir="$1"
@@ -87,6 +89,13 @@ if has_any_stage_summary; then
     REPORT_SFT_ARGS=(--sft-dir "${SFT_EVAL_OUTPUT_DIR}")
     REPORT_SFT_TOTAL_SAMPLES="$((SFT_NUM_ROLLOUT * SFT_ROLLOUT_BATCH_SIZE))"
   fi
+  FINAL_ONLY_ARGS=()
+  if [[ "${REPORT_SFT_FINAL_ONLY}" == "1" ]]; then
+    FINAL_ONLY_ARGS+=(--sft-final-only)
+  fi
+  if [[ "${REPORT_OPD_FINAL_ONLY}" == "1" ]]; then
+    FINAL_ONLY_ARGS+=(--opd-final-only)
+  fi
   python3 examples/qwen3_8b_opd_tillicum/summarize_eval.py \
     --combined-output-dir "${COMBINED_EVAL_OUTPUT_DIR}" \
     --base-dir "${BASE_EVAL_OUTPUT_DIR}" \
@@ -97,8 +106,7 @@ if has_any_stage_summary; then
     --opd-rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}" \
     --opd-x-offset-samples "${REPORT_OPD_X_OFFSET_SAMPLES}" \
     --opd-label-prefix "${REPORT_OPD_LABEL_PREFIX}" \
-    --sft-final-only \
-    --opd-final-only \
+    "${FINAL_ONLY_ARGS[@]}" \
     "${REPORT_NOTE_ARGS[@]}" \
     --out-json "${COMBINED_EVAL_OUTPUT_DIR}/summary_all.json"
 else

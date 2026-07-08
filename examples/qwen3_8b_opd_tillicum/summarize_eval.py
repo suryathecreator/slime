@@ -132,8 +132,10 @@ def summarize_debug_file(
     parse_failures = len(samples) - parseable_count
 
     cap_hits = 0
-    for length, status in zip(response_lengths, statuses):
-        if status == "truncated" or (max_response_len is not None and length >= max_response_len):
+    for sample, length, status in zip(samples, response_lengths, statuses):
+        metadata = sample.get("metadata") or {}
+        sample_cap = metadata.get("effective_max_new_tokens", max_response_len)
+        if status == "truncated" or (sample_cap is not None and length >= int(sample_cap)):
             cap_hits += 1
 
     n = len(samples)

@@ -600,6 +600,16 @@ def get_slime_extra_args_provider(add_custom_arguments=None):
                     "If not set, you need to manage the data by your self."
                 ),
             )
+            parser.add_argument(
+                "--skip-rollout-data-source-load",
+                action="store_true",
+                default=False,
+                help=(
+                    "Skip loading rollout/global_dataset_state_dict_* from --load while still saving future "
+                    "global dataset states. This is useful when resuming model/optimizer state from one dataset "
+                    "but intentionally starting a new non-overlapping prompt pool."
+                ),
+            )
 
             parser.add_argument(
                 "--data-source-path",

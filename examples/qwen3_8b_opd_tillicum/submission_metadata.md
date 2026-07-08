@@ -2,6 +2,338 @@
 
 Recorded: 2026-07-01 17:28 PDT
 
+## Planned Cleaned OpenThoughts SFT + OPD vLLM Chain
+
+- Purpose:
+  - Restart the experiment from cleaned OpenThoughts3 thinking traces because
+    high cap-hit behavior suggested the earlier SFT data may have taught
+    undesirable long-generation habits.
+  - Preserve and push all current tracked result snapshots before submitting
+    the new chain.
+- Cleaning/sampling:
+  - Remove rows without complete `<think>...</think>` assistant traces.
+  - Remove mixed-language rows with the local script-count heuristic.
+  - Deterministically shuffle valid rows with seed `1234`.
+  - Split shuffled valid rows into first `2/3` SFT reserve and final `1/3`
+    OPD reserve.
+  - SFT uses the first `25,000` SFT-reserve rows.
+  - OPD-1k uses the first `1,024` OPD-reserve rows.
+  - OPD-5k continuation uses the next `4,096` OPD-reserve rows.
+  - Metadata records selected `source_row_id`s and proves no overlap between
+    selected SFT rows and used OPD rows.
+- Training:
+  - SFT: 4 H200s, `TP=2`, `CP=1`, `DP=2`, `SFT_ZERO_STAGE=3`,
+    `SFT_MAX_TOKENS_PER_GPU=16384`, learning rate `1e-6`, exactly one epoch.
+  - OPD: 4 H200s, actor/rollout/teacher `3/3/1`, `TP=1`, `CP=3`,
+    `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`,
+    `OPD_MAX_TOKENS_PER_GPU=2048`, `OPD_LOG_PROBS_CHUNK_SIZE=512`,
+    `OPD_TRAIN_MEMORY_MARGIN_BYTES=0`, learning rate `1e-6`, exactly one pass
+    over OPD-1k then one continuation pass over the next 4,096 rows.
+  - SFT ZeRO stages `1`, `2`, and `3` are implemented; a tiny smoke job runs
+    before full SFT, while the submitted full SFT uses stage `3`.
+- Checkpointing:
+  - SFT saves model snapshots every 5k effective samples.
+  - OPD saves model snapshots every roughly 1k effective samples.
+  - The newest checkpoint keeps full optimizer state; older completed
+    checkpoints may be reduced to model snapshots after a newer checkpoint is
+    validated. In-progress checkpoint dirs are never pruned.
+- Eval:
+  - Only four full MATH-500 evals run: base, SFT-25k, OPD-1k, OPD-5k.
+  - Eval backend is the Tillicum-local vLLM path.
+  - vLLM settings: 4 independent 1-GPU workers, greedy decoding,
+    `VLLM_EVAL_MAX_MODEL_LEN=32768`, GPU memory utilization `0.92`,
+    `VLLM_EVAL_MAX_NUM_SEQS=16`, and
+    `VLLM_EVAL_MAX_NUM_BATCHED_TOKENS=131072`.
+- Dynamic caps:
+  - OPD train cap: `min(31744, OPD_ROLLOUT_MAX_CONTEXT_LEN - prompt_tokens)`,
+    with `OPD_ROLLOUT_MAX_CONTEXT_LEN=32766`.
+  - vLLM eval cap: `min(31744, EVAL_MAX_CONTEXT_LEN - prompt_tokens)`, with
+    `EVAL_MAX_CONTEXT_LEN=32768`.
+  - Eval/debug samples record prompt length, requested cap, effective cap, and
+    clamp flag.
+- Estimated/reserved walltimes:
+  - vLLM setup + smoke: expected `20-45m`, reserve `2h`.
+  - Clean/split data: expected `3.5-5h`, reserve `8h`.
+  - Each full MATH-500 vLLM eval: expected `35-75m`, cap-heavy `2-3h`,
+    reserve `4h`.
+  - SFT 25k: expected `10-12h`, reserve `16h`.
+  - OPD 1k: expected `4.5-5.5h`, reserve `8h`.
+  - OPD +4k: expected `16-18h`, reserve `24h`.
+- Pre-submit validation:
+  - `python3 -m py_compile` on touched Python helpers: passed.
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+
+## Submitted Cleaned OpenThoughts SFT + OPD vLLM Chain
+
+- Implementation commit: `3fb1372` (`Add cleaned OpenThoughts vLLM OPD chain`),
+  pushed to `origin/opd-reproduction` before submission.
+- Submit time/log: `2026-07-07 21:42 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260707_214245.txt`.
+- Dependency policy:
+  - Strict `afterok` chain; no train/eval/report job from this chain is
+    intentionally eligible to run in parallel with another train/eval/report
+    job from the same chain.
+  - No job requests more than 4 H200s.
+- Job IDs:
+  - vLLM setup: `163539` (`gpu:h200:1`, `02:00:00`), started immediately on
+    `g013`.
+  - Clean data: `163540` (`gpu:h200:1`, `08:00:00`), `afterok:163539`.
+  - Model prep/convert: `163541` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163540`.
+  - SFT ZeRO smoke: `163542` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163541`.
+  - Base vLLM MATH-500 eval: `163543` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163542`.
+  - SFT 25k train: `163544` (`gpu:h200:4`, `16:00:00`),
+    `afterok:163543`.
+  - SFT-25k vLLM MATH-500 eval: `163545` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163544`.
+  - OPD-1k train: `163546` (`gpu:h200:4`, `08:00:00`),
+    `afterok:163545`.
+  - OPD-1k vLLM MATH-500 eval: `163547` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163546`.
+  - OPD +4k train to 5,120 total OPD samples: `163548` (`gpu:h200:4`,
+    `24:00:00`), `afterok:163547`.
+  - OPD-5k vLLM MATH-500 eval: `163549` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163548`.
+  - Final report: `163550` (`gpu:h200:1`, `00:30:00`), `afterok:163549`.
+- Scheduler validation after submission:
+  - `scontrol` shows `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL` for every job.
+  - Representative `ReqTRES` values are `cpu=8,gres/gpu:h200=1` for 1-GPU
+    setup/clean/report jobs and `cpu=32,gres/gpu:h200=4` for 4-GPU
+    train/eval jobs.
+  - No submitted cleaned-chain job was `DependencyNeverSatisfied` at the
+    post-submit check.
+- Output paths:
+  - Cleaned metadata:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_cleaned_cleaned_think_sft25k_opd5k_vllm_metadata.json`.
+  - SFT data:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_cleaned_cleaned_think_sft25k_opd5k_vllm_sft_25000.jsonl`.
+  - OPD-1k data:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_cleaned_cleaned_think_sft25k_opd5k_vllm_opd_001024.jsonl`.
+  - OPD next-4k data:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_cleaned_cleaned_think_sft25k_opd5k_vllm_opd_next_004096.jsonl`.
+  - SFT save/snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_full_optim`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_eval_snapshots`.
+  - OPD-1k save/snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_opd_1k_32k_full_optim`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_opd_1k_32k_eval_snapshots`.
+  - OPD-5k save/snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_opd_5k_32k_full_optim`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_opd_5k_32k_eval_snapshots`.
+  - Eval/report dirs:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_base_vllm`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_sft_25k_vllm`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_opd_1k_5k_vllm`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_combined_vllm`.
+- Runtime validation targets:
+  - `163539` validates or installs `vllm` in
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/vllm_eval_venv`.
+  - `163540` writes cleaned counts near the expected ballpark and records
+    selected `source_row_id`s with no SFT/OPD overlap.
+  - `163544` logs `SFT_LR=1e-6`, `SFT_ZERO_STAGE=3`, `SFT_NUM_EPOCH=1`, and
+    writes final full checkpoint/HF snapshot `iter_0000099`.
+  - `163546` logs OPD-1k one-pass settings and writes `iter_0000007`.
+  - `163548` loads OPD-1k full optimizer checkpoint, starts the fresh next-4k
+    OPD pool at offset 0, and writes `iter_0000039`.
+  - vLLM eval jobs write exactly 500 samples each, with dynamic cap metadata
+    (`prompt_tokens`, requested/effective cap, clamp flag).
+
+## Failed Cleaned vLLM Setup and Patch
+
+- Failed job: `163539`.
+- Failure:
+  - The container Python could not create a venv because `ensurepip` is not
+    available:
+    `The virtual environment was not created successfully because ensurepip is not available`.
+  - No data prep, training, eval, checkpoint, or report progress was produced.
+- Patch:
+  - `10_setup_vllm_eval_env.sbatch` now attempts `python3 -m venv` first and
+    falls back to a scratch-local `pip --target` install under
+    `$VLLM_EVAL_SITE` when venv support is unavailable.
+  - `06_eval_math500_vllm.sbatch` can run either from the venv Python or from
+    system `python3` with `$VLLM_EVAL_SITE` prepended to `PYTHONPATH`.
+  - `VLLM_EVAL_SITE` and `VLLM_EVAL_PYTHON` are forwarded into the container
+    and covered by the dry-check env forwarding guard.
+- Preservation/resubmission policy:
+  - Stale downstream jobs `163540` through `163550` should be canceled.
+  - Resubmit the cleaned chain from the start after pushing this patch.
+
+## Resubmitted Cleaned OpenThoughts Chain After vLLM Setup Patch
+
+- Patch commit: `a10ac61` (`Add vLLM eval target install fallback`), pushed
+  to `origin/opd-reproduction` before replacement submission.
+- Canceled stale jobs from the first failed chain:
+  `163540 163541 163542 163543 163544 163545 163546 163547 163548 163549 163550`.
+- Replacement submit time/log: `2026-07-07 21:47 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260707_214730.txt`.
+- Replacement job IDs:
+  - vLLM setup: `163564` (`gpu:h200:1`, `02:00:00`), started immediately on
+    `g013`.
+  - Clean data: `163565` (`gpu:h200:1`, `08:00:00`), `afterok:163564`.
+  - Model prep/convert: `163566` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163565`.
+  - SFT ZeRO smoke: `163567` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163566`.
+  - Base vLLM eval: `163568` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163567`.
+  - SFT 25k train: `163569` (`gpu:h200:4`, `16:00:00`),
+    `afterok:163568`.
+  - SFT-25k vLLM eval: `163570` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163569`.
+  - OPD-1k train: `163571` (`gpu:h200:4`, `08:00:00`),
+    `afterok:163570`.
+  - OPD-1k vLLM eval: `163572` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163571`.
+  - OPD +4k train to 5,120 total OPD samples: `163573` (`gpu:h200:4`,
+    `24:00:00`), `afterok:163572`.
+  - OPD-5k vLLM eval: `163574` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163573`.
+  - Final report: `163575` (`gpu:h200:1`, `00:30:00`), `afterok:163574`.
+- Scheduler validation after replacement submission:
+  - `163564` was `RUNNING`; downstream jobs were pending on strict `afterok`
+    dependencies.
+  - `scontrol` showed `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL` for every replacement job.
+  - `ReqTRES` showed `gpu:h200:1` for setup/clean/report and `gpu:h200:4` for
+    convert, smoke, train, and eval jobs.
+  - No replacement job was `DependencyNeverSatisfied` at the post-submit check.
+
+## Failed Cleaned vLLM Setup Partial-Venv Retry and Patch
+
+- Failed job: `163564`.
+- Failure:
+  - The previous failed setup left a partial
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/vllm_eval_venv/bin/python`
+    without `pip`.
+  - The fallback patch saw the executable and tried to use it, then failed
+    with `No module named pip`.
+- Patch:
+  - `10_setup_vllm_eval_env.sbatch` now verifies that a found venv Python can
+    run `-m pip --version`; if not, it ignores the partial venv and falls back
+    to `$VLLM_EVAL_SITE`.
+  - `06_eval_math500_vllm.sbatch` prefers the scratch target install when
+    `$VLLM_EVAL_SITE/vllm` exists, so a partial venv cannot shadow the valid
+    target install.
+
+## Resubmitted Cleaned OpenThoughts Chain After Partial-Venv Patch
+
+- Patch commit: `e5dd3c3` (`Ignore partial vLLM eval venvs`), pushed to
+  `origin/opd-reproduction` before replacement submission.
+- Canceled stale jobs from the second failed chain:
+  `163565 163566 163567 163568 163569 163570 163571 163572 163573 163574 163575`.
+- Replacement submit time/log: `2026-07-07 21:52 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260707_215244.txt`.
+- Replacement job IDs:
+  - vLLM setup: `163589` (`gpu:h200:1`, `02:00:00`), started immediately on
+    `g013`.
+  - Clean data: `163590` (`gpu:h200:1`, `08:00:00`), `afterok:163589`.
+  - Model prep/convert: `163591` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163590`.
+  - SFT ZeRO smoke: `163592` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163591`.
+  - Base vLLM eval: `163593` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163592`.
+  - SFT 25k train: `163594` (`gpu:h200:4`, `16:00:00`),
+    `afterok:163593`.
+  - SFT-25k vLLM eval: `163595` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163594`.
+  - OPD-1k train: `163596` (`gpu:h200:4`, `08:00:00`),
+    `afterok:163595`.
+  - OPD-1k vLLM eval: `163597` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163596`.
+  - OPD +4k train to 5,120 total OPD samples: `163598` (`gpu:h200:4`,
+    `24:00:00`), `afterok:163597`.
+  - OPD-5k vLLM eval: `163599` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163598`.
+  - Final report: `163600` (`gpu:h200:1`, `00:30:00`), `afterok:163599`.
+- Scheduler/log validation after replacement submission:
+  - `163589` was `RUNNING`; downstream jobs were pending on strict `afterok`
+    dependencies.
+  - The setup log showed:
+    `Ignoring incomplete vLLM venv without pip` and
+    `Falling back to scratch-local pip --target install`.
+  - No replacement job was `DependencyNeverSatisfied` at the post-submit check.
+
+## Failed Cleaned vLLM Setup Target-Library Import and Patch
+
+- Failed job: `163589`.
+- Failure:
+  - The scratch target install completed, but final `import vllm` failed
+    because the dynamic linker could not find target-installed CUDA libraries:
+    `ImportError: libcudart.so.13: cannot open shared object file`.
+  - The log also showed SGLang sitecustomize conflicts during vLLM-only Python
+    startup.
+- Patch:
+  - vLLM setup/eval now prepend `$VLLM_EVAL_SITE/nvidia/*/lib` directories to
+    `LD_LIBRARY_PATH` when using the scratch target install.
+  - vLLM setup/eval set `SLIME_SGLANG_PATCH_SITE=0` for vLLM-only Python so
+    SGLang startup patches do not run during vLLM import.
+  - `container_exec.sh` forwards `LD_LIBRARY_PATH`, and the dry check verifies
+    that forwarding entry exists.
+
+## Resubmitted Cleaned OpenThoughts Chain After Target-Library Patch
+
+- Patch commit: `84074df` (`Forward vLLM target library paths`), pushed to
+  `origin/opd-reproduction` before replacement submission.
+- Canceled stale jobs from the third failed chain:
+  `163590 163591 163592 163593 163594 163595 163596 163597 163598 163599 163600`.
+- Replacement submit time/log: `2026-07-07 22:10 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260707_221054.txt`.
+- Replacement job IDs:
+  - vLLM setup: `163642` (`gpu:h200:1`, `02:00:00`), completed successfully
+    on `g015`.
+  - Clean data: `163643` (`gpu:h200:1`, `08:00:00`), started after
+    `163642`.
+  - Model prep/convert: `163644` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163643`.
+  - SFT ZeRO smoke: `163645` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163644`.
+  - Base vLLM eval: `163646` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163645`.
+  - SFT 25k train: `163647` (`gpu:h200:4`, `16:00:00`),
+    `afterok:163646`.
+  - SFT-25k vLLM eval: `163648` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163647`.
+  - OPD-1k train: `163649` (`gpu:h200:4`, `08:00:00`),
+    `afterok:163648`.
+  - OPD-1k vLLM eval: `163650` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163649`.
+  - OPD +4k train to 5,120 total OPD samples: `163651` (`gpu:h200:4`,
+    `24:00:00`), `afterok:163650`.
+  - OPD-5k vLLM eval: `163652` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163651`.
+  - Final report: `163653` (`gpu:h200:1`, `00:30:00`), `afterok:163652`.
+- Runtime validation observed:
+  - Setup log showed fallback to scratch target, then `vllm 0.24.0`, then
+    `Finished vLLM eval environment setup`.
+  - `163643` was running after `163642` completed, confirming the strict
+    `afterok` chain advanced past setup.
+
+## Canceled Older OPD Continuation Chain
+
+- Cleanup request: remove the older OPD continuation/val100 chain so it does
+  not run alongside the new cleaned OpenThoughts experiment.
+- Canceled jobs:
+  - Running train job: `163315` (`slime-qwen3-opd-cont-05120`).
+  - Pending continuation/eval/report jobs:
+    `163316 163317 163318 163319 163320 163321 163322 163323 163324 163325
+    163326 163327 163328 163329 163330 163331 163332 163333 163334 163335
+    163336 163337 163338 163339 163340 163341 163342 163343 163344 163345
+    163346 163347 163348 163349 163350 163351 163352 163353 163354 163355
+    163356 163357 163358 163359 163360`.
+- Verification:
+  - Post-cancel `squeue -u suryadv` showed no older
+    `slime-qwen3-opd-cont-*`, `slime-qwen3-val100-*`,
+    `slime-qwen3-opd12544-full500`, or `slime-qwen3-opd25k-val-report` jobs.
+  - The active cleaned chain was left untouched: `163643` was running and
+    cleaned downstream jobs `163644` through `163653` remained pending on the
+    cleaned dependency chain.
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD
@@ -1345,3 +1677,722 @@ Recorded: 2026-07-01 17:28 PDT
   including `summary_all.json`, `combined_accuracy_curve.csv`,
   `combined_accuracy_curve.svg`, `opd_001024_summary.json`, and
   `opd_sanity_summary.{json,csv,md}`.
+
+## Planned 1k -> 25k OPD Continuation With Val100
+
+- Purpose: continue the completed corrected SFT -> OPD colocate4 run from the
+  full optimizer checkpoint at OPD rollout `7` / `1,024` samples to rollout
+  `194` / `24,960` total OPD samples.
+- Submitter: `submit_opd_continue_1k_to_25k_val100_chain.sh`.
+- Starting full optimizer checkpoint:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim/iter_0000007`.
+- Starting HF snapshot for the first val100 eval:
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_eval_snapshots/iter_0000007`.
+- Continuation policy: load model/optimizer from the old OPD full checkpoint,
+  but skip the old rollout dataset-state load for the first continuation
+  segment so the new no-repeat continuation pool starts at offset `0`.
+  Subsequent segments resume from the new continuation save dir and load the
+  new dataset state normally.
+- No-repeat data policy: extract the actual `1,024` trained OPD source row ids
+  from the successful rollout debug files, then generate continuation OPD rows
+  excluding both those rows and all 25k SFT source row ids.
+- Eval policy: run seeded MATH-500 val100 on `opd_001024` first, then after
+  every 1k-ish endpoint through `opd_024960`; run a parallel 1-GPU full
+  MATH-500 eval at `opd_012544`.
+- Resource policy: OPD continuation jobs use `gpu:h200:4`; val100 and
+  midpoint full eval jobs use `gpu:h200:1`; final report uses `gpu:h200:1`.
+
+## Submitted 1k -> 25k OPD Continuation With Val100
+
+- Implementation commit: `24359e6` (`Add OPD 25k continuation val100 chain`),
+  pushed to `origin/opd-reproduction` before submission.
+- Submit time/log: `2026-07-05 23:55 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_opd_continue_1k_to_25k_val100_20260705_235549.txt`.
+- Scheduler validation after submission: data job pending for `Priority`;
+  downstream sampled jobs pending on expected dependencies; no sampled job is
+  `DependencyNeverSatisfied`; sampled jobs have
+  `MailUser=suryadv@cs.washington.edu` and `MailType=END,FAIL`.
+- Pre-submit data validation: container extractor read exactly `1,024` unique
+  old OPD trained `source_row_id`s from
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/opd_1k_32k_sft_colocate4_rollout_logs`.
+- Output paths:
+  - Continuation data:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_math_opd_continue_1k_to_25k_seed1234.jsonl`.
+  - Continuation metadata:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_math_sft_25000_opd_continue_1k_to_25k_seed1234_metadata.json`.
+  - Val100 eval:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_25k_32k_sft_colocate4_continue_val100`.
+  - Midpoint full500 eval:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_opd_25k_32k_sft_colocate4_continue_mid_full500`.
+  - Continuation save dir:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_25k_32k_sft_colocate4_continue_full_optim`.
+  - Continuation HF snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_25k_32k_sft_colocate4_continue_eval_snapshots`.
+- Job IDs:
+  - Data prep: `161481`.
+  - Current 1k val100: `161482`.
+  - Train/eval pairs:
+    `2048=(161483,161484)`, `3072=(161485,161486)`,
+    `4096=(161487,161488)`, `5120=(161489,161490)`,
+    `6144=(161491,161492)`, `7168=(161493,161494)`,
+    `8192=(161495,161496)`, `9216=(161497,161498)`,
+    `10240=(161499,161500)`, `11264=(161501,161502)`,
+    `12288=(161503,161504)`, `12544=(161505,161506)`,
+    `13312=(161508,161509)`, `14336=(161510,161511)`,
+    `15360=(161512,161513)`, `16384=(161514,161515)`,
+    `17408=(161516,161517)`, `18432=(161518,161519)`,
+    `19456=(161520,161521)`, `20480=(161522,161523)`,
+    `21504=(161524,161525)`, `22528=(161526,161527)`,
+    `23552=(161528,161529)`, `24576=(161530,161531)`,
+    `24960=(161532,161533)`.
+  - Midpoint full500 at `12,544`: `161507`.
+  - Final report: `161534`, dependency `afterany:161533:161507`.
+- Runtime validation targets:
+  - `161481` writes val100 JSONL/config/metadata and continuation data with
+    `SFT ∩ new_OPD = ∅` and `old_1k_OPD ∩ new_OPD = ∅`.
+  - `161482` writes `opd_001024/summary.json` with exactly 100 samples.
+  - `161483` logs old full optimizer load from `iter_0000007`,
+    `OPD_SKIP_ROLLOUT_DATA_STATE_LOAD=1`, and rollout start at `8`.
+  - Later train jobs log normal dataset-state resume from the continuation
+    save dir.
+
+## OPD 25k Continuation Resume Patch and Replacement Chain
+
+- Latest failure: first continuation train job `161483` failed before rollout
+  or training while loading the completed 1k OPD full optimizer checkpoint.
+- Fatal error:
+  `OptimizerParamScheduler: class input value 24960 and checkpointvalue 1024 for total number of iterations do not match`.
+- Root cause:
+  - The old 1k OPD optimizer checkpoint persisted an LR scheduler horizon for
+    `1,024` samples.
+  - The continuation submitter had also leaked final-run derived env values
+    through `--export=ALL`, so the first segment logged the final rollout
+    horizon instead of endpoint-specific values.
+- Preserved progress:
+  - Data prep `161481` completed and is reused.
+  - Current 1k val100 `161482` completed and is reused:
+    `accuracy=0.700`, `accuracy_on_parseable=0.7526881720`,
+    `parse_failure_rate=0.070`, `cap_hit_rate=0.840`.
+  - No output from failed train `161483` is used as progress; the continuation
+    save dir still had no `latest_checkpointed_iteration.txt`.
+- Patch commit: `05e238b` (`Fix OPD continuation segmented resume`), pushed to
+  `origin/opd-reproduction` before replacement submission.
+- Patch behavior:
+  - Continuation train jobs set
+    `OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH=1`, which passes Megatron's
+    `--override-opt-param-scheduler`; model weights and optimizer state still
+    load from the 1k full checkpoint, while the freshly constructed scheduler
+    uses the current continuation segment horizon.
+  - The submitter now explicitly exports per-endpoint derived values:
+    `OPD_TRAIN_SIZE`, `OPD_NUM_ROLLOUT`, `OPD_FINAL_ROLLOUT_ID`,
+    `OPD_EFFECTIVE_TRAIN_SAMPLES`, `OPD_FINAL_HF_DIR`,
+    `OPD_MILESTONE_ROLLOUT_IDS`, and `OPD_SANITY_MAX_ROLLOUT_ID`.
+  - The submitter can reuse existing data/current-val artifacts; for this retry
+    `OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL=1`.
+- Validation before submission:
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `python3 -m py_compile` on touched/related Python helpers: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+  - Targeted container CLI check confirmed Megatron exposes
+    `--override-opt-param-scheduler`.
+- Canceled stale downstream jobs from the failed chain:
+  `161484` through `161534`.
+- Replacement submit time/log: `2026-07-06 12:38 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_opd_continue_1k_to_25k_val100_20260706_123823.txt`.
+- Replacement job IDs:
+  - Preserved data/current val:
+    `data=preserved_existing_data`,
+    `val100_current_001024=preserved_existing_opd_001024_val100`.
+  - Train/eval pairs:
+    `2048=(161751,161752)`, `3072=(161753,161754)`,
+    `4096=(161755,161756)`, `5120=(161757,161758)`,
+    `6144=(161759,161760)`, `7168=(161761,161762)`,
+    `8192=(161763,161764)`, `9216=(161765,161766)`,
+    `10240=(161767,161768)`, `11264=(161769,161770)`,
+    `12288=(161771,161772)`, `12544=(161773,161774)`,
+    `13312=(161776,161777)`, `14336=(161778,161779)`,
+    `15360=(161780,161781)`, `16384=(161782,161783)`,
+    `17408=(161784,161785)`, `18432=(161786,161787)`,
+    `19456=(161788,161789)`, `20480=(161790,161791)`,
+    `21504=(161792,161793)`, `22528=(161794,161795)`,
+    `23552=(161796,161797)`, `24576=(161798,161799)`,
+    `24960=(161800,161801)`.
+  - Midpoint full500 at `12,544`: `161775`.
+  - Final report: `161802`, dependency `afterany:161801:161775`.
+- Scheduler validation after replacement submission:
+  - First replacement train `161751` is pending for `Priority` with no
+    dependency and estimated start `2026-07-06 16:39 PDT`.
+  - `scontrol show job -o 161751` shows endpoint-specific exports:
+    `OPD_TRAIN_SIZE=2048`, `OPD_NUM_ROLLOUT=16`,
+    `OPD_FINAL_ROLLOUT_ID=15`, `OPD_EFFECTIVE_TRAIN_SAMPLES=2048`,
+    `OPD_SKIP_ROLLOUT_DATA_STATE_LOAD=1`, and
+    `OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH=1`.
+  - Representative jobs `161751`, `161752`, `161775`, and `161802` have
+    `MailUser=suryadv@cs.washington.edu` and `MailType=END,FAIL`.
+  - No replacement job is `DependencyNeverSatisfied` at submission check.
+- Runtime validation targets:
+  - `161751` log shows full optimizer load from old OPD `iter_0000007`.
+  - `161751` log shows
+    `Allowing optimizer-parameter scheduler horizon changes via --override-opt-param-scheduler`.
+  - `161751` starts rollout id `8` and writes first continuation checkpoint/HF
+    snapshot `iter_0000015`.
+  - `161775` writes the 1-GPU full MATH-500 midpoint summary for
+    `opd_012544`.
+  - `161801` writes the final val100 summary for `opd_024960`.
+
+## Planned Serialized 4-GPU Val100/Eval Replacement for OPD 25k Continuation
+
+- Reason for patch:
+  - First replacement train `161751` completed and produced the valid
+    continuation checkpoint/HF snapshot for `opd_002048` at rollout `15`.
+  - Follow-up val100 `161752` was running as a 1-GPU eval and had not yet
+    written `opd_002048/summary.json` or a complete `debug_eval_0.pt` when
+    inspected, so there was no fidelity-safe partial artifact to append.
+  - Downstream jobs `161753` through `161802` were still the old serialized
+    train/1-GPU-val chain.
+- Patch behavior:
+  - Continuation val100 and midpoint full MATH-500 eval jobs now default to
+    `gpu:h200:4`, `EVAL_ROLLOUT_NUM_GPUS=4`,
+    `EVAL_ROLLOUT_BATCH_SIZE=64`, eval `TP=1`, eval `CP=1`, and
+    `EVAL_SGLANG_SERVER_CONCURRENCY=2`.
+  - Report-only jobs use `gpu:h200:1`.
+  - The submitter detects a completed continuation endpoint checkpoint. If its
+    val100 summary is missing, it preserves the train checkpoint and submits
+    only that endpoint's val100. If the summary already exists, it skips the
+    endpoint entirely.
+  - The midpoint full MATH-500 eval at `opd_012544` now depends on
+    `val100_012544`, and later training depends on the full eval, preventing
+    any intentional overlap between training, val100, full eval, and report
+    jobs.
+- Preservation policy for `161752`:
+  - If `opd_002048/summary.json` appears before cancellation, preserve it.
+  - Else if a complete `debug_eval_0.pt` appears, summarize and preserve it.
+  - Otherwise cancel `161752`; partial in-memory generations are not reused.
+- Resource policy after patch:
+  - OPD train: `gpu:h200:4`.
+  - Val100 and midpoint full MATH-500 eval: `gpu:h200:4`.
+  - Report: `gpu:h200:1`.
+  - Dependencies are strict enough that no chain job should run in parallel
+    with another chain train/eval/report job.
+
+## Submitted Serialized 4-GPU Val100/Eval Replacement for OPD 25k Continuation
+
+- Patch commit: `13ef32c` (`Serialize OPD continuation 4-GPU evals`), pushed
+  to `origin/opd-reproduction` before replacement submission.
+- Validation before submission:
+  - `bash -n examples/qwen3_8b_opd_tillicum/submit_opd_continue_1k_to_25k_val100_chain.sh`: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+- Salvage outcome:
+  - `opd_002048/summary.json` and `opd_002048/debug_eval_0.pt` were still
+    absent immediately before cancellation.
+  - Canceled incomplete 1-GPU val100 `161752` and stale downstream jobs
+    `161753` through `161802`.
+  - Preserved completed `opd_002048` train checkpoint/HF snapshot:
+    `iter_0000015`.
+- Replacement submit time/log: `2026-07-06 20:17 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_opd_continue_1k_to_25k_val100_20260706_201734.txt`.
+- Replacement job IDs:
+  - Preserved data/current val:
+    `data=preserved_existing_data`,
+    `val100_current_001024=preserved_existing_opd_001024_val100`.
+  - Preserved 2k train:
+    `train_2048=preserved_existing_train_2048`.
+  - Val/train chain:
+    `val100_2048=162217`, `3072=(162218,162219)`,
+    `4096=(162220,162221)`, `5120=(162222,162223)`,
+    `6144=(162224,162225)`, `7168=(162226,162227)`,
+    `8192=(162228,162229)`, `9216=(162230,162231)`,
+    `10240=(162232,162233)`, `11264=(162234,162235)`,
+    `12288=(162236,162237)`, `12544=(162238,162239)`,
+    `13312=(162241,162242)`, `14336=(162243,162244)`,
+    `15360=(162245,162246)`, `16384=(162247,162248)`,
+    `17408=(162249,162250)`, `18432=(162251,162252)`,
+    `19456=(162253,162254)`, `20480=(162255,162256)`,
+    `21504=(162257,162258)`, `22528=(162259,162260)`,
+    `23552=(162261,162262)`, `24576=(162263,162264)`,
+    `24960=(162265,162266)`.
+  - Midpoint full500 at `12,544`: `162240`.
+  - Final report: `162267`, dependency `afterany:162266:162240`.
+- Scheduler validation after submission:
+  - First replacement job `162217` is a 4-GPU val100 with no dependency,
+    pending for `Resources`, with scheduler start estimate
+    `2026-07-07 00:15 PDT`.
+  - `162218` waits on `afterok:162217`, so `opd_003072` training cannot start
+    until the 2k val100 finishes.
+  - `162240` waits on `afterok:162239`, and `162241` waits on
+    `afterok:162240`; the midpoint full500 eval is serialized between
+    `val100_012544` and later training.
+  - `162217`, `162218`, `162239`, `162240`, and `162241` each request
+    `gpu:h200:4`; final report `162267` requests `gpu:h200:1`.
+  - Representative jobs have `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No replacement job was `DependencyNeverSatisfied` at submission check.
+- Runtime validation targets:
+  - `162217` log shows `EVAL_ROLLOUT_NUM_GPUS=4`, eval `TP=1`, eval `CP=1`,
+    `EVAL_ROLLOUT_BATCH_SIZE=64`, and
+    `EVAL_SGLANG_SERVER_CONCURRENCY=2`.
+  - `162217` writes `opd_002048/summary.json` with exactly 100 samples.
+  - `162218` starts `opd_003072`; it must not rerun the completed
+    `opd_002048` train segment.
+  - `162240` writes the 4-GPU full MATH-500 midpoint summary for
+    `opd_012544`.
+  - `162266` writes the final val100 summary for `opd_024960`, then `162267`
+    refreshes the report.
+
+## Planned OPD 25k Continuation Context-Overflow Patch
+
+- Latest continuation failure: train job `162222` for endpoint `opd_005120`
+  failed during rollout generation after `03:44:29`.
+- Fatal SGLang error:
+  `Requested token count exceeds the model's maximum context length of 32768 tokens. You requested a total of 32893 tokens: 1149 tokens from the input messages and 31744 tokens for the completion.`
+- Root cause:
+  - OPD requested the global `OPD_MAX_RESPONSE_LEN=31744` for every prompt.
+  - A continuation prompt with `1,149` tokens needed a per-sample response cap
+    of at most `32766 - 1149 = 31617` to stay inside the actor rollout context
+    ceiling aligned with `OPD_SEQ_LENGTH=32766`.
+  - The router then returned HTTP `400`, and later requests degraded into
+    `503 no_available_workers`.
+- Preserved progress:
+  - Full optimizer checkpoint:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_25k_32k_sft_colocate4_continue_full_optim/iter_0000031`.
+  - HF eval snapshot:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_25k_32k_sft_colocate4_continue_eval_snapshots/iter_0000031`.
+  - Val100 summaries through `opd_004096`: `0.70`, `0.72`, `0.77`, `0.74`.
+- Non-progress diagnostics:
+  - Failed-job rollout logs `rollout_32.pt` through `rollout_37.pt`.
+  - Failed-job sanity JSONs `samples_3072_3199.json` through
+    `samples_3712_3839.json`.
+  - These are not used as training progress because no matching full optimizer
+    checkpoint was written after `iter_0000031`.
+- Patch behavior:
+  - `slime/rollout/sglang_rollout.py` clamps each sample's
+    `max_new_tokens` to `rollout_max_context_len - prompt_tokens` when
+    `--rollout-max-context-len` is set.
+  - `OPD_ROLLOUT_MAX_CONTEXT_LEN` defaults to `OPD_SEQ_LENGTH` and is passed to
+    OPD train jobs as `--rollout-max-context-len`.
+  - Short prompts still receive the global `OPD_MAX_RESPONSE_LEN=31744`; only
+    prompts that would overflow are capped lower.
+- Planned replacement:
+  - Cancel stale downstream jobs `162223` through `162267`.
+  - Archive the failed diagnostics above with `.failed_162222` suffixes.
+  - Resubmit with `OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL=1` and
+    `OPD_CONTINUE_ALLOW_EXISTING_SAVE=1`.
+  - Auto-resume should preserve endpoints through `4096`; first replacement
+    train starts endpoint `5120` from `iter_0000031` and rollout id `32`.
+
+## OPD 25k Continuation Context-Overflow Submitter Correction
+
+- First patch commit: `745f7a1` (`Clamp OPD rollout caps to context`), pushed
+  to `origin/opd-reproduction`.
+- Validation before the first replacement attempt:
+  - `python3 -m py_compile slime/rollout/sglang_rollout.py`: passed.
+  - Focused in-container clamp regression: prompt `1149`, requested cap
+    `31744`, context limit `32766` produced effective cap `31617`; a short
+    prompt kept `31744`.
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+- Archival/cancel actions:
+  - Archived failed rollout diagnostics `rollout_32.pt` through
+    `rollout_37.pt` with `.failed_162222` suffixes.
+  - Archived failed sanity JSON diagnostics `samples_3072_3199.json` through
+    `samples_3712_3839.json` with `.failed_162222` suffixes.
+  - Canceled stale downstream jobs `162223` through `162267`.
+- Canceled replacement attempt:
+  - Submitted then immediately canceled jobs `163252` through `163302`.
+  - Reason: the submitter required endpoint-specific full checkpoint dirs to
+    recognize preserved endpoints. Because full checkpoint pruning kept only
+    latest `iter_0000031`, the submitter would have rerun earlier endpoints
+    `2048` and `3072` despite their completed val100 summaries.
+- Submitter correction:
+  - The submitter now reads the latest continuation checkpoint marker and
+    treats endpoints at or below that sample count as preserved when their
+    val100 summary exists.
+  - With `latest_checkpointed_iteration.txt = 31`, the latest preserved
+    endpoint is `4096`, so replacement submission should skip `2048`, `3072`,
+    and `4096` and start new training at `5120`.
+- Validation after submitter correction:
+  - `bash -n examples/qwen3_8b_opd_tillicum/submit_opd_continue_1k_to_25k_val100_chain.sh`: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+
+## Submitted OPD 25k Continuation Context-Overflow Replacement
+
+- Submitter correction commit: `471a8e2` (`Fix OPD continuation preserve detection`),
+  pushed to `origin/opd-reproduction`.
+- Replacement submit time/log: `2026-07-07 18:25 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_opd_continue_1k_to_25k_val100_20260707_182511.txt`.
+- Submitter detected latest existing continuation checkpoint:
+  `latest_checkpointed_iteration.txt = 31`, endpoint `4096`.
+- Preserved endpoints in replacement submit:
+  - `train_2048=preserved_existing_train_2048`,
+    `val100_2048=preserved_existing_val100_2048`.
+  - `train_3072=preserved_existing_train_3072`,
+    `val100_3072=preserved_existing_val100_3072`.
+  - `train_4096=preserved_existing_train_4096`,
+    `val100_4096=preserved_existing_val100_4096`.
+- Replacement job IDs:
+  - `5120=(163315,163316)`, `6144=(163317,163318)`,
+    `7168=(163319,163320)`, `8192=(163321,163322)`,
+    `9216=(163323,163324)`, `10240=(163325,163326)`,
+    `11264=(163327,163328)`, `12288=(163329,163330)`,
+    `12544=(163331,163332)`, `13312=(163334,163335)`,
+    `14336=(163336,163337)`, `15360=(163338,163339)`,
+    `16384=(163340,163341)`, `17408=(163342,163343)`,
+    `18432=(163344,163345)`, `19456=(163346,163347)`,
+    `20480=(163348,163349)`, `21504=(163350,163351)`,
+    `22528=(163352,163353)`, `23552=(163354,163355)`,
+    `24576=(163356,163357)`, `24960=(163358,163359)`.
+  - Midpoint full500 at `12,544`: `163333`.
+  - Final report: `163360`, dependency `afterany:163359:163333`.
+- Scheduler validation after submission:
+  - `163315` started immediately on `g011` with no dependency.
+  - `163316` waits on `afterok:163315`.
+  - `163333` waits on `afterok:163332`.
+  - `163360` waits on `afterany:163359:163333`.
+  - Representative jobs have `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - Train/eval jobs request `gpu:h200:4`; final report requests `gpu:h200:1`.
+  - No replacement job was `DependencyNeverSatisfied` at scheduler check.
+- Runtime validation observed after `163315` started:
+  - Log shows `OPD_ROLLOUT_MAX_CONTEXT_LEN=32766` as
+    `OPD rollout max context len: 32766`.
+  - Log shows endpoint-specific values for `opd_005120`:
+    `OPD train rows requested: 5120`, `OPD effective samples: 5120`,
+    final rollout id `39`.
+  - Log shows the preserved latest checkpoint report for `iter=31`.
+- Remaining runtime validation targets:
+  - `163315` loads/resumes the full optimizer checkpoint from `iter_0000031`.
+  - Rollout generation starts at rollout id `32`.
+  - Long prompts log per-sample response-cap clamps instead of SGLang HTTP
+    `400 Requested token count exceeds the model's maximum context length`.
+  - First replacement checkpoint/HF snapshot writes endpoint `opd_005120`,
+    rollout `iter_0000039`.
+
+## Cleaned Chain ZeRO Smoke Timeout
+
+- Failed job: `163645` (`slime-qwen3-sft-zero-smoke`), state `TIMEOUT`,
+  elapsed `02:00:28`.
+- Root cause: the smoke wrapper set `SFT_SIZE=4` and one rollout in the
+  environment, but still passed the full cleaned SFT JSONL as `SFT_PARQUET`.
+  Slime therefore trained on the real 25k cleaned SFT file instead of a tiny
+  smoke file.
+- Observed state:
+  - Only ZeRO stage 1 ran; stages 2 and 3 never started.
+  - Stage 1 was training and saving normally, reaching
+    `latest_checkpointed_iteration.txt = 509`.
+  - The accidental smoke output tree reached `8.0T`.
+- Cleanup decision:
+  - The old `outputs/sft_zero_smoke/stage_1_*` artifacts are not intended
+    experiment checkpoints and are not fidelity-preserving progress.
+  - They are safe to delete after this note because the actual cleaned SFT
+    run will start fresh from base on the cleaned 25k SFT split.
+- Cleanup performed:
+  - Deleted only `outputs/sft_zero_smoke/stage_1_full_optim`,
+    `stage_1_hf`, `stage_1_details`, and `stage_1_reports`.
+  - Remaining `outputs/sft_zero_smoke` footprint after cleanup: `1.0K`.
+- Patch:
+  - The smoke job now creates
+    `outputs/sft_zero_smoke/sft_zero_smoke_000004.jsonl` from the first
+    four cleaned SFT rows and passes that file as `SFT_PARQUET`.
+  - Smoke outputs now use fresh `tiny_stage_{1,2,3}_*` directories.
+  - Each stage skips if `iter_0000000/.metadata` and HF
+    `iter_0000000/config.json` already exist.
+  - The cleaned-chain submitter supports `CLEANED_RESUME_AFTER_CONVERT=1`,
+    reusing completed setup/data/convert artifacts from jobs `163642`,
+    `163643`, and `163644`.
+
+## Cleaned Chain ZeRO Smoke Replacement
+
+- Patch commit before replacement submission: `ed35917`
+  (`Fix cleaned ZeRO smoke resume`), pushed to `origin/opd-reproduction`.
+- Static validation:
+  - `bash -n` on edited smoke/submitter/SFT wrapper scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+- Preserved completed artifacts:
+  - vLLM setup job `163642`.
+  - cleaned data job `163643`.
+  - model conversion job `163644`.
+  - cleaned data row counts: SFT `25,000`, OPD-1k `1,024`,
+    OPD-next-4k `4,096`.
+- Canceled stale downstream jobs: `163646` through `163653`.
+- Replacement submit time/log: `2026-07-08 10:55 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_105541.txt`.
+- Replacement job IDs:
+  - ZeRO smoke: `164126` (`gpu:h200:4`, `02:00:00`), no dependency.
+  - Base vLLM eval: `164127` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164126`.
+  - SFT 25k: `164128` (`gpu:h200:4`, `16:00:00`),
+    `afterok:164127`.
+  - SFT vLLM eval: `164129` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164128`.
+  - OPD 1k: `164130` (`gpu:h200:4`, `08:00:00`),
+    `afterok:164129`.
+  - OPD 1k vLLM eval: `164131` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164130`.
+  - OPD 5k: `164132` (`gpu:h200:4`, `24:00:00`),
+    `afterok:164131`.
+  - OPD 5k vLLM eval: `164133` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164132`.
+  - Final report: `164134` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164133`.
+- Scheduler validation:
+  - `164126` started immediately on `g019`.
+  - Downstream jobs use strict `afterok` dependencies and none were
+    `DependencyNeverSatisfied` at scheduler check.
+  - Representative jobs showed
+    `MailUser=suryadv@cs.washington.edu MailType=END,FAIL`.
+  - No replacement job requests more than 4 H200s.
+- Runtime validation observed:
+  - Smoke data file
+    `outputs/sft_zero_smoke/sft_zero_smoke_000004.jsonl` has exactly
+    `4` rows.
+  - Live `164126` log shows SFT loading that smoke data file and writing to
+    `outputs/sft_zero_smoke/tiny_stage_1_*`.
+  - Live `164126` log shows rollout `0` only so far, not the old rollout
+    `500+` behavior.
+- Follow-up hardening:
+  - The SFT wrapper now honors `SFT_SKIP_LOG_REDIRECT=1`, and the smoke job
+    sets it for nested SFT calls so future smoke reruns keep the outer
+    row-count/stage markers in the Slurm log instead of truncating them.
+
+## Cleaned Chain Stable Smoke Resubmission
+
+- Superseded replacement:
+  - Smoke job `164126` completed tiny ZeRO stage 1 artifacts
+    (`tiny_stage_1_full_optim/iter_0000000/.metadata` and
+    `tiny_stage_1_hf/iter_0000000/config.json`) but exited `FAILED 2:0`.
+  - Cause: the SFT wrapper was edited while `164126` was still executing it,
+    which made bash read an inconsistent script tail and report
+    `unexpected EOF while looking for matching '"'`.
+  - Canceled stale downstream jobs `164127` through `164134`.
+- Stable code commit: `7479671` (`Record cleaned smoke replacement`), pushed
+  to `origin/opd-reproduction`.
+- Stable replacement submit time/log: `2026-07-08 11:00 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_110057.txt`.
+- Stable replacement job IDs:
+  - ZeRO smoke: `164148` (`gpu:h200:4`, `02:00:00`), no dependency.
+  - Base vLLM eval: `164149` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164148`.
+  - SFT 25k: `164150` (`gpu:h200:4`, `16:00:00`), `afterok:164149`.
+  - SFT vLLM eval: `164151` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164150`.
+  - OPD 1k: `164152` (`gpu:h200:4`, `08:00:00`), `afterok:164151`.
+  - OPD 1k vLLM eval: `164153` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164152`.
+  - OPD 5k: `164154` (`gpu:h200:4`, `24:00:00`), `afterok:164153`.
+  - OPD 5k vLLM eval: `164155` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164154`.
+  - Final report: `164156` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164155`.
+- Runtime validation observed for stable smoke:
+  - `164148` started immediately on `g011`.
+  - Log shows `SFT ZeRO smoke data row count: 4`.
+  - Log shows stage 1 skipped from the complete tiny artifact and stage 2
+    started on the same 4-row smoke data file.
+  - Downstream jobs use strict `afterok` dependencies and none were
+    `DependencyNeverSatisfied` at scheduler check.
+  - `164148` shows
+    `MailUser=suryadv@cs.washington.edu MailType=END,FAIL`; no replacement
+    job requests more than 4 H200s.
+
+## Cleaned Chain ZeRO Stage-2 Smoke Fixes
+
+- Stable smoke job `164148` failed during ZeRO stage 2 before training:
+  - Stage 1 was skipped from complete tiny artifacts.
+  - Stage 2 started on the 4-row smoke JSONL.
+  - Megatron-FSDP aborted with
+    `FSDP always requires CUDA_DEVICE_MAX_CONNECTIONS value large than one`.
+- Patch commit: `28d384c` (`Fix SFT FSDP CUDA connections`), pushed to
+  `origin/opd-reproduction`.
+  - SFT now defaults `CUDA_DEVICE_MAX_CONNECTIONS=8` for
+    `SFT_ZERO_STAGE=2` or `3`, while keeping `1` for non-FSDP stages.
+  - Canceled stale downstream jobs `164149` through `164156`.
+- Replacement after CUDA-connection fix:
+  - Submit time/log: `2026-07-08 11:14 PDT`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_111429.txt`.
+  - Job IDs: smoke `164173`, base eval `164174`, SFT `164175`,
+    SFT eval `164176`, OPD-1k `164177`, OPD-1k eval `164178`,
+    OPD-5k `164179`, OPD-5k eval `164180`, report `164181`.
+- Smoke job `164173` failed during ZeRO stage 2 before training:
+  - Log showed `SFT CUDA_DEVICE_MAX_CONNECTIONS=8`.
+  - Megatron-FSDP then aborted with
+    `Megatron FSDP only supports fsdp_dtensor checkpoint format`.
+- Patch commit: `f23ad89` (`Fix ZeRO stage 2 smoke checkpoint format`),
+  pushed to `origin/opd-reproduction`.
+  - Smoke stages 2 and 3 now use `SFT_CKPT_FORMAT=fsdp_dtensor`.
+  - Stage 1 remains `torch_dist`.
+  - Canceled stale downstream jobs `164174` through `164181`.
+- Replacement after checkpoint-format fix:
+  - Submit time/log: `2026-07-08 11:21 PDT`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_112100.txt`.
+  - Job IDs: smoke `164211`, base eval `164212`, SFT `164213`,
+    SFT eval `164214`, OPD-1k `164215`, OPD-1k eval `164216`,
+    OPD-5k `164217`, OPD-5k eval `164218`, report `164219`.
+- Smoke job `164211` failed during ZeRO stage 2 before training:
+  - Log showed `SFT CUDA_DEVICE_MAX_CONNECTIONS=8`.
+  - Log showed `--ckpt-format fsdp_dtensor`.
+  - Megatron-FSDP then aborted while constructing PyTorch `DeviceMesh`:
+    `RuntimeError: ProcessGroup name not set`.
+  - This is a Megatron-FSDP/PyTorch process-group compatibility issue: the
+    process groups are valid, but this container's PyTorch `DeviceMesh`
+    requires `group.group_name` and these Megatron-created groups do not have
+    a name set.
+
+## Cleaned Chain DeviceMesh Smoke Replacement
+
+- Patch commit: `7cf5d9a` (`Patch Megatron FSDP DeviceMesh group names`),
+  pushed to `origin/opd-reproduction`.
+- Patch details:
+  - Added a narrow Megatron compatibility shim in
+    `slime/backends/megatron_utils/megatron_patch/device_mesh_process_group_name_patch.py`.
+  - If `DeviceMesh.from_group` raises `ProcessGroup name not set`, the shim
+    rebuilds the `DeviceMesh` with deterministic synthetic names and stores the
+    actual process groups in DeviceMesh's private registry.
+  - This does not change cleaned data, SFT/OPD hyperparameters, checkpoint
+    retention, or the actual training objective.
+- Validation before resubmission:
+  - `python3 -m py_compile` on the new patch module and patch package:
+    passed.
+  - `bash -n` on smoke/SFT/submitter scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+  - Direct container import of the new patch via `container_exec.sh`: passed.
+- Canceled stale downstream jobs from `164211`:
+  - `164212` through `164219` were no longer present in `squeue` at check
+    time; `scancel 164212 ... 164219` returned cleanly.
+- Replacement submit time/log: `2026-07-08 11:31 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_113151.txt`.
+- Replacement job IDs:
+  - ZeRO smoke: `164234` (`gpu:h200:4`, `02:00:00`), no dependency.
+  - Base vLLM eval: `164235` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164234`.
+  - SFT 25k: `164236` (`gpu:h200:4`, `16:00:00`), `afterok:164235`.
+  - SFT vLLM eval: `164237` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164236`.
+  - OPD 1k: `164238` (`gpu:h200:4`, `08:00:00`), `afterok:164237`.
+  - OPD 1k vLLM eval: `164239` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164238`.
+  - OPD 5k: `164240` (`gpu:h200:4`, `24:00:00`), `afterok:164239`.
+  - OPD 5k vLLM eval: `164241` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164240`.
+  - Final report: `164242` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164241`.
+- Scheduler validation:
+  - `164234` started immediately on `g011`.
+  - Downstream jobs are pending on strict `afterok` dependencies, not
+    `DependencyNeverSatisfied`.
+  - All jobs show `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No job requests more than 4 H200s; final report requests 1 H200.
+- Runtime validation targets:
+  - Smoke log should skip complete stage 1, run stage 2 with
+    `CUDA_DEVICE_MAX_CONNECTIONS=8` and `fsdp_dtensor`, and no longer fail on
+    `ProcessGroup name not set`.
+  - ZeRO stages 2 and 3 should each write `iter_0000000/.metadata` plus HF
+    `iter_0000000/config.json`.
+  - No smoke stage should train past rollout `0`.
+
+## Cleaned Chain Pivot Away From ZeRO/FSDP
+
+- Latest ZeRO/FSDP smoke attempt: `164383`.
+  - Stage 1 was already complete and skipped from the tiny smoke artifact.
+  - Stage 2 loaded base weights, completed rollout `0`, completed actor
+    backward, and reached checkpoint save.
+  - It then failed inside Megatron `fsdp_dtensor` checkpoint saving:
+    `AttributeError: 'Tensor' object has no attribute 'to_local'` from
+    `megatron/core/transformer/fsdp_dtensor_checkpoint.py` while splitting
+    SwiGLU FC1 tensors.
+- Decision:
+  - Stop using the Megatron-FSDP/ZeRO-2/3 path for the cleaned experiment.
+  - Keep prior logs, scripts, and compatibility patches as debugging history;
+    do not delete smoke artifacts or failure logs.
+  - Use Megatron's distributed optimizer over `DP=2` for SFT instead
+    (`SFT_ZERO_STAGE=1` in the legacy wrapper variable, checkpoint format
+    `torch_dist`).
+  - The tiny smoke job now validates only this Megatron distributed-optimizer
+    path; the old FSDP stage-2/3 smoke loop is disabled in-script with a note
+    explaining the fsdp_dtensor save incompatibility.
+- Static validation before resubmission:
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Patch commit: `3b42f27`
+  (`Pivot cleaned SFT from ZeRO to Megatron DP optimizer`), pushed to
+  `origin/opd-reproduction`.
+- Replacement submit time/log: `2026-07-08 12:33 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_123304.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164409` (`gpu:h200:4`, `02:00:00`),
+    no dependency.
+  - Base vLLM eval: `164410` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164409`.
+  - SFT 25k: `164411` (`gpu:h200:4`, `16:00:00`), `afterok:164410`.
+  - SFT vLLM eval: `164412` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164411`.
+  - OPD 1k: `164413` (`gpu:h200:4`, `08:00:00`), `afterok:164412`.
+  - OPD 1k vLLM eval: `164414` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164413`.
+  - OPD 5k: `164415` (`gpu:h200:4`, `24:00:00`), `afterok:164414`.
+  - OPD 5k vLLM eval: `164416` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164415`.
+  - Final report: `164417` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164416`.
+- Scheduler validation:
+  - `164409` completed in `00:00:04` by reusing the existing complete tiny
+    Megatron distributed-optimizer smoke artifact.
+  - Downstream jobs are strict `afterok` dependencies and were not
+    `DependencyNeverSatisfied` at check time.
+  - All replacement jobs have `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No replacement job requests more than 4 H200s; final report requests
+    1 H200.
+
+## Cleaned Chain vLLM Eval Wrapper Fix
+
+- Base eval job `164410` failed after the Megatron-DP pivot smoke completed:
+  - Log reached `VLLM_EVAL_STAGE stage=base`.
+  - It then failed inside the inner container shell with
+    `/usr/bin/bash: line 4: seq: command not found` and
+    `VLLM_EVAL_PYTHON_CMD: unbound variable`.
+- Patch commit: `e7ac9aa`
+  (`Fix vLLM eval container env forwarding`), pushed to
+  `origin/opd-reproduction`.
+  - Added `VLLM_EVAL_PYTHON_CMD` to the container env allowlist and dry-check
+    required forwarding list.
+  - Replaced the inner `seq` loop with a pure Bash arithmetic `while` loop.
+- Validation:
+  - `bash -n` on touched eval/container/dry-check scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Canceled stale downstream jobs from `164410`:
+  - `164411` through `164417`.
+- Replacement submit time/log: `2026-07-08 12:36 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_123643.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164431` (`gpu:h200:4`, `02:00:00`),
+    no dependency; completed in `00:00:03` by reusing the existing smoke
+    artifact.
+  - Base vLLM eval: `164432` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164431`; running on `g011` at scheduler check.
+  - SFT 25k: `164433` (`gpu:h200:4`, `16:00:00`), `afterok:164432`.
+  - SFT vLLM eval: `164434` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164433`.
+  - OPD 1k: `164435` (`gpu:h200:4`, `08:00:00`), `afterok:164434`.
+  - OPD 1k vLLM eval: `164436` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164435`.
+  - OPD 5k: `164437` (`gpu:h200:4`, `24:00:00`), `afterok:164436`.
+  - OPD 5k vLLM eval: `164438` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164437`.
+  - Final report: `164439` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164438`.
+- Runtime check:
+  - `164432` log no longer shows the old `seq` or
+    `VLLM_EVAL_PYTHON_CMD` failure and proceeds past stage setup into shard
+    execution.

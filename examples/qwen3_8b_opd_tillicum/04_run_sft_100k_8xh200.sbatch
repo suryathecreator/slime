@@ -2,10 +2,10 @@
 #SBATCH --job-name=slime-qwen3-sft25k
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=64
-#SBATCH --gres=gpu:h200:8
+#SBATCH --cpus-per-task=32
+#SBATCH --gres=gpu:h200:4
 #SBATCH --mem=0
-#SBATCH --time=08:00:00
+#SBATCH --time=16:00:00
 #SBATCH --mail-user=suryadv@cs.washington.edu
 #SBATCH --mail-type=END,FAIL
 
@@ -23,7 +23,9 @@ mkdir -p "${SLURM_LOG_DIR}" "${SFT_SAVE_DIR}" "${SFT_HF_SNAPSHOT_DIR}" "${SFT_DE
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   export RAY_TMPDIR="/tmp/${USER:-suryadv}/slime-ray-${SLURM_JOB_ID}"
   mkdir -p "${RAY_TMPDIR}"
-  exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
+  if [[ "${SFT_SKIP_LOG_REDIRECT:-0}" != "1" ]]; then
+    exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
+  fi
 fi
 
 for required_path in "${SFT_PARQUET}" "${STUDENT_HF_DIR}" "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt"; do
@@ -38,6 +40,12 @@ echo "SFT data: ${SFT_PARQUET}"
 echo "Save dir: ${SFT_SAVE_DIR}"
 echo "HF eval snapshots: ${SFT_HF_SNAPSHOT_DIR}"
 echo "Expected final SFT rollout id: ${SFT_FINAL_ROLLOUT_ID}"
+echo "SFT actor GPUs: ${SFT_ACTOR_GPUS}"
+echo "SFT TP/CP/PP: ${SFT_TENSOR_MODEL_PARALLEL_SIZE}/${SFT_CONTEXT_PARALLEL_SIZE}/${SFT_PIPELINE_MODEL_PARALLEL_SIZE}"
+echo "SFT optimizer mode: ${SFT_OPTIMIZER_MODE:-legacy_stage_${SFT_ZERO_STAGE}}"
+echo "SFT legacy sharding stage: ${SFT_ZERO_STAGE}"
+echo "SFT LR: ${SFT_LR}"
+echo "SFT max tokens per GPU: ${SFT_MAX_TOKENS_PER_GPU}"
 
 checkpoint_start_pruner sft "${SFT_SAVE_DIR}" "${CHECKPOINT_PRUNE_INTERVAL_SECONDS}" "${CHECKPOINT_REPORT_DIR}"
 cleanup() {
@@ -61,14 +69,75 @@ echo "HAS_NVLINK=${HAS_NVLINK} (detected ${NVLINK_COUNT} NVLink references)"
 
 source scripts/models/qwen3-8B.sh
 
+SFT_DP=$((SFT_ACTOR_GPUS / (SFT_TENSOR_MODEL_PARALLEL_SIZE * SFT_CONTEXT_PARALLEL_SIZE * SFT_PIPELINE_MODEL_PARALLEL_SIZE)))
+if [[ "${SFT_DP}" -lt 1 ]]; then
+  echo "Invalid SFT DP=${SFT_DP}; check actor GPUs and TP/CP/PP." >&2
+  exit 1
+fi
+if [[ "${SFT_ZERO_STAGE}" != "0" && "${SFT_DP}" -lt 2 ]]; then
+  echo "SFT_ZERO_STAGE=${SFT_ZERO_STAGE} requires DP >= 2, got DP=${SFT_DP}" >&2
+  exit 1
+fi
+echo "Resolved SFT DP=${SFT_DP}"
+
+SFT_LOAD_DIR="${SFT_SAVE_DIR}"
+SFT_LOAD_KIND="sft_resume"
+if [[ -f "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
+  echo "Resuming SFT from full optimizer checkpoint ${SFT_LOAD_DIR}"
+else
+  if [[ "${SFT_ZERO_STAGE}" == "2" || "${SFT_ZERO_STAGE}" == "3" ]]; then
+    # Retained only for legacy FSDP/ZeRO smoke debugging. The cleaned chain now
+    # uses SFT_ZERO_STAGE=1 because fsdp_dtensor saving failed in Megatron.
+    SFT_LOAD_DIR="${STUDENT_HF_DIR}"
+    SFT_LOAD_KIND="base_hf_weights_initial_legacy_fsdp"
+    echo "Starting legacy FSDP SFT from base HF weights ${SFT_LOAD_DIR}"
+  else
+    SFT_LOAD_DIR="${STUDENT_TORCH_DIST_DIR}"
+    SFT_LOAD_KIND="base_megatron_torch_dist_initial"
+    echo "Starting SFT from converted Megatron torch_dist base ${SFT_LOAD_DIR}"
+  fi
+  echo "Fresh SFT optimizer will be initialized because no SFT checkpoint is present."
+fi
+
 CKPT_ARGS=(
+  --megatron-to-hf-mode bridge
   --hf-checkpoint "${STUDENT_HF_DIR}"
-  --ref-load "${STUDENT_TORCH_DIST_DIR}"
-  --load "${SFT_SAVE_DIR}"
+  --ref-load "${SFT_LOAD_DIR}"
+  --load "${SFT_LOAD_DIR}"
   --save "${SFT_SAVE_DIR}"
   --save-interval "${SFT_SAVE_INTERVAL}"
   --save-hf "${SFT_HF_SNAPSHOT_TEMPLATE}"
 )
+echo "SFT load kind: ${SFT_LOAD_KIND}"
+echo "SFT load dir: ${SFT_LOAD_DIR}"
+
+DP_OPT_ARGS=()
+case "${SFT_ZERO_STAGE}" in
+  0)
+    DP_OPT_ARGS=(--data-parallel-sharding-strategy no_shard)
+    ;;
+  1)
+    DP_OPT_ARGS=(--use-distributed-optimizer --data-parallel-sharding-strategy optim)
+    ;;
+  2)
+    # Legacy Megatron-FSDP/ZeRO path retained for debugging, but not used by
+    # the cleaned chain after fsdp_dtensor checkpoint integration failures.
+    DP_OPT_ARGS=(--use-distributed-optimizer --use-megatron-fsdp --data-parallel-sharding-strategy optim_grads)
+    ;;
+  3)
+    # Legacy Megatron-FSDP/ZeRO path retained for debugging, but not used by
+    # the cleaned chain after fsdp_dtensor checkpoint integration failures.
+    DP_OPT_ARGS=(--use-distributed-optimizer --use-megatron-fsdp --data-parallel-sharding-strategy optim_grads_params)
+    ;;
+  *)
+    echo "SFT_ZERO_STAGE must be 0, 1, 2, or 3; got ${SFT_ZERO_STAGE}" >&2
+    exit 1
+    ;;
+esac
+if [[ -n "${SFT_CKPT_FORMAT:-}" ]]; then
+  DP_OPT_ARGS+=(--ckpt-format "${SFT_CKPT_FORMAT}")
+fi
+echo "SFT DP optimizer args: ${DP_OPT_ARGS[*]}"
 
 SFT_ARGS=(
   --rollout-function-path slime.rollout.sft_rollout.generate_rollout
@@ -86,10 +155,10 @@ SFT_ARGS=(
 )
 
 PERF_ARGS=(
-  --tensor-model-parallel-size 2
+  --tensor-model-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"
   --sequence-parallel
-  --pipeline-model-parallel-size 1
-  --context-parallel-size 1
+  --pipeline-model-parallel-size "${SFT_PIPELINE_MODEL_PARALLEL_SIZE}"
+  --context-parallel-size "${SFT_CONTEXT_PARALLEL_SIZE}"
   --expert-model-parallel-size 1
   --expert-tensor-parallel-size 1
   --recompute-granularity full
@@ -101,10 +170,8 @@ PERF_ARGS=(
 
 OPTIMIZER_ARGS=(
   --optimizer adam
-  --lr 1e-5
-  --lr-decay-style cosine
-  --min-lr 1e-6
-  --lr-warmup-fraction 0.1
+  --lr "${SFT_LR}"
+  --lr-decay-style constant
   --weight-decay 0.1
   --adam-beta1 0.9
   --adam-beta2 0.95
@@ -118,20 +185,40 @@ fi
 MISC_ARGS=(
   --attention-dropout 0.0
   --hidden-dropout 0.0
-  --accumulate-allreduce-grads-in-fp32
   --attention-softmax-in-fp32
   --attention-backend flash
 )
+case "${SFT_ZERO_STAGE}" in
+  2|3)
+    echo "SFT FSDP/ZeRO stage ${SFT_ZERO_STAGE}: using BF16 gradient accumulation buffers"
+    MISC_ARGS+=(--grad-reduce-in-bf16)
+    ;;
+  *)
+    MISC_ARGS+=(--accumulate-allreduce-grads-in-fp32)
+    ;;
+esac
 
 export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
-SLIME_SGLANG_PATCH_SITE=0 ray start --head --node-ip-address "${MASTER_ADDR}" --num-gpus 8 \
+SLIME_SGLANG_PATCH_SITE=0 ray start --head --node-ip-address "${MASTER_ADDR}" --num-gpus "${SFT_ACTOR_GPUS}" \
   --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
+
+if [[ -z "${SFT_CUDA_DEVICE_MAX_CONNECTIONS:-}" ]]; then
+  case "${SFT_ZERO_STAGE}" in
+    2|3)
+      SFT_CUDA_DEVICE_MAX_CONNECTIONS=8
+      ;;
+    *)
+      SFT_CUDA_DEVICE_MAX_CONNECTIONS=1
+      ;;
+  esac
+fi
+echo "SFT CUDA_DEVICE_MAX_CONNECTIONS=${SFT_CUDA_DEVICE_MAX_CONNECTIONS}"
 
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
     \"PYTHONPATH\": \"/root/Megatron-LM:${SLIME_REPO_ROOT}\",
-    \"CUDA_DEVICE_MAX_CONNECTIONS\": \"1\",
+    \"CUDA_DEVICE_MAX_CONNECTIONS\": \"${SFT_CUDA_DEVICE_MAX_CONNECTIONS}\",
     \"NCCL_NVLS_ENABLE\": \"${HAS_NVLINK}\",
     \"PYTORCH_CUDA_ALLOC_CONF\": \"expandable_segments:True\",
     \"WANDB_MODE\": \"${WANDB_MODE}\",
@@ -145,11 +232,12 @@ SLIME_SGLANG_PATCH_SITE=0 ray job submit --address="http://127.0.0.1:8265" \
   --runtime-env-json="${RUNTIME_ENV_JSON}" \
   -- python3 train_async.py \
   --actor-num-nodes 1 \
-  --actor-num-gpus-per-node 8 \
+  --actor-num-gpus-per-node "${SFT_ACTOR_GPUS}" \
   "${MODEL_ARGS[@]}" \
   "${CKPT_ARGS[@]}" \
   "${SFT_ARGS[@]}" \
   "${OPTIMIZER_ARGS[@]}" \
+  "${DP_OPT_ARGS[@]}" \
   "${WANDB_ARGS[@]}" \
   "${PERF_ARGS[@]}" \
   "${MISC_ARGS[@]}"

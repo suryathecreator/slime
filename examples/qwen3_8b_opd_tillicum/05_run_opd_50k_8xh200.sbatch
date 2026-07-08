@@ -33,10 +33,7 @@ for required_path in \
   "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" \
   "${TEACHER_HF_DIR}" \
   "${SFT_FINAL_HF_DIR}" \
-  "${OPD_REF_LOAD_DIR}" \
-  "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" \
-  "${SFT_FINAL_FULL_CKPT_DIR}/.metadata" \
-  "${SFT_FINAL_FULL_CKPT_DIR}/common.pt"; do
+  "${OPD_REF_LOAD_DIR}"; do
   if [[ ! -e "${required_path}" ]]; then
     echo "Missing required path: ${required_path}" >&2
     exit 1
@@ -51,11 +48,13 @@ echo "OPD effective samples: ${OPD_EFFECTIVE_TRAIN_SAMPLES}"
 echo "OPD rollout batch/global batch/samples per prompt: ${OPD_ROLLOUT_BATCH_SIZE}/${OPD_GLOBAL_BATCH_SIZE}/${OPD_N_SAMPLES_PER_PROMPT}"
 echo "OPD rollout ids: 0-${OPD_FINAL_ROLLOUT_ID}"
 echo "OPD max response len: ${OPD_MAX_RESPONSE_LEN}"
+echo "OPD rollout max context len: ${OPD_ROLLOUT_MAX_CONTEXT_LEN}"
 echo "OPD actor/rollout/teacher GPU counts: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/1"
 echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
 echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
 echo "OPD log probs chunk size: ${OPD_LOG_PROBS_CHUNK_SIZE}"
 echo "OPD train memory margin bytes: ${OPD_TRAIN_MEMORY_MARGIN_BYTES}"
+echo "OPD LR: ${OPD_LR}"
 echo "OPD colocate/offload train/offload rollout: ${OPD_COLOCATE}/${OPD_OFFLOAD_TRAIN}/${OPD_OFFLOAD_ROLLOUT}"
 echo "OPD recompute loss function: ${OPD_RECOMPUTE_LOSS_FUNCTION}"
 echo "OPD disable cuda graph: ${OPD_DISABLE_CUDA_GRAPH}"
@@ -72,6 +71,9 @@ echo "Expected final OPD rollout id: ${OPD_FINAL_ROLLOUT_ID}"
 echo "Initial OPD load mode: ${OPD_INITIAL_LOAD_MODE}"
 echo "Initial OPD load dir: ${OPD_INITIAL_LOAD_DIR}"
 echo "OPD reference load dir for logged KL: ${OPD_REF_LOAD_DIR}"
+echo "OPD allow opt-param scheduler mismatch: ${OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH}"
+echo "OPD skip rollout data-state load: ${OPD_SKIP_ROLLOUT_DATA_STATE_LOAD}"
+echo "OPD already-trained samples before this run: ${OPD_ALREADY_TRAINED_SAMPLES}"
 echo "SFT full checkpoint dir: ${SFT_FINAL_FULL_CKPT_DIR}"
 echo "OPD optimizer CPU offload: ${OPD_OPTIMIZER_CPU_OFFLOAD}"
 echo "OPD sanity guard: enabled=${OPD_SANITY_CHECK_ENABLED}, fail=${OPD_SANITY_FAIL_ON_COLLAPSE}, max rollout=${OPD_SANITY_MAX_ROLLOUT_ID}, max cap-hit=${OPD_SANITY_MAX_CAP_HIT_RATE}, max avg tokens=${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}, min final-answer=${OPD_SANITY_MIN_FINAL_ANSWER_RATE}"
@@ -238,7 +240,7 @@ else
     megatron)
       OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
       OPD_LOAD_KIND="sft_full_optim_initial"
-      echo "Starting OPD from full SFT optimizer checkpoint ${OPD_LOAD_DIR}"
+      echo "Starting OPD from full Megatron optimizer checkpoint ${OPD_LOAD_DIR}"
       validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
       ;;
     hf)
@@ -283,12 +285,16 @@ ROLLOUT_ARGS=(
   --rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}"
   --n-samples-per-prompt "${OPD_N_SAMPLES_PER_PROMPT}"
   --rollout-max-response-len "${OPD_MAX_RESPONSE_LEN}"
+  --rollout-max-context-len "${OPD_ROLLOUT_MAX_CONTEXT_LEN}"
   --rollout-temperature 1
   --rollout-top-p 1
   --global-batch-size "${OPD_GLOBAL_BATCH_SIZE}"
   --balance-data
   --save-debug-rollout-data "${OPD_ROLLOUT_LOG_DIR}/rollout_{rollout_id}.pt"
 )
+if [[ "${OPD_SKIP_ROLLOUT_DATA_STATE_LOAD}" == "1" ]]; then
+  ROLLOUT_ARGS+=(--skip-rollout-data-source-load)
+fi
 
 RM_ARGS=(
   --custom-rm-path slime.rollout.on_policy_distillation.reward_func
@@ -326,7 +332,7 @@ GRPO_ARGS=(
 
 OPTIMIZER_ARGS=(
   --optimizer adam
-  --lr 1e-6
+  --lr "${OPD_LR}"
   --lr-decay-style constant
   --weight-decay 0.1
   --adam-beta1 0.9
@@ -338,6 +344,10 @@ if [[ "${OPD_OPTIMIZER_CPU_OFFLOAD}" == "1" ]]; then
     --overlap-cpu-optimizer-d2h-h2d
     --use-precision-aware-optimizer
   )
+fi
+if [[ "${OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH}" == "1" ]]; then
+  echo "Allowing optimizer-parameter scheduler horizon changes via --override-opt-param-scheduler"
+  OPTIMIZER_ARGS+=(--override-opt-param-scheduler)
 fi
 
 WANDB_ARGS=()
@@ -439,6 +449,9 @@ if [[ ! -d "${OPD_FINAL_HF_DIR}" ]]; then
   exit 1
 fi
 
+if [[ "${OPD_MANIFEST_FROM_ROLLOUT_LOGS}" == "1" ]]; then
+  "${SCRIPT_DIR}/container_exec.sh" python3 examples/qwen3_8b_opd_tillicum/write_opd_trained_manifest.py
+else
 python3 - <<'PY'
 import json
 import os
@@ -513,6 +526,7 @@ manifest_path.write_text(manifest_text, encoding="utf-8")
 print(f"Wrote OPD trained manifest: {manifest_path}")
 print(f"Copied OPD trained manifest to: {hf_dir / 'opd_trained_manifest.json'}")
 PY
+fi
 
 if [[ -f "${SPLIT_METADATA}" ]]; then
   cp -f "${SPLIT_METADATA}" "${OPD_SAVE_DIR}/split_metadata.json"

@@ -62,6 +62,21 @@ def _prepare_prompt_ids(sample: Sample, tokenizer, processor: Any) -> list[int]:
     return tokenizer.encode(sample.prompt, add_special_tokens=False)
 
 
+def _cap_sampling_params_to_context(
+    args: Namespace, sampling_params: dict[str, Any], prompt_len: int
+) -> tuple[dict[str, Any], int, int, int | None]:
+    capped_sampling_params = sampling_params.copy()
+    requested_max_new_tokens = int(capped_sampling_params["max_new_tokens"])
+    rollout_max_context_len = getattr(args, "rollout_max_context_len", None)
+    if rollout_max_context_len is None:
+        return capped_sampling_params, requested_max_new_tokens, requested_max_new_tokens, None
+
+    available_new_tokens = int(rollout_max_context_len) - int(prompt_len)
+    effective_max_new_tokens = min(requested_max_new_tokens, max(available_new_tokens, 0))
+    capped_sampling_params["max_new_tokens"] = effective_max_new_tokens
+    return capped_sampling_params, requested_max_new_tokens, effective_max_new_tokens, available_new_tokens
+
+
 def get_model_url(args: Namespace, model_name: str, endpoint: str = "/generate") -> str:
     """Return the router URL for a named model.
 
@@ -163,6 +178,19 @@ async def generate(args: Namespace, sample: Sample, sampling_params: dict[str, A
     ), f"Sample status is {sample.status}"
 
     prompt_ids = _prepare_prompt_ids(sample, state.tokenizer, state.processor)
+    sampling_params, requested_max_new_tokens, effective_max_new_tokens, available_new_tokens = (
+        _cap_sampling_params_to_context(args, sampling_params, len(prompt_ids))
+    )
+    if effective_max_new_tokens != requested_max_new_tokens:
+        logger.info(
+            "Clamped rollout max_new_tokens from %s to %s for prompt_tokens=%s "
+            "rollout_max_context_len=%s available_new_tokens=%s",
+            requested_max_new_tokens,
+            effective_max_new_tokens,
+            len(prompt_ids),
+            getattr(args, "rollout_max_context_len", None),
+            available_new_tokens,
+        )
 
     assert (
         sampling_params["max_new_tokens"] >= 0
@@ -198,7 +226,16 @@ async def generate(args: Namespace, sample: Sample, sampling_params: dict[str, A
         if getattr(args, "router_policy", None) == "consistent_hashing":
             headers = {"X-SMG-Routing-Key": sample.session_id}
 
-    with trace_span(sample, "sglang_generate", attrs={"max_new_tokens": sampling_params["max_new_tokens"]}) as span:
+    trace_attrs = {
+        "prompt_tokens": len(prompt_ids),
+        "requested_max_new_tokens": requested_max_new_tokens,
+        "max_new_tokens": sampling_params["max_new_tokens"],
+    }
+    if available_new_tokens is not None:
+        trace_attrs["rollout_max_context_len"] = getattr(args, "rollout_max_context_len", None)
+        trace_attrs["available_new_tokens"] = available_new_tokens
+
+    with trace_span(sample, "sglang_generate", attrs=trace_attrs) as span:
         output = await post(url, payload, headers=headers)
         span.update(build_sglang_meta_trace_attrs(output["meta_info"]))
 

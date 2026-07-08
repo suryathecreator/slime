@@ -287,3 +287,74 @@ The completed corrected SFT -> OPD colocate4 1k/32k result is recorded under
 `results/corrected_sft_opd_colocate4_1k_32k/`. It includes the combined
 base -> SFT -> OPD MATH-500 summaries, the generated curve data, and the OPD
 rollout reward/logprob/sanity tables.
+
+## Cleaned OpenThoughts SFT + OPD With vLLM Evals
+
+The next experiment is the cleaned-data run described in
+`results/cleaned_openthoughts_sft_opd_vllm_plan.md`. Launch it with:
+
+```bash
+bash examples/qwen3_8b_opd_tillicum/submit_cleaned_sft_opd_vllm_chain.sh
+```
+
+This chain first validates/installs a scratch-local vLLM eval environment,
+cleans OpenThoughts3 by requiring complete thinking traces and removing
+mixed-language rows, deterministically shuffles valid rows with seed `1234`,
+splits them into `2/3` SFT reserve and `1/3` OPD reserve, trains SFT on the
+first 25,000 SFT-reserve rows, trains OPD on the first 1,024 OPD-reserve rows,
+then continues OPD on the next 4,096 OPD-reserve rows. Metadata records
+`source_row_id`s and proves the selected SFT and OPD rows are disjoint.
+
+The cleaned SFT run uses 4 H200s with `TP=2`, `CP=1`, `DP=2`, Megatron's
+distributed optimizer (`SFT_ZERO_STAGE=1` in the legacy wrapper variable),
+`SFT_MAX_TOKENS_PER_GPU=16384`, learning rate `1e-6`, and exactly one epoch.
+We pivoted away from the Megatron-FSDP/ZeRO-2/3 path after smoke repeatedly hit
+integration issues, latest a `fsdp_dtensor` save failure where Megatron expected
+a `DTensor` but received a local `Tensor`. The chain now runs a tiny smoke job
+for the Megatron distributed-optimizer path only.
+
+The cleaned OPD runs use the known 4-H200 colocate/offload shape:
+actor/rollout/teacher `3/3/1`, `TP=1`, `CP=3`, `OPD_SEQ_LENGTH=32766`,
+`OPD_MAX_RESPONSE_LEN=31744`, `OPD_MAX_TOKENS_PER_GPU=2048`,
+`OPD_LOG_PROBS_CHUNK_SIZE=512`, train memory margin `0`, learning rate `1e-6`,
+and one pass over each selected OPD subset. OPD-5k loads from the OPD-1k full
+optimizer checkpoint, starts the fresh 4k data pool at offset 0, and keeps the
+OPD-1k rows in the final trained-data manifest.
+
+Only four full MATH-500 evals run for this cleaned experiment: base, SFT-25k,
+OPD-1k, and OPD-5k. They use the Tillicum-local vLLM path with four independent
+1-GPU workers, greedy decoding, `VLLM_EVAL_MAX_MODEL_LEN=32768`,
+`VLLM_EVAL_GPU_MEMORY_UTILIZATION=0.92`, `VLLM_EVAL_MAX_NUM_SEQS=16`, and
+`VLLM_EVAL_MAX_NUM_BATCHED_TOKENS=131072`.
+
+Both training and eval use dynamic per-prompt generation caps. OPD training
+requests `min(31744, OPD_ROLLOUT_MAX_CONTEXT_LEN - prompt_tokens)` with
+`OPD_ROLLOUT_MAX_CONTEXT_LEN=32766`; vLLM eval requests
+`min(31744, EVAL_MAX_CONTEXT_LEN - prompt_tokens)` with
+`EVAL_MAX_CONTEXT_LEN=32768`. Samples record prompt length, requested cap,
+effective cap, and whether a clamp happened.
+
+For the 25k continuation experiment, use
+`submit_opd_continue_1k_to_25k_val100_chain.sh`. This continues from the full
+optimizer checkpoint of the completed corrected 1k OPD run at
+`qwen3_8b_sft_25k_opd_1k_32k_sft_colocate4_full_optim/iter_0000007`, runs a
+seeded MATH-500 val100 eval on that current checkpoint first, then alternates
+1k-ish OPD continuation segments with serialized 4-GPU val100 eval jobs until
+`24,960` total OPD samples. The midpoint full MATH-500 eval also uses 4 GPUs
+and waits for the `12,544` val100 job before later training resumes, so the
+continuation chain never intentionally runs more than one train/eval/report job
+at a time and never requests more than 4 H200s for any job. The continuation
+data prep extracts the actual first 1,024
+trained OPD `source_row_id`s from rollout debug artifacts and generates new OPD
+prompts excluding both those rows and all 25k SFT rows. The first continuation
+segment intentionally skips loading the old rollout dataset state, because that
+state points into the old 10k OPD pool; subsequent segments resume the new
+continuation dataset state normally. If a continuation checkpoint already
+exists, the submitter can resume at that endpoint by preserving the completed
+train checkpoint and submitting only the missing val100 stage.
+
+Continuation OPD training also passes `OPD_ROLLOUT_MAX_CONTEXT_LEN`, defaulting
+to `OPD_SEQ_LENGTH`, into rollout generation. Per-sample generation caps are
+clamped to the remaining prompt budget under that context limit, so long prompts
+avoid SGLang context overflow without reducing the global `OPD_MAX_RESPONSE_LEN`
+for shorter prompts.
