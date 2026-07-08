@@ -17,6 +17,7 @@ try:
     _DeviceMesh = device_mesh_module.DeviceMesh
     _ProcessGroup = device_mesh_module.ProcessGroup
     _original_from_group = _DeviceMesh.from_group
+    _original_get_pg_from_name = device_mesh_module._get_pg_from_name
 
     def _synthetic_group_name(group, index):
         return f"slime_unnamed_pg_{index}_{id(group)}"
@@ -73,7 +74,17 @@ try:
             return device_mesh
 
     _DeviceMesh.from_group = staticmethod(_from_group_with_unnamed_pg)
-    logger.info("slime DeviceMesh process-group-name patch applied.")
+
+    def _get_pg_from_name_with_registry(mesh, name):
+        registry = getattr(mesh, "_pg_registry", None)
+        if registry is not None:
+            process_group = registry.get(name)
+            if process_group is not None:
+                return process_group
+        return _original_get_pg_from_name(mesh, name)
+
+    device_mesh_module._get_pg_from_name = _get_pg_from_name_with_registry
+    logger.info("slime DeviceMesh process-group-name/registry patch applied.")
 
 except ImportError as exc:
     warnings.warn(
