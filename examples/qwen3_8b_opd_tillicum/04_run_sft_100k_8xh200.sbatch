@@ -79,14 +79,28 @@ if [[ "${SFT_ZERO_STAGE}" != "0" && "${SFT_DP}" -lt 2 ]]; then
 fi
 echo "Resolved SFT DP=${SFT_DP}"
 
+SFT_LOAD_DIR="${SFT_SAVE_DIR}"
+SFT_LOAD_KIND="sft_resume"
+if [[ -f "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
+  echo "Resuming SFT from full optimizer checkpoint ${SFT_LOAD_DIR}"
+else
+  SFT_LOAD_DIR="${STUDENT_HF_DIR}"
+  SFT_LOAD_KIND="base_hf_weights_initial"
+  echo "Starting SFT from base HF weights ${SFT_LOAD_DIR}"
+  echo "Fresh SFT optimizer will be initialized because no SFT checkpoint is present."
+fi
+
 CKPT_ARGS=(
+  --megatron-to-hf-mode bridge
   --hf-checkpoint "${STUDENT_HF_DIR}"
-  --ref-load "${STUDENT_TORCH_DIST_DIR}"
-  --load "${SFT_SAVE_DIR}"
+  --ref-load "${SFT_LOAD_DIR}"
+  --load "${SFT_LOAD_DIR}"
   --save "${SFT_SAVE_DIR}"
   --save-interval "${SFT_SAVE_INTERVAL}"
   --save-hf "${SFT_HF_SNAPSHOT_TEMPLATE}"
 )
+echo "SFT load kind: ${SFT_LOAD_KIND}"
+echo "SFT load dir: ${SFT_LOAD_DIR}"
 
 ZERO_ARGS=()
 case "${SFT_ZERO_STAGE}" in
