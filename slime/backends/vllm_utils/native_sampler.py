@@ -609,6 +609,87 @@ def _patch_min_p(min_p_mod: ModuleType, states_mod: ModuleType | None = None) ->
         states_mod.apply_min_p = native_apply_min_p
 
 
+def _patch_logprob(logprob_mod: ModuleType) -> None:
+    import torch
+
+    if not hasattr(logprob_mod, "compute_topk_logprobs"):
+        return
+
+    def native_compute_token_logprobs(
+        logits: torch.Tensor,
+        token_ids: torch.Tensor,
+    ) -> torch.Tensor:
+        logprobs = torch.log_softmax(logits.to(torch.float32), dim=-1)
+        return torch.gather(logprobs, 1, token_ids.to(torch.int64))
+
+    def native_token_ranks(logits: torch.Tensor, sampled_token_ids: torch.Tensor) -> torch.Tensor:
+        selected = logits.gather(1, sampled_token_ids.to(torch.int64).unsqueeze(-1))
+        return torch.sum(logits >= selected, dim=-1).to(torch.int64)
+
+    def native_compute_topk_logprobs(
+        logits: torch.Tensor,
+        num_logprobs: int,
+        sampled_token_ids: torch.Tensor,
+        cu_num_logits: list[int] | None = None,
+        logprob_token_ids_state: Any | None = None,
+        expanded_idx_mapping: torch.Tensor | None = None,
+        max_per_req_token_ids: int = 0,
+    ) -> Any:
+        assert num_logprobs >= 0
+        batch_size = logits.shape[0]
+
+        if max_per_req_token_ids == 0:
+            logprob_token_ids = sampled_token_ids.unsqueeze(-1)
+            if num_logprobs > 0:
+                topk_indices = torch.topk(logits, num_logprobs, dim=-1).indices
+                logprob_token_ids = torch.cat((logprob_token_ids, topk_indices), dim=1)
+            logprobs = native_compute_token_logprobs(logits, logprob_token_ids)
+        else:
+            assert logprob_token_ids_state is not None
+            assert expanded_idx_mapping is not None
+
+            topk_token_ids = None
+            if num_logprobs > 0:
+                topk_token_ids = torch.topk(logits, num_logprobs, dim=-1).indices
+
+            num_cols = max(num_logprobs, max_per_req_token_ids)
+            logprob_token_ids = sampled_token_ids.new_zeros((batch_size, 1 + num_cols))
+            valid_mask = torch.zeros_like(logprob_token_ids, dtype=torch.bool)
+            logprob_token_ids[:, 0] = sampled_token_ids
+            valid_mask[:, 0] = True
+
+            for batch_idx in range(batch_size):
+                req_state_idx = int(expanded_idx_mapping[batch_idx].item())
+                num_custom = int(logprob_token_ids_state.num_token_ids.gpu[req_state_idx].item())
+                if num_custom > 0:
+                    tokens = logprob_token_ids_state.token_ids.gpu[
+                        req_state_idx,
+                        :num_custom,
+                    ].to(logprob_token_ids.dtype)
+                elif topk_token_ids is not None:
+                    tokens = topk_token_ids[batch_idx, :num_logprobs].to(logprob_token_ids.dtype)
+                else:
+                    tokens = None
+
+                if tokens is not None and tokens.numel() > 0:
+                    cols = int(tokens.numel())
+                    logprob_token_ids[batch_idx, 1 : 1 + cols].copy_(tokens)
+                    valid_mask[batch_idx, 1 : 1 + cols] = True
+
+            logprobs = native_compute_token_logprobs(logits, logprob_token_ids)
+            logprobs = logprobs.masked_fill(~valid_mask, float("-inf"))
+
+        return logprob_mod.LogprobsTensors(
+            logprob_token_ids=logprob_token_ids,
+            logprobs=logprobs,
+            selected_token_ranks=native_token_ranks(logits, sampled_token_ids),
+            cu_num_generated_tokens=cu_num_logits,
+        )
+
+    logprob_mod.compute_token_logprobs = native_compute_token_logprobs
+    logprob_mod.compute_topk_logprobs = native_compute_topk_logprobs
+
+
 def _patch_loaded_modules() -> bool:
     global _PATCH_INSTALLED
 
@@ -623,6 +704,7 @@ def _patch_loaded_modules() -> bool:
     logit_bias_mod = sys.modules.get("vllm.v1.worker.gpu.sample.logit_bias")
     bad_words_mod = sys.modules.get("vllm.v1.worker.gpu.sample.bad_words")
     min_p_mod = sys.modules.get("vllm.v1.worker.gpu.sample.min_p")
+    logprob_mod = sys.modules.get("vllm.v1.worker.gpu.sample.logprob")
     if (
         gumbel_mod is None
         and sampler_mod is None
@@ -635,6 +717,7 @@ def _patch_loaded_modules() -> bool:
         and logit_bias_mod is None
         and bad_words_mod is None
         and min_p_mod is None
+        and logprob_mod is None
     ):
         return False
 
@@ -666,6 +749,8 @@ def _patch_loaded_modules() -> bool:
         _patch_bad_words(bad_words_mod)
     if isinstance(min_p_mod, ModuleType):
         _patch_min_p(min_p_mod, states_mod if isinstance(states_mod, ModuleType) else None)
+    if isinstance(logprob_mod, ModuleType):
+        _patch_logprob(logprob_mod)
 
     _PATCH_INSTALLED = True
     return True
@@ -684,6 +769,7 @@ def maybe_force_native_sampler() -> bool:
     from vllm.v1.worker.gpu import structured_outputs as structured_outputs_mod
     from vllm.v1.worker.gpu.sample import bad_words as bad_words_mod
     from vllm.v1.worker.gpu.sample import logit_bias as logit_bias_mod
+    from vllm.v1.worker.gpu.sample import logprob as logprob_mod
     from vllm.v1.worker.gpu.sample import min_p as min_p_mod
     from vllm.v1.worker.gpu.sample import penalties as penalties_mod
 
@@ -699,6 +785,7 @@ def maybe_force_native_sampler() -> bool:
         logit_bias_mod,
         bad_words_mod,
         min_p_mod,
+        logprob_mod,
     )
     return _patch_loaded_modules()
 
