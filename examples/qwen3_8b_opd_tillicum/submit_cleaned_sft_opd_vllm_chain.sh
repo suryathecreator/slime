@@ -1,0 +1,324 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+
+export CLEANED_EXPERIMENT_LABEL="${CLEANED_EXPERIMENT_LABEL:-cleaned_think_sft25k_opd5k_vllm}"
+export CLEANED_OPD_FIRST_SIZE="${CLEANED_OPD_FIRST_SIZE:-1024}"
+export CLEANED_OPD_NEXT_SIZE="${CLEANED_OPD_NEXT_SIZE:-4096}"
+export SFT_SIZE="${SFT_SIZE:-25000}"
+export SFT_ROLLOUT_BATCH_SIZE="${SFT_ROLLOUT_BATCH_SIZE:-250}"
+export SFT_GLOBAL_BATCH_SIZE="${SFT_GLOBAL_BATCH_SIZE:-250}"
+export SFT_NUM_ROLLOUT="${SFT_NUM_ROLLOUT:-100}"
+export SFT_FINAL_ROLLOUT_ID="${SFT_FINAL_ROLLOUT_ID:-99}"
+export SFT_MILESTONE_ROLLOUT_IDS="${SFT_MILESTONE_ROLLOUT_IDS:-19 39 59 79 99}"
+export SFT_SAVE_INTERVAL="${SFT_SAVE_INTERVAL:-20}"
+export SFT_ACTOR_GPUS="${SFT_ACTOR_GPUS:-4}"
+export SFT_TENSOR_MODEL_PARALLEL_SIZE="${SFT_TENSOR_MODEL_PARALLEL_SIZE:-2}"
+export SFT_CONTEXT_PARALLEL_SIZE="${SFT_CONTEXT_PARALLEL_SIZE:-1}"
+export SFT_PIPELINE_MODEL_PARALLEL_SIZE="${SFT_PIPELINE_MODEL_PARALLEL_SIZE:-1}"
+export SFT_ZERO_STAGE="${SFT_ZERO_STAGE:-3}"
+export SFT_CKPT_FORMAT="${SFT_CKPT_FORMAT:-fsdp_dtensor}"
+export SFT_MAX_TOKENS_PER_GPU="${SFT_MAX_TOKENS_PER_GPU:-16384}"
+export SFT_LR="${SFT_LR:-1e-6}"
+export OPD_ACTOR_GPUS="${OPD_ACTOR_GPUS:-3}"
+export OPD_ROLLOUT_GPUS="${OPD_ROLLOUT_GPUS:-3}"
+export OPD_RAY_GPUS="${OPD_RAY_GPUS:-3}"
+export OPD_TEACHER_GPU="${OPD_TEACHER_GPU:-3}"
+export OPD_TENSOR_MODEL_PARALLEL_SIZE="${OPD_TENSOR_MODEL_PARALLEL_SIZE:-1}"
+export OPD_CONTEXT_PARALLEL_SIZE="${OPD_CONTEXT_PARALLEL_SIZE:-3}"
+export OPD_SEQ_LENGTH="${OPD_SEQ_LENGTH:-32766}"
+export OPD_ROLLOUT_MAX_CONTEXT_LEN="${OPD_ROLLOUT_MAX_CONTEXT_LEN:-32766}"
+export OPD_MAX_RESPONSE_LEN="${OPD_MAX_RESPONSE_LEN:-31744}"
+export OPD_MAX_TOKENS_PER_GPU="${OPD_MAX_TOKENS_PER_GPU:-2048}"
+export OPD_LOG_PROBS_CHUNK_SIZE="${OPD_LOG_PROBS_CHUNK_SIZE:-512}"
+export OPD_TRAIN_MEMORY_MARGIN_BYTES="${OPD_TRAIN_MEMORY_MARGIN_BYTES:-0}"
+export OPD_LR="${OPD_LR:-1e-6}"
+export OPD_COLOCATE="${OPD_COLOCATE:-1}"
+export OPD_OFFLOAD_TRAIN="${OPD_OFFLOAD_TRAIN:-1}"
+export OPD_OFFLOAD_ROLLOUT="${OPD_OFFLOAD_ROLLOUT:-1}"
+export OPD_OPTIMIZER_CPU_OFFLOAD="${OPD_OPTIMIZER_CPU_OFFLOAD:-1}"
+export OPD_RECOMPUTE_LOSS_FUNCTION="${OPD_RECOMPUTE_LOSS_FUNCTION:-1}"
+export OPD_SANITY_FAIL_ON_COLLAPSE="${OPD_SANITY_FAIL_ON_COLLAPSE:-0}"
+export OPD_MANIFEST_FROM_ROLLOUT_LOGS="${OPD_MANIFEST_FROM_ROLLOUT_LOGS:-0}"
+export EVAL_BACKEND="${EVAL_BACKEND:-vllm}"
+export EVAL_MAX_RESPONSE_LEN="${EVAL_MAX_RESPONSE_LEN:-31744}"
+export EVAL_MAX_CONTEXT_LEN="${EVAL_MAX_CONTEXT_LEN:-32768}"
+export EVAL_EXPECTED_SAMPLES="${EVAL_EXPECTED_SAMPLES:-500}"
+export VLLM_EVAL_NUM_GPUS="${VLLM_EVAL_NUM_GPUS:-4}"
+export VLLM_EVAL_MAX_MODEL_LEN="${VLLM_EVAL_MAX_MODEL_LEN:-32768}"
+export VLLM_EVAL_GPU_MEMORY_UTILIZATION="${VLLM_EVAL_GPU_MEMORY_UTILIZATION:-0.92}"
+export VLLM_EVAL_MAX_NUM_SEQS="${VLLM_EVAL_MAX_NUM_SEQS:-16}"
+export VLLM_EVAL_MAX_NUM_BATCHED_TOKENS="${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS:-131072}"
+export REPORT_SFT_FINAL_ONLY="${REPORT_SFT_FINAL_ONLY:-1}"
+export REPORT_OPD_FINAL_ONLY="${REPORT_OPD_FINAL_ONLY:-0}"
+export REPORT_INCLUDE_SFT="${REPORT_INCLUDE_SFT:-1}"
+export REPORT_EXPERIMENT_NOTE="${REPORT_EXPERIMENT_NOTE:-Cleaned OpenThoughts SFT OPD vLLM final eval run}"
+
+source "${SCRIPT_DIR}/env.sh"
+
+export SFT_PARQUET="${DATA_ROOT}/openthoughts3_cleaned_${CLEANED_EXPERIMENT_LABEL}_sft_25000.jsonl"
+export CLEANED_METADATA="${DATA_ROOT}/openthoughts3_cleaned_${CLEANED_EXPERIMENT_LABEL}_metadata.json"
+export SPLIT_METADATA="${CLEANED_METADATA}"
+export CLEANED_OPD_RESERVE_JSONL="${DATA_ROOT}/openthoughts3_cleaned_${CLEANED_EXPERIMENT_LABEL}_opd_reserve.jsonl"
+export CLEANED_OPD_1K_JSONL="${DATA_ROOT}/openthoughts3_cleaned_${CLEANED_EXPERIMENT_LABEL}_opd_001024.jsonl"
+export CLEANED_OPD_4K_JSONL="${DATA_ROOT}/openthoughts3_cleaned_${CLEANED_EXPERIMENT_LABEL}_opd_next_004096.jsonl"
+
+export SFT_SAVE_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_full_optim"
+export SFT_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_eval_snapshots"
+export SFT_DETAILS_DIR="${OUTPUT_ROOT}/cleaned_sft_25k_details"
+export SFT_HF_SNAPSHOT_TEMPLATE="${SFT_HF_SNAPSHOT_DIR}/iter_{rollout_id:07d}"
+export SFT_FINAL_HF_DIR="${SFT_HF_SNAPSHOT_DIR}/iter_0000099"
+export SFT_FINAL_FULL_CKPT_DIR="${SFT_SAVE_DIR}/iter_0000099"
+export SFT_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_sft_25k_vllm"
+export BASE_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_base_vllm"
+export OPD_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_opd_1k_5k_vllm"
+export COMBINED_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_combined_vllm"
+export CHECKPOINT_REPORT_DIR="${OUTPUT_ROOT}/checkpoint_reports_${CLEANED_EXPERIMENT_LABEL}"
+export REPORT_OPD_X_OFFSET_SAMPLES="25000"
+export REPORT_OPD_LABEL_PREFIX="SFT+"
+
+OPD1_RUN_LABEL="cleaned_1k_32k_sft_colocate4"
+OPD5_RUN_LABEL="cleaned_5k_32k_sft_colocate4"
+OPD1_SAVE_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_opd_1k_32k_full_optim"
+OPD1_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_opd_1k_32k_eval_snapshots"
+OPD1_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/opd_${OPD1_RUN_LABEL}_rollout_logs"
+OPD1_SANITY_DIR="${OUTPUT_ROOT}/opd_${OPD1_RUN_LABEL}_sanity"
+OPD1_FINAL_HF_DIR="${OPD1_HF_SNAPSHOT_DIR}/iter_0000007"
+OPD5_SAVE_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_opd_5k_32k_full_optim"
+OPD5_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_opd_5k_32k_eval_snapshots"
+OPD5_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/opd_${OPD5_RUN_LABEL}_rollout_logs"
+OPD5_SANITY_DIR="${OUTPUT_ROOT}/opd_${OPD5_RUN_LABEL}_sanity"
+OPD5_FINAL_HF_DIR="${OPD5_HF_SNAPSHOT_DIR}/iter_0000039"
+
+cd "${SLIME_REPO_ROOT}"
+mkdir -p "${SLURM_LOG_DIR}"
+
+SBATCH_ONE=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres gpu:h200:1)
+SBATCH_FOUR=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres gpu:h200:4)
+SBATCH_REPORT=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres gpu:h200:1)
+
+submit_log="${SLURM_LOG_DIR}/submit_cleaned_sft_opd_vllm_$(date +%Y%m%d_%H%M%S).txt"
+
+echo "Submitting cleaned OpenThoughts SFT + OPD vLLM chain"
+echo "submit log: ${submit_log}"
+echo "cleaned label: ${CLEANED_EXPERIMENT_LABEL}"
+echo "SFT data: ${SFT_PARQUET}"
+echo "OPD 1k data: ${CLEANED_OPD_1K_JSONL}"
+echo "OPD next 4k data: ${CLEANED_OPD_4K_JSONL}"
+echo "SFT TP/CP/DP/ZeRO: ${SFT_TENSOR_MODEL_PARALLEL_SIZE}/${SFT_CONTEXT_PARALLEL_SIZE}/2/${SFT_ZERO_STAGE}"
+echo "SFT max tokens/GPU LR epochs: ${SFT_MAX_TOKENS_PER_GPU} ${SFT_LR} ${SFT_NUM_EPOCH}"
+echo "OPD TP/CP max-response/context max-tokens/GPU chunk LR: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE} ${OPD_MAX_RESPONSE_LEN}/${OPD_ROLLOUT_MAX_CONTEXT_LEN} ${OPD_MAX_TOKENS_PER_GPU} ${OPD_LOG_PROBS_CHUNK_SIZE} ${OPD_LR}"
+echo "vLLM eval workers/max-model/max-seqs/batched-tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_MODEL_LEN}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
+
+jid_vllm="$(
+  sbatch --parsable "${SBATCH_ONE[@]}" \
+    --time=02:00:00 \
+    --job-name=slime-qwen3-clean-vllm-setup \
+    --cpus-per-task=8 \
+    --export=ALL \
+    examples/qwen3_8b_opd_tillicum/10_setup_vllm_eval_env.sbatch
+)"
+jid_data="$(
+  sbatch --parsable "${SBATCH_ONE[@]}" \
+    --dependency=afterok:${jid_vllm} \
+    --time=08:00:00 \
+    --job-name=slime-qwen3-clean-data \
+    --cpus-per-task=8 \
+    --export=ALL \
+    examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_data.sbatch
+)"
+jid_convert="$(
+  sbatch --parsable "${SBATCH_FOUR[@]}" \
+    --dependency=afterok:${jid_data} \
+    --time=02:00:00 \
+    --job-name=slime-qwen3-clean-convert \
+    --cpus-per-task=32 \
+    --export=ALL,CONVERT_NPROC=4 \
+    examples/qwen3_8b_opd_tillicum/03_convert_models_if_needed.sbatch
+)"
+jid_sft_smoke="$(
+  sbatch --parsable "${SBATCH_FOUR[@]}" \
+    --dependency=afterok:${jid_convert} \
+    --time=02:00:00 \
+    --job-name=slime-qwen3-sft-zero-smoke \
+    --cpus-per-task=32 \
+    --export=ALL \
+    examples/qwen3_8b_opd_tillicum/04_smoke_sft_zero_stages.sbatch
+)"
+jid_base_eval="$(
+  sbatch --parsable "${SBATCH_FOUR[@]}" \
+    --dependency=afterok:${jid_sft_smoke} \
+    --time=04:00:00 \
+    --job-name=slime-qwen3-clean-base-vllm \
+    --cpus-per-task=32 \
+    --export=ALL,EVAL_TARGETS=base,EVAL_SKIP_COMPLETED=1 \
+    examples/qwen3_8b_opd_tillicum/06_eval_math500_vllm.sbatch
+)"
+jid_sft="$(
+  sbatch --parsable "${SBATCH_FOUR[@]}" \
+    --dependency=afterok:${jid_base_eval} \
+    --time=16:00:00 \
+    --job-name=slime-qwen3-clean-sft25k \
+    --cpus-per-task=32 \
+    --export=ALL \
+    examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
+)"
+jid_sft_eval="$(
+  sbatch --parsable "${SBATCH_FOUR[@]}" \
+    --dependency=afterok:${jid_sft} \
+    --time=04:00:00 \
+    --job-name=slime-qwen3-clean-sft-vllm \
+    --cpus-per-task=32 \
+    --export=ALL,EVAL_TARGETS=sft,EVAL_SKIP_COMPLETED=1 \
+    examples/qwen3_8b_opd_tillicum/06_eval_math500_vllm.sbatch
+)"
+
+export OPD_RUN_LABEL="${OPD1_RUN_LABEL}"
+export OPD_JSONL="${CLEANED_OPD_1K_JSONL}"
+export OPD_POOL_SIZE="${CLEANED_OPD_FIRST_SIZE}"
+export OPD_SIZE="${CLEANED_OPD_FIRST_SIZE}"
+export OPD_TRAIN_SIZE="${CLEANED_OPD_FIRST_SIZE}"
+export OPD_NUM_ROLLOUT="8"
+export OPD_FINAL_ROLLOUT_ID="7"
+export OPD_EFFECTIVE_TRAIN_SAMPLES="${CLEANED_OPD_FIRST_SIZE}"
+export OPD_MILESTONE_ROLLOUT_IDS="7"
+export OPD_SAVE_INTERVAL="8"
+export OPD_SAVE_DIR="${OPD1_SAVE_DIR}"
+export OPD_HF_SNAPSHOT_DIR="${OPD1_HF_SNAPSHOT_DIR}"
+export OPD_HF_SNAPSHOT_TEMPLATE="${OPD1_HF_SNAPSHOT_DIR}/iter_{rollout_id:07d}"
+export OPD_FINAL_HF_DIR="${OPD1_FINAL_HF_DIR}"
+export OPD_ROLLOUT_LOG_DIR="${OPD1_ROLLOUT_LOG_DIR}"
+export OPD_SANITY_REPORT_DIR="${OPD1_SANITY_DIR}"
+export OPD_SANITY_SUMMARY_DIR="${OPD1_SANITY_DIR}"
+export OPD_TRAINED_MANIFEST="${OPD1_SAVE_DIR}/opd_trained_manifest.json"
+export OPD_INITIAL_LOAD_MODE="hf"
+export OPD_INITIAL_LOAD_DIR="${SFT_FINAL_HF_DIR}"
+export OPD_REF_LOAD_DIR="${SFT_FINAL_HF_DIR}"
+export OPD_SKIP_ROLLOUT_DATA_STATE_LOAD="0"
+export OPD_ALREADY_TRAINED_SAMPLES="0"
+export OPD_START_ROLLOUT_ID="0"
+export OPD_MANIFEST_FROM_ROLLOUT_LOGS="0"
+export OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH="0"
+
+jid_opd1="$(
+  sbatch --parsable "${SBATCH_FOUR[@]}" \
+    --dependency=afterok:${jid_sft_eval} \
+    --time=08:00:00 \
+    --job-name=slime-qwen3-clean-opd1k \
+    --cpus-per-task=32 \
+    --export=ALL \
+    examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch
+)"
+jid_opd1_eval="$(
+  sbatch --parsable "${SBATCH_FOUR[@]}" \
+    --dependency=afterok:${jid_opd1} \
+    --time=04:00:00 \
+    --job-name=slime-qwen3-clean-opd1k-vllm \
+    --cpus-per-task=32 \
+    --export=ALL,EVAL_TARGETS=opd,EVAL_SKIP_COMPLETED=1 \
+    examples/qwen3_8b_opd_tillicum/06_eval_math500_vllm.sbatch
+)"
+
+export OPD_RUN_LABEL="${OPD5_RUN_LABEL}"
+export OPD_JSONL="${CLEANED_OPD_4K_JSONL}"
+export OPD_POOL_SIZE="${CLEANED_OPD_NEXT_SIZE}"
+export OPD_SIZE="${CLEANED_OPD_NEXT_SIZE}"
+export OPD_TRAIN_SIZE="5120"
+export OPD_NUM_ROLLOUT="40"
+export OPD_FINAL_ROLLOUT_ID="39"
+export OPD_EFFECTIVE_TRAIN_SAMPLES="5120"
+export OPD_MILESTONE_ROLLOUT_IDS="39"
+export OPD_SAVE_INTERVAL="8"
+export OPD_SAVE_DIR="${OPD5_SAVE_DIR}"
+export OPD_HF_SNAPSHOT_DIR="${OPD5_HF_SNAPSHOT_DIR}"
+export OPD_HF_SNAPSHOT_TEMPLATE="${OPD5_HF_SNAPSHOT_DIR}/iter_{rollout_id:07d}"
+export OPD_FINAL_HF_DIR="${OPD5_FINAL_HF_DIR}"
+export OPD_ROLLOUT_LOG_DIR="${OPD5_ROLLOUT_LOG_DIR}"
+export OPD_SANITY_REPORT_DIR="${OPD5_SANITY_DIR}"
+export OPD_SANITY_SUMMARY_DIR="${OPD5_SANITY_DIR}"
+export OPD_TRAINED_MANIFEST="${OPD5_SAVE_DIR}/opd_trained_manifest.json"
+export OPD_INITIAL_LOAD_MODE="megatron"
+export OPD_INITIAL_LOAD_DIR="${OPD1_SAVE_DIR}"
+export OPD_REF_LOAD_DIR="${SFT_FINAL_HF_DIR}"
+export OPD_PREVIOUS_RUN_LABEL="${OPD1_RUN_LABEL}"
+export OPD_PREVIOUS_SAVE_DIR="${OPD1_SAVE_DIR}"
+export OPD_PREVIOUS_HF_SNAPSHOT_DIR="${OPD1_HF_SNAPSHOT_DIR}"
+export OPD_PREVIOUS_ROLLOUT_LOG_DIR="${OPD1_ROLLOUT_LOG_DIR}"
+export OPD_PREVIOUS_TRAINED_MANIFEST="${OPD1_SAVE_DIR}/opd_trained_manifest.json"
+export OPD_CONTINUATION_METADATA="${CLEANED_METADATA}"
+export OPD_SKIP_ROLLOUT_DATA_STATE_LOAD="1"
+export OPD_ALREADY_TRAINED_SAMPLES="${CLEANED_OPD_FIRST_SIZE}"
+export OPD_START_ROLLOUT_ID="8"
+export OPD_MANIFEST_FROM_ROLLOUT_LOGS="1"
+export OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH="1"
+
+jid_opd5="$(
+  sbatch --parsable "${SBATCH_FOUR[@]}" \
+    --dependency=afterok:${jid_opd1_eval} \
+    --time=24:00:00 \
+    --job-name=slime-qwen3-clean-opd5k \
+    --cpus-per-task=32 \
+    --export=ALL \
+    examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch
+)"
+jid_opd5_eval="$(
+  sbatch --parsable "${SBATCH_FOUR[@]}" \
+    --dependency=afterok:${jid_opd5} \
+    --time=04:00:00 \
+    --job-name=slime-qwen3-clean-opd5k-vllm \
+    --cpus-per-task=32 \
+    --export=ALL,EVAL_TARGETS=opd,EVAL_SKIP_COMPLETED=1 \
+    examples/qwen3_8b_opd_tillicum/06_eval_math500_vllm.sbatch
+)"
+jid_report="$(
+  sbatch --parsable "${SBATCH_REPORT[@]}" \
+    --dependency=afterok:${jid_opd5_eval} \
+    --time=00:30:00 \
+    --job-name=slime-qwen3-clean-report \
+    --cpus-per-task=8 \
+    --export=ALL,EVAL_TARGETS=report \
+    examples/qwen3_8b_opd_tillicum/07_report_math500.sbatch
+)"
+
+{
+  echo "cleaned_experiment_label=${CLEANED_EXPERIMENT_LABEL}"
+  echo "submit_time=$(date --iso-8601=seconds)"
+  echo "vllm_setup=${jid_vllm}"
+  echo "clean_data=${jid_data}"
+  echo "convert=${jid_convert}"
+  echo "sft_zero_smoke=${jid_sft_smoke}"
+  echo "base_eval=${jid_base_eval}"
+  echo "sft_train=${jid_sft}"
+  echo "sft_eval=${jid_sft_eval}"
+  echo "opd1_train=${jid_opd1}"
+  echo "opd1_eval=${jid_opd1_eval}"
+  echo "opd5_train=${jid_opd5}"
+  echo "opd5_eval=${jid_opd5_eval}"
+  echo "report=${jid_report}"
+  echo "max_gpu_per_job=4"
+  echo "dependency_policy=strict_afterok_chain"
+  echo "sft_data=${SFT_PARQUET}"
+  echo "opd_1k_data=${CLEANED_OPD_1K_JSONL}"
+  echo "opd_next_4k_data=${CLEANED_OPD_4K_JSONL}"
+  echo "cleaned_metadata=${CLEANED_METADATA}"
+  echo "sft_save_dir=${SFT_SAVE_DIR}"
+  echo "sft_hf_snapshot_dir=${SFT_HF_SNAPSHOT_DIR}"
+  echo "opd1_save_dir=${OPD1_SAVE_DIR}"
+  echo "opd1_hf_snapshot_dir=${OPD1_HF_SNAPSHOT_DIR}"
+  echo "opd5_save_dir=${OPD5_SAVE_DIR}"
+  echo "opd5_hf_snapshot_dir=${OPD5_HF_SNAPSHOT_DIR}"
+  echo "base_eval_output=${BASE_EVAL_OUTPUT_DIR}"
+  echo "sft_eval_output=${SFT_EVAL_OUTPUT_DIR}"
+  echo "opd_eval_output=${OPD_EVAL_OUTPUT_DIR}"
+  echo "combined_report_output=${COMBINED_EVAL_OUTPUT_DIR}"
+  echo "sft_lr=${SFT_LR}"
+  echo "opd_lr=${OPD_LR}"
+  echo "sft_zero_stage=${SFT_ZERO_STAGE}"
+  echo "sft_max_tokens_per_gpu=${SFT_MAX_TOKENS_PER_GPU}"
+  echo "opd_max_tokens_per_gpu=${OPD_MAX_TOKENS_PER_GPU}"
+  echo "opd_log_probs_chunk_size=${OPD_LOG_PROBS_CHUNK_SIZE}"
+  echo "vllm_eval_num_gpus=${VLLM_EVAL_NUM_GPUS}"
+} | tee "${submit_log}"
+
+echo "Submitted cleaned chain. Job IDs are recorded in ${submit_log}."

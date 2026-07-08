@@ -2,10 +2,10 @@
 #SBATCH --job-name=slime-qwen3-sft25k
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=64
-#SBATCH --gres=gpu:h200:8
+#SBATCH --cpus-per-task=32
+#SBATCH --gres=gpu:h200:4
 #SBATCH --mem=0
-#SBATCH --time=08:00:00
+#SBATCH --time=16:00:00
 #SBATCH --mail-user=suryadv@cs.washington.edu
 #SBATCH --mail-type=END,FAIL
 
@@ -38,6 +38,11 @@ echo "SFT data: ${SFT_PARQUET}"
 echo "Save dir: ${SFT_SAVE_DIR}"
 echo "HF eval snapshots: ${SFT_HF_SNAPSHOT_DIR}"
 echo "Expected final SFT rollout id: ${SFT_FINAL_ROLLOUT_ID}"
+echo "SFT actor GPUs: ${SFT_ACTOR_GPUS}"
+echo "SFT TP/CP/PP: ${SFT_TENSOR_MODEL_PARALLEL_SIZE}/${SFT_CONTEXT_PARALLEL_SIZE}/${SFT_PIPELINE_MODEL_PARALLEL_SIZE}"
+echo "SFT ZeRO stage: ${SFT_ZERO_STAGE}"
+echo "SFT LR: ${SFT_LR}"
+echo "SFT max tokens per GPU: ${SFT_MAX_TOKENS_PER_GPU}"
 
 checkpoint_start_pruner sft "${SFT_SAVE_DIR}" "${CHECKPOINT_PRUNE_INTERVAL_SECONDS}" "${CHECKPOINT_REPORT_DIR}"
 cleanup() {
@@ -61,6 +66,17 @@ echo "HAS_NVLINK=${HAS_NVLINK} (detected ${NVLINK_COUNT} NVLink references)"
 
 source scripts/models/qwen3-8B.sh
 
+SFT_DP=$((SFT_ACTOR_GPUS / (SFT_TENSOR_MODEL_PARALLEL_SIZE * SFT_CONTEXT_PARALLEL_SIZE * SFT_PIPELINE_MODEL_PARALLEL_SIZE)))
+if [[ "${SFT_DP}" -lt 1 ]]; then
+  echo "Invalid SFT DP=${SFT_DP}; check actor GPUs and TP/CP/PP." >&2
+  exit 1
+fi
+if [[ "${SFT_ZERO_STAGE}" != "0" && "${SFT_DP}" -lt 2 ]]; then
+  echo "SFT_ZERO_STAGE=${SFT_ZERO_STAGE} requires DP >= 2, got DP=${SFT_DP}" >&2
+  exit 1
+fi
+echo "Resolved SFT DP=${SFT_DP}"
+
 CKPT_ARGS=(
   --hf-checkpoint "${STUDENT_HF_DIR}"
   --ref-load "${STUDENT_TORCH_DIST_DIR}"
@@ -69,6 +85,30 @@ CKPT_ARGS=(
   --save-interval "${SFT_SAVE_INTERVAL}"
   --save-hf "${SFT_HF_SNAPSHOT_TEMPLATE}"
 )
+
+ZERO_ARGS=()
+case "${SFT_ZERO_STAGE}" in
+  0)
+    ZERO_ARGS=(--data-parallel-sharding-strategy no_shard)
+    ;;
+  1)
+    ZERO_ARGS=(--use-distributed-optimizer --data-parallel-sharding-strategy optim)
+    ;;
+  2)
+    ZERO_ARGS=(--use-distributed-optimizer --use-megatron-fsdp --data-parallel-sharding-strategy optim_grads)
+    ;;
+  3)
+    ZERO_ARGS=(--use-distributed-optimizer --use-megatron-fsdp --data-parallel-sharding-strategy optim_grads_params)
+    ;;
+  *)
+    echo "SFT_ZERO_STAGE must be 0, 1, 2, or 3; got ${SFT_ZERO_STAGE}" >&2
+    exit 1
+    ;;
+esac
+if [[ -n "${SFT_CKPT_FORMAT:-}" ]]; then
+  ZERO_ARGS+=(--ckpt-format "${SFT_CKPT_FORMAT}")
+fi
+echo "SFT ZeRO args: ${ZERO_ARGS[*]}"
 
 SFT_ARGS=(
   --rollout-function-path slime.rollout.sft_rollout.generate_rollout
@@ -86,10 +126,10 @@ SFT_ARGS=(
 )
 
 PERF_ARGS=(
-  --tensor-model-parallel-size 2
+  --tensor-model-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"
   --sequence-parallel
-  --pipeline-model-parallel-size 1
-  --context-parallel-size 1
+  --pipeline-model-parallel-size "${SFT_PIPELINE_MODEL_PARALLEL_SIZE}"
+  --context-parallel-size "${SFT_CONTEXT_PARALLEL_SIZE}"
   --expert-model-parallel-size 1
   --expert-tensor-parallel-size 1
   --recompute-granularity full
@@ -101,10 +141,8 @@ PERF_ARGS=(
 
 OPTIMIZER_ARGS=(
   --optimizer adam
-  --lr 1e-5
-  --lr-decay-style cosine
-  --min-lr 1e-6
-  --lr-warmup-fraction 0.1
+  --lr "${SFT_LR}"
+  --lr-decay-style constant
   --weight-decay 0.1
   --adam-beta1 0.9
   --adam-beta2 0.95
@@ -125,7 +163,7 @@ MISC_ARGS=(
 
 export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
-SLIME_SGLANG_PATCH_SITE=0 ray start --head --node-ip-address "${MASTER_ADDR}" --num-gpus 8 \
+SLIME_SGLANG_PATCH_SITE=0 ray start --head --node-ip-address "${MASTER_ADDR}" --num-gpus "${SFT_ACTOR_GPUS}" \
   --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
 
 RUNTIME_ENV_JSON="{
@@ -145,11 +183,12 @@ SLIME_SGLANG_PATCH_SITE=0 ray job submit --address="http://127.0.0.1:8265" \
   --runtime-env-json="${RUNTIME_ENV_JSON}" \
   -- python3 train_async.py \
   --actor-num-nodes 1 \
-  --actor-num-gpus-per-node 8 \
+  --actor-num-gpus-per-node "${SFT_ACTOR_GPUS}" \
   "${MODEL_ARGS[@]}" \
   "${CKPT_ARGS[@]}" \
   "${SFT_ARGS[@]}" \
   "${OPTIMIZER_ARGS[@]}" \
+  "${ZERO_ARGS[@]}" \
   "${WANDB_ARGS[@]}" \
   "${PERF_ARGS[@]}" \
   "${MISC_ARGS[@]}"

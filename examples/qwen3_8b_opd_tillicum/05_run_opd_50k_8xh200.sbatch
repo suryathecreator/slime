@@ -33,10 +33,7 @@ for required_path in \
   "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" \
   "${TEACHER_HF_DIR}" \
   "${SFT_FINAL_HF_DIR}" \
-  "${OPD_REF_LOAD_DIR}" \
-  "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" \
-  "${SFT_FINAL_FULL_CKPT_DIR}/.metadata" \
-  "${SFT_FINAL_FULL_CKPT_DIR}/common.pt"; do
+  "${OPD_REF_LOAD_DIR}"; do
   if [[ ! -e "${required_path}" ]]; then
     echo "Missing required path: ${required_path}" >&2
     exit 1
@@ -57,6 +54,7 @@ echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
 echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
 echo "OPD log probs chunk size: ${OPD_LOG_PROBS_CHUNK_SIZE}"
 echo "OPD train memory margin bytes: ${OPD_TRAIN_MEMORY_MARGIN_BYTES}"
+echo "OPD LR: ${OPD_LR}"
 echo "OPD colocate/offload train/offload rollout: ${OPD_COLOCATE}/${OPD_OFFLOAD_TRAIN}/${OPD_OFFLOAD_ROLLOUT}"
 echo "OPD recompute loss function: ${OPD_RECOMPUTE_LOSS_FUNCTION}"
 echo "OPD disable cuda graph: ${OPD_DISABLE_CUDA_GRAPH}"
@@ -334,7 +332,7 @@ GRPO_ARGS=(
 
 OPTIMIZER_ARGS=(
   --optimizer adam
-  --lr 1e-6
+  --lr "${OPD_LR}"
   --lr-decay-style constant
   --weight-decay 0.1
   --adam-beta1 0.9

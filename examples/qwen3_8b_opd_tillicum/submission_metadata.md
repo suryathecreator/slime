@@ -2,6 +2,69 @@
 
 Recorded: 2026-07-01 17:28 PDT
 
+## Planned Cleaned OpenThoughts SFT + OPD vLLM Chain
+
+- Purpose:
+  - Restart the experiment from cleaned OpenThoughts3 thinking traces because
+    high cap-hit behavior suggested the earlier SFT data may have taught
+    undesirable long-generation habits.
+  - Preserve and push all current tracked result snapshots before submitting
+    the new chain.
+- Cleaning/sampling:
+  - Remove rows without complete `<think>...</think>` assistant traces.
+  - Remove mixed-language rows with the local script-count heuristic.
+  - Deterministically shuffle valid rows with seed `1234`.
+  - Split shuffled valid rows into first `2/3` SFT reserve and final `1/3`
+    OPD reserve.
+  - SFT uses the first `25,000` SFT-reserve rows.
+  - OPD-1k uses the first `1,024` OPD-reserve rows.
+  - OPD-5k continuation uses the next `4,096` OPD-reserve rows.
+  - Metadata records selected `source_row_id`s and proves no overlap between
+    selected SFT rows and used OPD rows.
+- Training:
+  - SFT: 4 H200s, `TP=2`, `CP=1`, `DP=2`, `SFT_ZERO_STAGE=3`,
+    `SFT_MAX_TOKENS_PER_GPU=16384`, learning rate `1e-6`, exactly one epoch.
+  - OPD: 4 H200s, actor/rollout/teacher `3/3/1`, `TP=1`, `CP=3`,
+    `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`,
+    `OPD_MAX_TOKENS_PER_GPU=2048`, `OPD_LOG_PROBS_CHUNK_SIZE=512`,
+    `OPD_TRAIN_MEMORY_MARGIN_BYTES=0`, learning rate `1e-6`, exactly one pass
+    over OPD-1k then one continuation pass over the next 4,096 rows.
+  - SFT ZeRO stages `1`, `2`, and `3` are implemented; a tiny smoke job runs
+    before full SFT, while the submitted full SFT uses stage `3`.
+- Checkpointing:
+  - SFT saves model snapshots every 5k effective samples.
+  - OPD saves model snapshots every roughly 1k effective samples.
+  - The newest checkpoint keeps full optimizer state; older completed
+    checkpoints may be reduced to model snapshots after a newer checkpoint is
+    validated. In-progress checkpoint dirs are never pruned.
+- Eval:
+  - Only four full MATH-500 evals run: base, SFT-25k, OPD-1k, OPD-5k.
+  - Eval backend is the Tillicum-local vLLM path.
+  - vLLM settings: 4 independent 1-GPU workers, greedy decoding,
+    `VLLM_EVAL_MAX_MODEL_LEN=32768`, GPU memory utilization `0.92`,
+    `VLLM_EVAL_MAX_NUM_SEQS=16`, and
+    `VLLM_EVAL_MAX_NUM_BATCHED_TOKENS=131072`.
+- Dynamic caps:
+  - OPD train cap: `min(31744, OPD_ROLLOUT_MAX_CONTEXT_LEN - prompt_tokens)`,
+    with `OPD_ROLLOUT_MAX_CONTEXT_LEN=32766`.
+  - vLLM eval cap: `min(31744, EVAL_MAX_CONTEXT_LEN - prompt_tokens)`, with
+    `EVAL_MAX_CONTEXT_LEN=32768`.
+  - Eval/debug samples record prompt length, requested cap, effective cap, and
+    clamp flag.
+- Estimated/reserved walltimes:
+  - vLLM setup + smoke: expected `20-45m`, reserve `2h`.
+  - Clean/split data: expected `3.5-5h`, reserve `8h`.
+  - Each full MATH-500 vLLM eval: expected `35-75m`, cap-heavy `2-3h`,
+    reserve `4h`.
+  - SFT 25k: expected `10-12h`, reserve `16h`.
+  - OPD 1k: expected `4.5-5.5h`, reserve `8h`.
+  - OPD +4k: expected `16-18h`, reserve `24h`.
+- Pre-submit validation:
+  - `python3 -m py_compile` on touched Python helpers: passed.
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD
