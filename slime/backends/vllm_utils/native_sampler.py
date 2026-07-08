@@ -690,6 +690,44 @@ def _patch_logprob(logprob_mod: ModuleType) -> None:
     logprob_mod.compute_topk_logprobs = native_compute_topk_logprobs
 
 
+def _patch_prompt_logprob(
+    prompt_logprob_mod: ModuleType,
+    logprob_mod: ModuleType | None = None,
+) -> None:
+    import torch
+
+    if not hasattr(prompt_logprob_mod, "get_prompt_logprobs_token_ids"):
+        return
+
+    def native_get_prompt_logprobs_token_ids(
+        num_tokens: int,
+        query_start_loc: torch.Tensor,
+        idx_mapping: torch.Tensor,
+        num_computed_tokens: torch.Tensor,
+        all_token_ids: torch.Tensor,
+    ) -> torch.Tensor:
+        token_ids = torch.empty(num_tokens, dtype=torch.int64, device=idx_mapping.device)
+        for batch_idx in range(idx_mapping.shape[0]):
+            req_state_idx = int(idx_mapping[batch_idx].item())
+            query_start = int(query_start_loc[batch_idx].item())
+            query_end = int(query_start_loc[batch_idx + 1].item())
+            query_len = query_end - query_start
+            if query_len <= 0:
+                continue
+            computed = int(num_computed_tokens[req_state_idx].item())
+            target_pos = computed + 1 + torch.arange(
+                query_len,
+                dtype=torch.long,
+                device=idx_mapping.device,
+            )
+            token_ids[query_start:query_end].copy_(all_token_ids[req_state_idx, target_pos])
+        return token_ids
+
+    prompt_logprob_mod.get_prompt_logprobs_token_ids = native_get_prompt_logprobs_token_ids
+    if isinstance(logprob_mod, ModuleType) and hasattr(logprob_mod, "compute_topk_logprobs"):
+        prompt_logprob_mod.compute_topk_logprobs = logprob_mod.compute_topk_logprobs
+
+
 def _patch_loaded_modules() -> bool:
     global _PATCH_INSTALLED
 
@@ -705,6 +743,7 @@ def _patch_loaded_modules() -> bool:
     bad_words_mod = sys.modules.get("vllm.v1.worker.gpu.sample.bad_words")
     min_p_mod = sys.modules.get("vllm.v1.worker.gpu.sample.min_p")
     logprob_mod = sys.modules.get("vllm.v1.worker.gpu.sample.logprob")
+    prompt_logprob_mod = sys.modules.get("vllm.v1.worker.gpu.sample.prompt_logprob")
     if (
         gumbel_mod is None
         and sampler_mod is None
@@ -718,6 +757,7 @@ def _patch_loaded_modules() -> bool:
         and bad_words_mod is None
         and min_p_mod is None
         and logprob_mod is None
+        and prompt_logprob_mod is None
     ):
         return False
 
@@ -751,6 +791,11 @@ def _patch_loaded_modules() -> bool:
         _patch_min_p(min_p_mod, states_mod if isinstance(states_mod, ModuleType) else None)
     if isinstance(logprob_mod, ModuleType):
         _patch_logprob(logprob_mod)
+    if isinstance(prompt_logprob_mod, ModuleType):
+        _patch_prompt_logprob(
+            prompt_logprob_mod,
+            logprob_mod if isinstance(logprob_mod, ModuleType) else None,
+        )
 
     _PATCH_INSTALLED = True
     return True
@@ -772,6 +817,7 @@ def maybe_force_native_sampler() -> bool:
     from vllm.v1.worker.gpu.sample import logprob as logprob_mod
     from vllm.v1.worker.gpu.sample import min_p as min_p_mod
     from vllm.v1.worker.gpu.sample import penalties as penalties_mod
+    from vllm.v1.worker.gpu.sample import prompt_logprob as prompt_logprob_mod
 
     del (
         gumbel_mod,
@@ -786,6 +832,7 @@ def maybe_force_native_sampler() -> bool:
         bad_words_mod,
         min_p_mod,
         logprob_mod,
+        prompt_logprob_mod,
     )
     return _patch_loaded_modules()
 
