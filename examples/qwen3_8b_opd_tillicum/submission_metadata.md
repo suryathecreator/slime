@@ -65,6 +65,84 @@ Recorded: 2026-07-01 17:28 PDT
   - `git diff --check`: passed.
   - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
 
+## Submitted Cleaned OpenThoughts SFT + OPD vLLM Chain
+
+- Implementation commit: `3fb1372` (`Add cleaned OpenThoughts vLLM OPD chain`),
+  pushed to `origin/opd-reproduction` before submission.
+- Submit time/log: `2026-07-07 21:42 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260707_214245.txt`.
+- Dependency policy:
+  - Strict `afterok` chain; no train/eval/report job from this chain is
+    intentionally eligible to run in parallel with another train/eval/report
+    job from the same chain.
+  - No job requests more than 4 H200s.
+- Job IDs:
+  - vLLM setup: `163539` (`gpu:h200:1`, `02:00:00`), started immediately on
+    `g013`.
+  - Clean data: `163540` (`gpu:h200:1`, `08:00:00`), `afterok:163539`.
+  - Model prep/convert: `163541` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163540`.
+  - SFT ZeRO smoke: `163542` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163541`.
+  - Base vLLM MATH-500 eval: `163543` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163542`.
+  - SFT 25k train: `163544` (`gpu:h200:4`, `16:00:00`),
+    `afterok:163543`.
+  - SFT-25k vLLM MATH-500 eval: `163545` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163544`.
+  - OPD-1k train: `163546` (`gpu:h200:4`, `08:00:00`),
+    `afterok:163545`.
+  - OPD-1k vLLM MATH-500 eval: `163547` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163546`.
+  - OPD +4k train to 5,120 total OPD samples: `163548` (`gpu:h200:4`,
+    `24:00:00`), `afterok:163547`.
+  - OPD-5k vLLM MATH-500 eval: `163549` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163548`.
+  - Final report: `163550` (`gpu:h200:1`, `00:30:00`), `afterok:163549`.
+- Scheduler validation after submission:
+  - `scontrol` shows `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL` for every job.
+  - Representative `ReqTRES` values are `cpu=8,gres/gpu:h200=1` for 1-GPU
+    setup/clean/report jobs and `cpu=32,gres/gpu:h200=4` for 4-GPU
+    train/eval jobs.
+  - No submitted cleaned-chain job was `DependencyNeverSatisfied` at the
+    post-submit check.
+- Output paths:
+  - Cleaned metadata:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_cleaned_cleaned_think_sft25k_opd5k_vllm_metadata.json`.
+  - SFT data:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_cleaned_cleaned_think_sft25k_opd5k_vllm_sft_25000.jsonl`.
+  - OPD-1k data:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_cleaned_cleaned_think_sft25k_opd5k_vllm_opd_001024.jsonl`.
+  - OPD next-4k data:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_cleaned_cleaned_think_sft25k_opd5k_vllm_opd_next_004096.jsonl`.
+  - SFT save/snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_full_optim`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_eval_snapshots`.
+  - OPD-1k save/snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_opd_1k_32k_full_optim`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_opd_1k_32k_eval_snapshots`.
+  - OPD-5k save/snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_opd_5k_32k_full_optim`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_opd_5k_32k_eval_snapshots`.
+  - Eval/report dirs:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_base_vllm`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_sft_25k_vllm`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_opd_1k_5k_vllm`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_combined_vllm`.
+- Runtime validation targets:
+  - `163539` validates or installs `vllm` in
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/vllm_eval_venv`.
+  - `163540` writes cleaned counts near the expected ballpark and records
+    selected `source_row_id`s with no SFT/OPD overlap.
+  - `163544` logs `SFT_LR=1e-6`, `SFT_ZERO_STAGE=3`, `SFT_NUM_EPOCH=1`, and
+    writes final full checkpoint/HF snapshot `iter_0000099`.
+  - `163546` logs OPD-1k one-pass settings and writes `iter_0000007`.
+  - `163548` loads OPD-1k full optimizer checkpoint, starts the fresh next-4k
+    OPD pool at offset 0, and writes `iter_0000039`.
+  - vLLM eval jobs write exactly 500 samples each, with dynamic cap metadata
+    (`prompt_tokens`, requested/effective cap, clamp flag).
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD
