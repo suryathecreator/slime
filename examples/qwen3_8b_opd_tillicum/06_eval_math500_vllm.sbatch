@@ -89,10 +89,11 @@ run_vllm_eval() {
   fi
 
   echo "VLLM_EVAL_STAGE stage=${stage} load=${load_dir} train_samples=${train_samples} output=${stage_dir}"
-  "${SCRIPT_DIR}/container_exec.sh" bash -lc '
+"${SCRIPT_DIR}/container_exec.sh" bash -lc '
 set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
-for shard in $(seq 0 $((VLLM_EVAL_NUM_GPUS - 1))); do
+shard=0
+while [[ "${shard}" -lt "${VLLM_EVAL_NUM_GPUS}" ]]; do
   (
     export CUDA_VISIBLE_DEVICES="${shard}"
     "${VLLM_EVAL_PYTHON_CMD}" examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py shard \
@@ -113,6 +114,7 @@ for shard in $(seq 0 $((VLLM_EVAL_NUM_GPUS - 1))); do
       '"$([[ "${VLLM_EVAL_TRUST_REMOTE_CODE}" == "1" ]] && printf "%s" "--trust-remote-code")"' \
       --hf-home "${HF_HOME}"
   ) &
+  shard=$((shard + 1))
 done
 wait
 "${VLLM_EVAL_PYTHON_CMD}" examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py merge \
