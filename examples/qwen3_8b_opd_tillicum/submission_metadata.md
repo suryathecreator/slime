@@ -163,6 +163,46 @@ Recorded: 2026-07-01 17:28 PDT
   - Stale downstream jobs `163540` through `163550` should be canceled.
   - Resubmit the cleaned chain from the start after pushing this patch.
 
+## Resubmitted Cleaned OpenThoughts Chain After vLLM Setup Patch
+
+- Patch commit: `a10ac61` (`Add vLLM eval target install fallback`), pushed
+  to `origin/opd-reproduction` before replacement submission.
+- Canceled stale jobs from the first failed chain:
+  `163540 163541 163542 163543 163544 163545 163546 163547 163548 163549 163550`.
+- Replacement submit time/log: `2026-07-07 21:47 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260707_214730.txt`.
+- Replacement job IDs:
+  - vLLM setup: `163564` (`gpu:h200:1`, `02:00:00`), started immediately on
+    `g013`.
+  - Clean data: `163565` (`gpu:h200:1`, `08:00:00`), `afterok:163564`.
+  - Model prep/convert: `163566` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163565`.
+  - SFT ZeRO smoke: `163567` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163566`.
+  - Base vLLM eval: `163568` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163567`.
+  - SFT 25k train: `163569` (`gpu:h200:4`, `16:00:00`),
+    `afterok:163568`.
+  - SFT-25k vLLM eval: `163570` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163569`.
+  - OPD-1k train: `163571` (`gpu:h200:4`, `08:00:00`),
+    `afterok:163570`.
+  - OPD-1k vLLM eval: `163572` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163571`.
+  - OPD +4k train to 5,120 total OPD samples: `163573` (`gpu:h200:4`,
+    `24:00:00`), `afterok:163572`.
+  - OPD-5k vLLM eval: `163574` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163573`.
+  - Final report: `163575` (`gpu:h200:1`, `00:30:00`), `afterok:163574`.
+- Scheduler validation after replacement submission:
+  - `163564` was `RUNNING`; downstream jobs were pending on strict `afterok`
+    dependencies.
+  - `scontrol` showed `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL` for every replacement job.
+  - `ReqTRES` showed `gpu:h200:1` for setup/clean/report and `gpu:h200:4` for
+    convert, smoke, train, and eval jobs.
+  - No replacement job was `DependencyNeverSatisfied` at the post-submit check.
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD
