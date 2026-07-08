@@ -23,13 +23,16 @@ SFT->OPD diagnostics remain available.
 
 | Stage | GPUs | Parallelism | Main memory knobs |
 | --- | ---: | --- | --- |
-| SFT 25k | 4 H200 | `TP=2`, `CP=1`, `DP=2`, `SFT_ZERO_STAGE=3` | `SFT_MAX_TOKENS_PER_GPU=16384`, full latest optimizer checkpoint, model snapshots every 5k samples. |
+| SFT 25k | 4 H200 | `TP=2`, `CP=1`, `DP=2`, Megatron distributed optimizer (`SFT_ZERO_STAGE=1` legacy wrapper value) | `SFT_MAX_TOKENS_PER_GPU=16384`, full latest optimizer checkpoint, model snapshots every 5k samples. |
 | OPD 1k | 4 H200 | actor/rollout/teacher `3/3/1`, `TP=1`, `CP=3` | `OPD_SEQ_LENGTH=32766`, `OPD_MAX_RESPONSE_LEN=31744`, `OPD_MAX_TOKENS_PER_GPU=2048`, logprob chunk `512`, train margin `0`, CPU/offload/recompute enabled. |
 | OPD +4k | 4 H200 | resumes from OPD-1k full optimizer checkpoint, fresh 4k data pool | Same OPD knobs; skips old rollout dataset state and starts the new data pool at offset 0. |
 
-ZeRO support is implemented for SFT stages `1`, `2`, and `3`; the submitted
-cleaned run uses stage `3`. A small SFT smoke job exercises all three stages
-before the full SFT job.
+The cleaned run no longer uses the Megatron-FSDP/ZeRO-2/3 path. Smoke debugging
+showed repeated integration issues, with the latest stage-2 attempt completing
+backward but failing to save `fsdp_dtensor` because Megatron expected a
+`DTensor` and received a local `Tensor`. The submitted chain therefore uses
+Megatron's distributed optimizer over DP=2 and runs a tiny smoke job for that
+path only.
 
 ## Eval
 

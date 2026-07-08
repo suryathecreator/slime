@@ -305,10 +305,13 @@ first 25,000 SFT-reserve rows, trains OPD on the first 1,024 OPD-reserve rows,
 then continues OPD on the next 4,096 OPD-reserve rows. Metadata records
 `source_row_id`s and proves the selected SFT and OPD rows are disjoint.
 
-The cleaned SFT run uses 4 H200s with `TP=2`, `CP=1`, `DP=2`,
-`SFT_ZERO_STAGE=3`, `SFT_MAX_TOKENS_PER_GPU=16384`, learning rate `1e-6`, and
-exactly one epoch. The implementation also supports SFT ZeRO stages `1`, `2`,
-and `3`; the chain runs a tiny smoke job across all three before the full SFT.
+The cleaned SFT run uses 4 H200s with `TP=2`, `CP=1`, `DP=2`, Megatron's
+distributed optimizer (`SFT_ZERO_STAGE=1` in the legacy wrapper variable),
+`SFT_MAX_TOKENS_PER_GPU=16384`, learning rate `1e-6`, and exactly one epoch.
+We pivoted away from the Megatron-FSDP/ZeRO-2/3 path after smoke repeatedly hit
+integration issues, latest a `fsdp_dtensor` save failure where Megatron expected
+a `DTensor` but received a local `Tensor`. The chain now runs a tiny smoke job
+for the Megatron distributed-optimizer path only.
 
 The cleaned OPD runs use the known 4-H200 colocate/offload shape:
 actor/rollout/teacher `3/3/1`, `TP=1`, `CP=3`, `OPD_SEQ_LENGTH=32766`,

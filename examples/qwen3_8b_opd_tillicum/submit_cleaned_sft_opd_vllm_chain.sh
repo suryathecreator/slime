@@ -18,8 +18,13 @@ export SFT_ACTOR_GPUS="${SFT_ACTOR_GPUS:-4}"
 export SFT_TENSOR_MODEL_PARALLEL_SIZE="${SFT_TENSOR_MODEL_PARALLEL_SIZE:-2}"
 export SFT_CONTEXT_PARALLEL_SIZE="${SFT_CONTEXT_PARALLEL_SIZE:-1}"
 export SFT_PIPELINE_MODEL_PARALLEL_SIZE="${SFT_PIPELINE_MODEL_PARALLEL_SIZE:-1}"
-export SFT_ZERO_STAGE="${SFT_ZERO_STAGE:-3}"
-export SFT_CKPT_FORMAT="${SFT_CKPT_FORMAT:-fsdp_dtensor}"
+export SFT_OPTIMIZER_MODE="${SFT_OPTIMIZER_MODE:-megatron_distributed_optimizer}"
+# The variable name is kept for compatibility with the shared SFT wrapper.
+# Stage 1 here means Megatron's distributed optimizer over DP=2; the cleaned
+# chain no longer uses the Megatron-FSDP/ZeRO-2/3 path after repeated
+# fsdp_dtensor integration failures during smoke.
+export SFT_ZERO_STAGE="${SFT_ZERO_STAGE:-1}"
+export SFT_CKPT_FORMAT="${SFT_CKPT_FORMAT:-torch_dist}"
 export SFT_MAX_TOKENS_PER_GPU="${SFT_MAX_TOKENS_PER_GPU:-16384}"
 export SFT_LR="${SFT_LR:-1e-6}"
 export OPD_ACTOR_GPUS="${OPD_ACTOR_GPUS:-3}"
@@ -108,7 +113,7 @@ echo "resume after convert: ${CLEANED_RESUME_AFTER_CONVERT}"
 echo "SFT data: ${SFT_PARQUET}"
 echo "OPD 1k data: ${CLEANED_OPD_1K_JSONL}"
 echo "OPD next 4k data: ${CLEANED_OPD_4K_JSONL}"
-echo "SFT TP/CP/DP/ZeRO: ${SFT_TENSOR_MODEL_PARALLEL_SIZE}/${SFT_CONTEXT_PARALLEL_SIZE}/2/${SFT_ZERO_STAGE}"
+echo "SFT TP/CP/DP/optimizer: ${SFT_TENSOR_MODEL_PARALLEL_SIZE}/${SFT_CONTEXT_PARALLEL_SIZE}/2/${SFT_OPTIMIZER_MODE}"
 echo "SFT max tokens/GPU LR epochs: ${SFT_MAX_TOKENS_PER_GPU} ${SFT_LR} ${SFT_NUM_EPOCH}"
 echo "OPD TP/CP max-response/context max-tokens/GPU chunk LR: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE} ${OPD_MAX_RESPONSE_LEN}/${OPD_ROLLOUT_MAX_CONTEXT_LEN} ${OPD_MAX_TOKENS_PER_GPU} ${OPD_LOG_PROBS_CHUNK_SIZE} ${OPD_LR}"
 echo "vLLM eval workers/max-model/max-seqs/batched-tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_MODEL_LEN}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
@@ -168,7 +173,7 @@ jid_sft_smoke="$(
   sbatch --parsable "${SBATCH_FOUR[@]}" \
     "${smoke_dependency_args[@]}" \
     --time=02:00:00 \
-    --job-name=slime-qwen3-sft-zero-smoke \
+    --job-name=slime-qwen3-sft-dpopt-smoke \
     --cpus-per-task=32 \
     --export=ALL \
     examples/qwen3_8b_opd_tillicum/04_smoke_sft_zero_stages.sbatch
@@ -315,7 +320,7 @@ jid_report="$(
   echo "vllm_setup=${jid_vllm}"
   echo "clean_data=${jid_data}"
   echo "convert=${jid_convert}"
-  echo "sft_zero_smoke=${jid_sft_smoke}"
+  echo "sft_optimizer_smoke=${jid_sft_smoke}"
   echo "base_eval=${jid_base_eval}"
   echo "sft_train=${jid_sft}"
   echo "sft_eval=${jid_sft_eval}"
@@ -342,7 +347,9 @@ jid_report="$(
   echo "combined_report_output=${COMBINED_EVAL_OUTPUT_DIR}"
   echo "sft_lr=${SFT_LR}"
   echo "opd_lr=${OPD_LR}"
-  echo "sft_zero_stage=${SFT_ZERO_STAGE}"
+  echo "sft_optimizer_mode=${SFT_OPTIMIZER_MODE}"
+  echo "sft_legacy_zero_stage=${SFT_ZERO_STAGE}"
+  echo "sft_ckpt_format=${SFT_CKPT_FORMAT}"
   echo "sft_max_tokens_per_gpu=${SFT_MAX_TOKENS_PER_GPU}"
   echo "opd_max_tokens_per_gpu=${OPD_MAX_TOKENS_PER_GPU}"
   echo "opd_log_probs_chunk_size=${OPD_LOG_PROBS_CHUNK_SIZE}"

@@ -42,7 +42,8 @@ echo "HF eval snapshots: ${SFT_HF_SNAPSHOT_DIR}"
 echo "Expected final SFT rollout id: ${SFT_FINAL_ROLLOUT_ID}"
 echo "SFT actor GPUs: ${SFT_ACTOR_GPUS}"
 echo "SFT TP/CP/PP: ${SFT_TENSOR_MODEL_PARALLEL_SIZE}/${SFT_CONTEXT_PARALLEL_SIZE}/${SFT_PIPELINE_MODEL_PARALLEL_SIZE}"
-echo "SFT ZeRO stage: ${SFT_ZERO_STAGE}"
+echo "SFT optimizer mode: ${SFT_OPTIMIZER_MODE:-legacy_stage_${SFT_ZERO_STAGE}}"
+echo "SFT legacy sharding stage: ${SFT_ZERO_STAGE}"
 echo "SFT LR: ${SFT_LR}"
 echo "SFT max tokens per GPU: ${SFT_MAX_TOKENS_PER_GPU}"
 
@@ -84,9 +85,17 @@ SFT_LOAD_KIND="sft_resume"
 if [[ -f "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
   echo "Resuming SFT from full optimizer checkpoint ${SFT_LOAD_DIR}"
 else
-  SFT_LOAD_DIR="${STUDENT_HF_DIR}"
-  SFT_LOAD_KIND="base_hf_weights_initial"
-  echo "Starting SFT from base HF weights ${SFT_LOAD_DIR}"
+  if [[ "${SFT_ZERO_STAGE}" == "2" || "${SFT_ZERO_STAGE}" == "3" ]]; then
+    # Retained only for legacy FSDP/ZeRO smoke debugging. The cleaned chain now
+    # uses SFT_ZERO_STAGE=1 because fsdp_dtensor saving failed in Megatron.
+    SFT_LOAD_DIR="${STUDENT_HF_DIR}"
+    SFT_LOAD_KIND="base_hf_weights_initial_legacy_fsdp"
+    echo "Starting legacy FSDP SFT from base HF weights ${SFT_LOAD_DIR}"
+  else
+    SFT_LOAD_DIR="${STUDENT_TORCH_DIST_DIR}"
+    SFT_LOAD_KIND="base_megatron_torch_dist_initial"
+    echo "Starting SFT from converted Megatron torch_dist base ${SFT_LOAD_DIR}"
+  fi
   echo "Fresh SFT optimizer will be initialized because no SFT checkpoint is present."
 fi
 
@@ -102,19 +111,23 @@ CKPT_ARGS=(
 echo "SFT load kind: ${SFT_LOAD_KIND}"
 echo "SFT load dir: ${SFT_LOAD_DIR}"
 
-ZERO_ARGS=()
+DP_OPT_ARGS=()
 case "${SFT_ZERO_STAGE}" in
   0)
-    ZERO_ARGS=(--data-parallel-sharding-strategy no_shard)
+    DP_OPT_ARGS=(--data-parallel-sharding-strategy no_shard)
     ;;
   1)
-    ZERO_ARGS=(--use-distributed-optimizer --data-parallel-sharding-strategy optim)
+    DP_OPT_ARGS=(--use-distributed-optimizer --data-parallel-sharding-strategy optim)
     ;;
   2)
-    ZERO_ARGS=(--use-distributed-optimizer --use-megatron-fsdp --data-parallel-sharding-strategy optim_grads)
+    # Legacy Megatron-FSDP/ZeRO path retained for debugging, but not used by
+    # the cleaned chain after fsdp_dtensor checkpoint integration failures.
+    DP_OPT_ARGS=(--use-distributed-optimizer --use-megatron-fsdp --data-parallel-sharding-strategy optim_grads)
     ;;
   3)
-    ZERO_ARGS=(--use-distributed-optimizer --use-megatron-fsdp --data-parallel-sharding-strategy optim_grads_params)
+    # Legacy Megatron-FSDP/ZeRO path retained for debugging, but not used by
+    # the cleaned chain after fsdp_dtensor checkpoint integration failures.
+    DP_OPT_ARGS=(--use-distributed-optimizer --use-megatron-fsdp --data-parallel-sharding-strategy optim_grads_params)
     ;;
   *)
     echo "SFT_ZERO_STAGE must be 0, 1, 2, or 3; got ${SFT_ZERO_STAGE}" >&2
@@ -122,9 +135,9 @@ case "${SFT_ZERO_STAGE}" in
     ;;
 esac
 if [[ -n "${SFT_CKPT_FORMAT:-}" ]]; then
-  ZERO_ARGS+=(--ckpt-format "${SFT_CKPT_FORMAT}")
+  DP_OPT_ARGS+=(--ckpt-format "${SFT_CKPT_FORMAT}")
 fi
-echo "SFT ZeRO args: ${ZERO_ARGS[*]}"
+echo "SFT DP optimizer args: ${DP_OPT_ARGS[*]}"
 
 SFT_ARGS=(
   --rollout-function-path slime.rollout.sft_rollout.generate_rollout
@@ -224,7 +237,7 @@ SLIME_SGLANG_PATCH_SITE=0 ray job submit --address="http://127.0.0.1:8265" \
   "${CKPT_ARGS[@]}" \
   "${SFT_ARGS[@]}" \
   "${OPTIMIZER_ARGS[@]}" \
-  "${ZERO_ARGS[@]}" \
+  "${DP_OPT_ARGS[@]}" \
   "${WANDB_ARGS[@]}" \
   "${PERF_ARGS[@]}" \
   "${MISC_ARGS[@]}"

@@ -2296,3 +2296,29 @@ Recorded: 2026-07-01 17:28 PDT
   - ZeRO stages 2 and 3 should each write `iter_0000000/.metadata` plus HF
     `iter_0000000/config.json`.
   - No smoke stage should train past rollout `0`.
+
+## Cleaned Chain Pivot Away From ZeRO/FSDP
+
+- Latest ZeRO/FSDP smoke attempt: `164383`.
+  - Stage 1 was already complete and skipped from the tiny smoke artifact.
+  - Stage 2 loaded base weights, completed rollout `0`, completed actor
+    backward, and reached checkpoint save.
+  - It then failed inside Megatron `fsdp_dtensor` checkpoint saving:
+    `AttributeError: 'Tensor' object has no attribute 'to_local'` from
+    `megatron/core/transformer/fsdp_dtensor_checkpoint.py` while splitting
+    SwiGLU FC1 tensors.
+- Decision:
+  - Stop using the Megatron-FSDP/ZeRO-2/3 path for the cleaned experiment.
+  - Keep prior logs, scripts, and compatibility patches as debugging history;
+    do not delete smoke artifacts or failure logs.
+  - Use Megatron's distributed optimizer over `DP=2` for SFT instead
+    (`SFT_ZERO_STAGE=1` in the legacy wrapper variable, checkpoint format
+    `torch_dist`).
+  - The tiny smoke job now validates only this Megatron distributed-optimizer
+    path; the old FSDP stage-2/3 smoke loop is disabled in-script with a note
+    explaining the fsdp_dtensor save incompatibility.
+- Static validation before resubmission:
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
