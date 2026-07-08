@@ -178,6 +178,7 @@ MISC_ARGS=(
 case "${SFT_ZERO_STAGE}" in
   2|3)
     echo "SFT FSDP/ZeRO stage ${SFT_ZERO_STAGE}: using BF16 gradient accumulation buffers"
+    MISC_ARGS+=(--grad-reduce-in-bf16)
     ;;
   *)
     MISC_ARGS+=(--accumulate-allreduce-grads-in-fp32)
