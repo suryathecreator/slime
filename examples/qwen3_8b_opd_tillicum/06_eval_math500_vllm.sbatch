@@ -36,6 +36,9 @@ echo "Eval max response/context: ${EVAL_MAX_RESPONSE_LEN}/${EVAL_MAX_CONTEXT_LEN
 if [[ -d "${VLLM_EVAL_SITE}/vllm" ]]; then
   export VLLM_EVAL_PYTHON_CMD="${VLLM_EVAL_PYTHON}"
   export PYTHONPATH="${VLLM_EVAL_SITE}:${PYTHONPATH:-}"
+  VLLM_EVAL_TARGET_LIBS="$(find "${VLLM_EVAL_SITE}" -path '*/nvidia/*/lib' -type d -printf '%p:' 2>/dev/null || true)"
+  export LD_LIBRARY_PATH="${VLLM_EVAL_TARGET_LIBS}${LD_LIBRARY_PATH:-}"
+  export SLIME_SGLANG_PATCH_SITE=0
 elif [[ -x "${VLLM_EVAL_VENV}/bin/python" ]]; then
   export VLLM_EVAL_PYTHON_CMD="${VLLM_EVAL_VENV}/bin/python"
 else

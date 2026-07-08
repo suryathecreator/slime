@@ -32,6 +32,10 @@ echo "VLLM_EVAL_PIP_EXTRA_INDEX_URL=${VLLM_EVAL_PIP_EXTRA_INDEX_URL}"
 
 "${SCRIPT_DIR}/container_exec.sh" bash -lc '
 set -euo pipefail
+vllm_target_libs() {
+  find "${VLLM_EVAL_SITE}" -path "*/nvidia/*/lib" -type d -printf "%p:" 2>/dev/null || true
+}
+
 eval_python="${VLLM_EVAL_VENV}/bin/python"
 if [[ ! -x "${eval_python}" ]]; then
   if python3 -m venv --system-site-packages "${VLLM_EVAL_VENV}"; then
@@ -50,8 +54,11 @@ fi
 
 if [[ "${eval_python}" == "${VLLM_EVAL_PYTHON}" ]]; then
   export PYTHONPATH="${VLLM_EVAL_SITE}:${PYTHONPATH:-}"
+  export LD_LIBRARY_PATH="$(vllm_target_libs)${LD_LIBRARY_PATH:-}"
+  export SLIME_SGLANG_PATCH_SITE=0
   if ! "${eval_python}" -c "import vllm" >/dev/null 2>&1; then
     "${eval_python}" -m pip install --target "${VLLM_EVAL_SITE}" "${VLLM_EVAL_INSTALL_SPEC}" --extra-index-url "${VLLM_EVAL_PIP_EXTRA_INDEX_URL}"
+    export LD_LIBRARY_PATH="$(vllm_target_libs)${LD_LIBRARY_PATH:-}"
   fi
 else
   "${eval_python}" -m pip install --upgrade pip wheel setuptools

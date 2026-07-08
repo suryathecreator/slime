@@ -259,6 +259,23 @@ Recorded: 2026-07-01 17:28 PDT
     `Falling back to scratch-local pip --target install`.
   - No replacement job was `DependencyNeverSatisfied` at the post-submit check.
 
+## Failed Cleaned vLLM Setup Target-Library Import and Patch
+
+- Failed job: `163589`.
+- Failure:
+  - The scratch target install completed, but final `import vllm` failed
+    because the dynamic linker could not find target-installed CUDA libraries:
+    `ImportError: libcudart.so.13: cannot open shared object file`.
+  - The log also showed SGLang sitecustomize conflicts during vLLM-only Python
+    startup.
+- Patch:
+  - vLLM setup/eval now prepend `$VLLM_EVAL_SITE/nvidia/*/lib` directories to
+    `LD_LIBRARY_PATH` when using the scratch target install.
+  - vLLM setup/eval set `SLIME_SGLANG_PATCH_SITE=0` for vLLM-only Python so
+    SGLang startup patches do not run during vLLM import.
+  - `container_exec.sh` forwards `LD_LIBRARY_PATH`, and the dry check verifies
+    that forwarding entry exists.
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD

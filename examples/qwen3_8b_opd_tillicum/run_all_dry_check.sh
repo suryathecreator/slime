@@ -167,6 +167,7 @@ REQUIRED_CONTAINER_ENV=(
   VLLM_EVAL_MAX_NUM_BATCHED_TOKENS
   VLLM_EVAL_DTYPE
   VLLM_EVAL_TRUST_REMOTE_CODE
+  LD_LIBRARY_PATH
 )
 for name in "${REQUIRED_CONTAINER_ENV[@]}"; do
   if ! grep -Eq "^[[:space:]]+${name}$" examples/qwen3_8b_opd_tillicum/container_exec.sh; then
