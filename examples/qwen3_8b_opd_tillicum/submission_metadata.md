@@ -220,6 +220,45 @@ Recorded: 2026-07-01 17:28 PDT
     `$VLLM_EVAL_SITE/vllm` exists, so a partial venv cannot shadow the valid
     target install.
 
+## Resubmitted Cleaned OpenThoughts Chain After Partial-Venv Patch
+
+- Patch commit: `e5dd3c3` (`Ignore partial vLLM eval venvs`), pushed to
+  `origin/opd-reproduction` before replacement submission.
+- Canceled stale jobs from the second failed chain:
+  `163565 163566 163567 163568 163569 163570 163571 163572 163573 163574 163575`.
+- Replacement submit time/log: `2026-07-07 21:52 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260707_215244.txt`.
+- Replacement job IDs:
+  - vLLM setup: `163589` (`gpu:h200:1`, `02:00:00`), started immediately on
+    `g013`.
+  - Clean data: `163590` (`gpu:h200:1`, `08:00:00`), `afterok:163589`.
+  - Model prep/convert: `163591` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163590`.
+  - SFT ZeRO smoke: `163592` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163591`.
+  - Base vLLM eval: `163593` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163592`.
+  - SFT 25k train: `163594` (`gpu:h200:4`, `16:00:00`),
+    `afterok:163593`.
+  - SFT-25k vLLM eval: `163595` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163594`.
+  - OPD-1k train: `163596` (`gpu:h200:4`, `08:00:00`),
+    `afterok:163595`.
+  - OPD-1k vLLM eval: `163597` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163596`.
+  - OPD +4k train to 5,120 total OPD samples: `163598` (`gpu:h200:4`,
+    `24:00:00`), `afterok:163597`.
+  - OPD-5k vLLM eval: `163599` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163598`.
+  - Final report: `163600` (`gpu:h200:1`, `00:30:00`), `afterok:163599`.
+- Scheduler/log validation after replacement submission:
+  - `163589` was `RUNNING`; downstream jobs were pending on strict `afterok`
+    dependencies.
+  - The setup log showed:
+    `Ignoring incomplete vLLM venv without pip` and
+    `Falling back to scratch-local pip --target install`.
+  - No replacement job was `DependencyNeverSatisfied` at the post-submit check.
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD
