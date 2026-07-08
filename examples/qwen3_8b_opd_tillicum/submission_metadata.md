@@ -2396,3 +2396,62 @@ Recorded: 2026-07-01 17:28 PDT
   - `164432` log no longer shows the old `seq` or
     `VLLM_EVAL_PYTHON_CMD` failure and proceeds past stage setup into shard
     execution.
+
+## Cleaned Chain vLLM Native Sampler Fallback
+
+- Base eval job `164432` failed during vLLM V1 engine startup, before any eval
+  samples were written.
+  - vLLM loaded the base Qwen3 shards, then failed during scheduler/profile
+    warmup in `vllm.v1.worker.gpu.sample.gumbel`.
+  - Fatal root cause: `RuntimeError: Failed to find C compiler. Please specify
+    via CC environment variable...`; the follow-on merge found `0/500`
+    samples because all shards died before writing outputs.
+- Patch commit: `6ac3f36`
+  (`Patch vLLM native sampler eval fallback`), pushed to
+  `origin/opd-reproduction`.
+  - Added `VLLM_EVAL_FORCE_NATIVE_SAMPLER=1`, forwarded it into Apptainer, and
+    logged it in the vLLM eval job.
+  - Patched the eval helper to replace vLLM V1 sampler temperature/gumbel calls
+    with native PyTorch argmax before `LLM(...)` construction.
+  - This is scoped to greedy MATH-500 eval (`temperature=0`, `top_p=1`), where
+    argmax is the intended decoding rule.
+- Validation:
+  - `python3 -m py_compile examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py`:
+    passed.
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `git diff --check`: passed.
+  - Targeted container regression returned native argmax tokens `[1, 2]`.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Canceled stale downstream jobs from `164432`:
+  - `164433` through `164439`.
+- Replacement submit time/log: `2026-07-08 13:21 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_132143.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164485` (`gpu:h200:4`, `02:00:00`),
+    no dependency; completed by reusing the existing smoke artifact.
+  - Base vLLM eval: `164486` (`gpu:h200:4`, `04:00:00`),
+    after smoke; configuring/running at scheduler check.
+  - SFT 25k: `164487` (`gpu:h200:4`, `16:00:00`), `afterok:164486`.
+  - SFT vLLM eval: `164488` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164487`.
+  - OPD 1k: `164489` (`gpu:h200:4`, `08:00:00`), `afterok:164488`.
+  - OPD 1k vLLM eval: `164490` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164489`.
+  - OPD 5k: `164491` (`gpu:h200:4`, `24:00:00`), `afterok:164490`.
+  - OPD 5k vLLM eval: `164492` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164491`.
+  - Final report: `164493` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164492`.
+- Scheduler validation:
+  - Downstream jobs are strict `afterok` dependencies and not
+    `DependencyNeverSatisfied`.
+  - All replacement jobs have `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No replacement job requests more than 4 H200s; final report requests
+    1 H200.
+- Runtime validation target:
+  - `164486` log should show `vLLM force native sampler: 1` and
+    `patched vLLM V1 sampler to native greedy argmax path`, then write
+    `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` and `summary.json`
+    with 500 samples.
