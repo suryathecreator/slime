@@ -152,6 +152,18 @@ val_summary_for_endpoint() {
   printf "%s/%s/summary.json" "${OPD_VAL100_EVAL_OUTPUT_DIR}" "$(stage_name_for_endpoint "${endpoint}")"
 }
 
+latest_existing_rollout_id=-1
+latest_existing_endpoint=0
+if [[ -f "${OPD_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
+  latest_existing_rollout_id="$(tr -d '[:space:]' <"${OPD_SAVE_DIR}/latest_checkpointed_iteration.txt")"
+  if [[ ! "${latest_existing_rollout_id}" =~ ^[0-9]+$ ]]; then
+    echo "Existing OPD latest checkpoint marker is not numeric: ${latest_existing_rollout_id}" >&2
+    exit 1
+  fi
+  latest_existing_endpoint=$(((latest_existing_rollout_id + 1) * OPD_ROLLOUT_BATCH_SIZE))
+fi
+echo "Latest existing continuation checkpoint rollout/endpoint: ${latest_existing_rollout_id}/${latest_existing_endpoint}"
+
 current_val_summary="${OPD_VAL100_EVAL_OUTPUT_DIR}/opd_001024/summary.json"
 skip_initial=0
 case "${OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL}" in
@@ -261,11 +273,21 @@ for endpoint in "${ENDPOINTS[@]}"; do
   rid=$((endpoint / OPD_ROLLOUT_BATCH_SIZE - 1))
   endpoint_exports="$(segment_export_vars "${endpoint}" "${rid}" "${OPD_HF_SNAPSHOT_DIR}")"
   endpoint_val_summary="$(val_summary_for_endpoint "${endpoint}")"
+  if [[ "${latest_existing_endpoint}" -ge "${endpoint}" && -f "${endpoint_val_summary}" ]]; then
+    train_jobs+=("preserved_existing_train_${endpoint}")
+    val_jobs+=("preserved_existing_val100_${endpoint}")
+    prior_dep=""
+    continue
+  fi
   if checkpoint_ready_for_endpoint "${endpoint}" && [[ -f "${endpoint_val_summary}" ]]; then
     train_jobs+=("preserved_existing_train_${endpoint}")
     val_jobs+=("preserved_existing_val100_${endpoint}")
     prior_dep=""
     continue
+  fi
+  if [[ "${latest_existing_endpoint}" -gt "${endpoint}" && ! -f "${endpoint_val_summary}" ]] && ! checkpoint_ready_for_endpoint "${endpoint}"; then
+    echo "Cannot rerun endpoint ${endpoint}: latest checkpoint is already endpoint ${latest_existing_endpoint}, prior checkpoint was pruned, and val100 summary is missing: ${endpoint_val_summary}" >&2
+    exit 1
   fi
   if [[ "${resume_endpoint}" != "0" && "${endpoint}" -lt "${resume_endpoint}" ]]; then
     if [[ ! -f "${endpoint_val_summary}" ]]; then

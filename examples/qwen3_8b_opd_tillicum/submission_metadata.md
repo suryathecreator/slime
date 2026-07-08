@@ -1649,3 +1649,39 @@ Recorded: 2026-07-01 17:28 PDT
     `OPD_CONTINUE_ALLOW_EXISTING_SAVE=1`.
   - Auto-resume should preserve endpoints through `4096`; first replacement
     train starts endpoint `5120` from `iter_0000031` and rollout id `32`.
+
+## OPD 25k Continuation Context-Overflow Submitter Correction
+
+- First patch commit: `745f7a1` (`Clamp OPD rollout caps to context`), pushed
+  to `origin/opd-reproduction`.
+- Validation before the first replacement attempt:
+  - `python3 -m py_compile slime/rollout/sglang_rollout.py`: passed.
+  - Focused in-container clamp regression: prompt `1149`, requested cap
+    `31744`, context limit `32766` produced effective cap `31617`; a short
+    prompt kept `31744`.
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+- Archival/cancel actions:
+  - Archived failed rollout diagnostics `rollout_32.pt` through
+    `rollout_37.pt` with `.failed_162222` suffixes.
+  - Archived failed sanity JSON diagnostics `samples_3072_3199.json` through
+    `samples_3712_3839.json` with `.failed_162222` suffixes.
+  - Canceled stale downstream jobs `162223` through `162267`.
+- Canceled replacement attempt:
+  - Submitted then immediately canceled jobs `163252` through `163302`.
+  - Reason: the submitter required endpoint-specific full checkpoint dirs to
+    recognize preserved endpoints. Because full checkpoint pruning kept only
+    latest `iter_0000031`, the submitter would have rerun earlier endpoints
+    `2048` and `3072` despite their completed val100 summaries.
+- Submitter correction:
+  - The submitter now reads the latest continuation checkpoint marker and
+    treats endpoints at or below that sample count as preserved when their
+    val100 summary exists.
+  - With `latest_checkpointed_iteration.txt = 31`, the latest preserved
+    endpoint is `4096`, so replacement submission should skip `2048`, `3072`,
+    and `4096` and start new training at `5120`.
+- Validation after submitter correction:
+  - `bash -n examples/qwen3_8b_opd_tillicum/submit_opd_continue_1k_to_25k_val100_chain.sh`: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
