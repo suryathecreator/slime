@@ -63,6 +63,7 @@ for stage in 1 2 3; do
   env \
     SFT_SIZE=4 \
     SFT_PARQUET="${SMOKE_SFT_JSONL}" \
+    SFT_SKIP_LOG_REDIRECT=1 \
     SFT_NUM_EPOCH=1 \
     SFT_ROLLOUT_BATCH_SIZE=4 \
     SFT_GLOBAL_BATCH_SIZE=4 \

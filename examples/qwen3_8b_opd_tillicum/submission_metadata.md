@@ -2103,3 +2103,58 @@ Recorded: 2026-07-01 17:28 PDT
   - The cleaned-chain submitter supports `CLEANED_RESUME_AFTER_CONVERT=1`,
     reusing completed setup/data/convert artifacts from jobs `163642`,
     `163643`, and `163644`.
+
+## Cleaned Chain ZeRO Smoke Replacement
+
+- Patch commit before replacement submission: `ed35917`
+  (`Fix cleaned ZeRO smoke resume`), pushed to `origin/opd-reproduction`.
+- Static validation:
+  - `bash -n` on edited smoke/submitter/SFT wrapper scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`: passed.
+- Preserved completed artifacts:
+  - vLLM setup job `163642`.
+  - cleaned data job `163643`.
+  - model conversion job `163644`.
+  - cleaned data row counts: SFT `25,000`, OPD-1k `1,024`,
+    OPD-next-4k `4,096`.
+- Canceled stale downstream jobs: `163646` through `163653`.
+- Replacement submit time/log: `2026-07-08 10:55 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_105541.txt`.
+- Replacement job IDs:
+  - ZeRO smoke: `164126` (`gpu:h200:4`, `02:00:00`), no dependency.
+  - Base vLLM eval: `164127` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164126`.
+  - SFT 25k: `164128` (`gpu:h200:4`, `16:00:00`),
+    `afterok:164127`.
+  - SFT vLLM eval: `164129` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164128`.
+  - OPD 1k: `164130` (`gpu:h200:4`, `08:00:00`),
+    `afterok:164129`.
+  - OPD 1k vLLM eval: `164131` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164130`.
+  - OPD 5k: `164132` (`gpu:h200:4`, `24:00:00`),
+    `afterok:164131`.
+  - OPD 5k vLLM eval: `164133` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164132`.
+  - Final report: `164134` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164133`.
+- Scheduler validation:
+  - `164126` started immediately on `g019`.
+  - Downstream jobs use strict `afterok` dependencies and none were
+    `DependencyNeverSatisfied` at scheduler check.
+  - Representative jobs showed
+    `MailUser=suryadv@cs.washington.edu MailType=END,FAIL`.
+  - No replacement job requests more than 4 H200s.
+- Runtime validation observed:
+  - Smoke data file
+    `outputs/sft_zero_smoke/sft_zero_smoke_000004.jsonl` has exactly
+    `4` rows.
+  - Live `164126` log shows SFT loading that smoke data file and writing to
+    `outputs/sft_zero_smoke/tiny_stage_1_*`.
+  - Live `164126` log shows rollout `0` only so far, not the old rollout
+    `500+` behavior.
+- Follow-up hardening:
+  - The SFT wrapper now honors `SFT_SKIP_LOG_REDIRECT=1`, and the smoke job
+    sets it for nested SFT calls so future smoke reruns keep the outer
+    row-count/stage markers in the Slurm log instead of truncating them.
