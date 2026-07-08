@@ -16,7 +16,7 @@ def _enabled(name: str) -> bool:
     return os.environ.get(name, "0").lower() in _TRUTHY
 
 
-def _native_functions() -> tuple[Any, Any]:
+def _native_functions() -> tuple[Any, Any, Any]:
     import torch
 
     def native_apply_temperature(
@@ -50,7 +50,31 @@ def _native_functions() -> tuple[Any, Any]:
             )
         return torch.argmax(logits, dim=-1).to(torch.int64)
 
-    return native_apply_temperature, native_gumbel_sample
+    def native_get_num_sampled_and_rejected(
+        num_sampled: torch.Tensor,
+        seq_lens: torch.Tensor,
+        cu_num_logits: torch.Tensor,
+        idx_mapping: torch.Tensor,
+        prefill_len: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        num_reqs = idx_mapping.shape[0]
+        req_indices = idx_mapping.to(torch.long)
+        valid_reqs = req_indices >= 0
+        safe_req_indices = torch.clamp(req_indices, min=0)
+        req_prefill_len = prefill_len[safe_req_indices]
+        is_chunked_prefill = (~valid_reqs) | (seq_lens[:num_reqs] < req_prefill_len)
+
+        sampled = num_sampled.clone()
+        sampled = torch.where(is_chunked_prefill, torch.zeros_like(sampled), sampled)
+
+        logits_start = cu_num_logits[:num_reqs]
+        logits_end = cu_num_logits[1 : num_reqs + 1]
+        num_logits = (logits_end - logits_start).to(sampled.dtype)
+        rejected = num_logits - sampled
+        rejected = torch.where(is_chunked_prefill, torch.zeros_like(rejected), rejected)
+        return sampled, rejected
+
+    return native_apply_temperature, native_gumbel_sample, native_get_num_sampled_and_rejected
 
 
 def _patch_loaded_modules() -> bool:
@@ -59,10 +83,13 @@ def _patch_loaded_modules() -> bool:
     gumbel_mod = sys.modules.get("vllm.v1.worker.gpu.sample.gumbel")
     sampler_mod = sys.modules.get("vllm.v1.worker.gpu.sample.sampler")
     states_mod = sys.modules.get("vllm.v1.worker.gpu.sample.states")
-    if gumbel_mod is None and sampler_mod is None and states_mod is None:
+    input_batch_mod = sys.modules.get("vllm.v1.worker.gpu.input_batch")
+    if gumbel_mod is None and sampler_mod is None and states_mod is None and input_batch_mod is None:
         return False
 
-    native_apply_temperature, native_gumbel_sample = _native_functions()
+    native_apply_temperature, native_gumbel_sample, native_get_num_sampled_and_rejected = (
+        _native_functions()
+    )
     if isinstance(gumbel_mod, ModuleType):
         gumbel_mod.apply_temperature = native_apply_temperature
         gumbel_mod.gumbel_sample = native_gumbel_sample
@@ -70,6 +97,9 @@ def _patch_loaded_modules() -> bool:
         states_mod.apply_temperature = native_apply_temperature
     if isinstance(sampler_mod, ModuleType):
         sampler_mod.gumbel_sample = native_gumbel_sample
+        sampler_mod.get_num_sampled_and_rejected = native_get_num_sampled_and_rejected
+    if isinstance(input_batch_mod, ModuleType):
+        input_batch_mod.get_num_sampled_and_rejected = native_get_num_sampled_and_rejected
 
     _PATCH_INSTALLED = True
     return True
@@ -82,8 +112,9 @@ def maybe_force_native_sampler() -> bool:
     from vllm.v1.worker.gpu.sample import gumbel as gumbel_mod
     from vllm.v1.worker.gpu.sample import sampler as sampler_mod
     from vllm.v1.worker.gpu.sample import states as states_mod
+    from vllm.v1.worker.gpu import input_batch as input_batch_mod
 
-    del gumbel_mod, sampler_mod, states_mod
+    del gumbel_mod, sampler_mod, states_mod, input_batch_mod
     return _patch_loaded_modules()
 
 
@@ -105,7 +136,7 @@ def install_native_sampler_import_hook() -> bool:
         level: int = 0,
     ) -> Any:
         module = original_import(name, globals, locals, fromlist, level)
-        if name.startswith("vllm.v1.worker.gpu.sample"):
+        if name.startswith("vllm.v1.worker.gpu"):
             _patch_loaded_modules()
         return module
 
