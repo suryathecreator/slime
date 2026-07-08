@@ -2522,3 +2522,47 @@ Recorded: 2026-07-01 17:28 PDT
     the gumbel/counter/staged-write `Failed to find C compiler` failures, and
     write `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus
     `summary.json` with 500 samples.
+
+## Cleaned Chain vLLM Penalties Fallback Retry
+
+- Base eval job `164635` got past the prior gumbel, sampled/rejected-counter,
+  and staged-write compiler failures, then failed in
+  `vllm.v1.worker.gpu.sample.penalties.bincount`, another Triton bookkeeping
+  helper reached during sampler staged writes.
+- Patch commit: `501d447` (`Patch vLLM penalties fallback`), pushed to
+  `origin/opd-reproduction`.
+  - Adds native torch fallbacks for vLLM V1 penalties `bincount` and
+    `apply_penalties`.
+  - This remains scoped to the greedy vLLM eval path; default/no-op penalties
+    should not alter decoding semantics.
+- Validation before resubmission:
+  - `python3 -m py_compile slime/backends/vllm_utils/native_sampler.py`: passed.
+  - `git diff --check`: passed.
+  - Targeted Apptainer/vLLM regression confirmed `native_bincount` and
+    `native_apply_penalties` are installed and produce expected counts.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Canceled stale downstream jobs from failed `164635`:
+  - `164636` through `164642`.
+- Replacement submit time/log: `2026-07-08 14:46 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_144649.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164706` (`gpu:h200:4`, `02:00:00`),
+    no dependency; reuses the existing complete smoke artifact.
+  - Base vLLM eval: `164707` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164706`.
+  - SFT 25k: `164708` (`gpu:h200:4`, `16:00:00`), `afterok:164707`.
+  - SFT vLLM eval: `164709` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164708`.
+  - OPD 1k: `164710` (`gpu:h200:4`, `08:00:00`), `afterok:164709`.
+  - OPD 1k vLLM eval: `164711` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164710`.
+  - OPD 5k: `164712` (`gpu:h200:4`, `24:00:00`), `afterok:164711`.
+  - OPD 5k vLLM eval: `164713` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164712`.
+  - Final report: `164714` (`gpu:h200:1`, `00:30:00`), `afterok:164713`.
+- Scheduler validation:
+  - `164707` started on `g020`; downstream jobs remain strict `afterok`.
+  - Replacement jobs have `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No job requests more than 4 H200s; final report requests 1 H200.
