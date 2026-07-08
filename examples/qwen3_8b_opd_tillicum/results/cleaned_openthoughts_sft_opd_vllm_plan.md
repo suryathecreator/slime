@@ -71,7 +71,7 @@ never remove an in-progress checkpoint directory.
 
 | Stage | Expected | Reserved |
 | --- | ---: | ---: |
-| vLLM setup + smoke | 20-45m | 2h |
+| vLLM setup + smoke | 20-45m; falls back to scratch `pip --target` if container venv support is missing | 2h |
 | Clean/split data | 3.5-5h | 8h |
 | Base vLLM eval | 35-75m, cap-heavy 2-3h | 4h |
 | SFT 25k | 10-12h | 16h |

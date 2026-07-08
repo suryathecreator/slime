@@ -29,16 +29,23 @@ echo "Starting vLLM MATH-500 eval on $(hostname) at $(date)"
 echo "Eval targets: ${EVAL_TARGETS}"
 echo "Eval output: ${EVAL_OUTPUT_DIR}"
 echo "vLLM venv: ${VLLM_EVAL_VENV}"
+echo "vLLM target site: ${VLLM_EVAL_SITE}"
 echo "vLLM workers/seqs/batched tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
 echo "Eval max response/context: ${EVAL_MAX_RESPONSE_LEN}/${EVAL_MAX_CONTEXT_LEN}"
 
-if [[ ! -x "${VLLM_EVAL_VENV}/bin/python" ]]; then
-  echo "Missing vLLM eval environment: ${VLLM_EVAL_VENV}" >&2
+if [[ -x "${VLLM_EVAL_VENV}/bin/python" ]]; then
+  export VLLM_EVAL_PYTHON_CMD="${VLLM_EVAL_VENV}/bin/python"
+elif [[ -d "${VLLM_EVAL_SITE}" ]]; then
+  export VLLM_EVAL_PYTHON_CMD="${VLLM_EVAL_PYTHON}"
+  export PYTHONPATH="${VLLM_EVAL_SITE}:${PYTHONPATH:-}"
+else
+  echo "Missing vLLM eval environment: ${VLLM_EVAL_VENV} or ${VLLM_EVAL_SITE}" >&2
   echo "Run 10_setup_vllm_eval_env.sbatch first." >&2
   exit 1
 fi
+echo "vLLM python: ${VLLM_EVAL_PYTHON_CMD}"
 
-"${SCRIPT_DIR}/container_exec.sh" "${VLLM_EVAL_VENV}/bin/python" \
+"${SCRIPT_DIR}/container_exec.sh" "${VLLM_EVAL_PYTHON_CMD}" \
   examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py prepare-math500 \
   --out "${MATH500_JSONL}" \
   --dataset "${MATH500_DATASET}" \
@@ -85,7 +92,7 @@ cd "${SLIME_REPO_ROOT}"
 for shard in $(seq 0 $((VLLM_EVAL_NUM_GPUS - 1))); do
   (
     export CUDA_VISIBLE_DEVICES="${shard}"
-    "${VLLM_EVAL_VENV}/bin/python" examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py shard \
+    "${VLLM_EVAL_PYTHON_CMD}" examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py shard \
       --model "'"${load_dir}"'" \
       --data "${MATH500_JSONL}" \
       --out "'"${stage_dir}"'/debug_eval_shard_${shard}.pt" \
@@ -105,7 +112,7 @@ for shard in $(seq 0 $((VLLM_EVAL_NUM_GPUS - 1))); do
   ) &
 done
 wait
-"${VLLM_EVAL_VENV}/bin/python" examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py merge \
+"${VLLM_EVAL_PYTHON_CMD}" examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py merge \
   --stage-dir "'"${stage_dir}"'" \
   --out "'"${debug_file}"'" \
   --expected-samples "${EVAL_EXPECTED_SAMPLES}"

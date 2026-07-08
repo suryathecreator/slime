@@ -18,26 +18,43 @@ else
 fi
 source "${SCRIPT_DIR}/env.sh"
 
-mkdir -p "${SLURM_LOG_DIR}" "$(dirname "${VLLM_EVAL_VENV}")"
+mkdir -p "${SLURM_LOG_DIR}" "$(dirname "${VLLM_EVAL_VENV}")" "${VLLM_EVAL_SITE}"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
 fi
 
 echo "Starting vLLM eval environment setup on $(hostname) at $(date)"
 echo "VLLM_EVAL_VENV=${VLLM_EVAL_VENV}"
+echo "VLLM_EVAL_SITE=${VLLM_EVAL_SITE}"
+echo "VLLM_EVAL_PYTHON=${VLLM_EVAL_PYTHON}"
 echo "VLLM_EVAL_INSTALL_SPEC=${VLLM_EVAL_INSTALL_SPEC}"
 echo "VLLM_EVAL_PIP_EXTRA_INDEX_URL=${VLLM_EVAL_PIP_EXTRA_INDEX_URL}"
 
 "${SCRIPT_DIR}/container_exec.sh" bash -lc '
 set -euo pipefail
-if [[ ! -x "${VLLM_EVAL_VENV}/bin/python" ]]; then
-  python3 -m venv --system-site-packages "${VLLM_EVAL_VENV}"
+eval_python="${VLLM_EVAL_VENV}/bin/python"
+if [[ ! -x "${eval_python}" ]]; then
+  if python3 -m venv --system-site-packages "${VLLM_EVAL_VENV}"; then
+    echo "Created vLLM venv: ${VLLM_EVAL_VENV}"
+  else
+    echo "python3 -m venv failed, likely because ensurepip/python3-venv is unavailable in the container." >&2
+    echo "Falling back to scratch-local pip --target install at ${VLLM_EVAL_SITE}." >&2
+    eval_python="${VLLM_EVAL_PYTHON}"
+  fi
 fi
-"${VLLM_EVAL_VENV}/bin/python" -m pip install --upgrade pip wheel setuptools
-if ! "${VLLM_EVAL_VENV}/bin/python" -c "import vllm" >/dev/null 2>&1; then
-  "${VLLM_EVAL_VENV}/bin/python" -m pip install "${VLLM_EVAL_INSTALL_SPEC}" --extra-index-url "${VLLM_EVAL_PIP_EXTRA_INDEX_URL}"
+
+if [[ "${eval_python}" == "${VLLM_EVAL_PYTHON}" ]]; then
+  export PYTHONPATH="${VLLM_EVAL_SITE}:${PYTHONPATH:-}"
+  if ! "${eval_python}" -c "import vllm" >/dev/null 2>&1; then
+    "${eval_python}" -m pip install --target "${VLLM_EVAL_SITE}" "${VLLM_EVAL_INSTALL_SPEC}" --extra-index-url "${VLLM_EVAL_PIP_EXTRA_INDEX_URL}"
+  fi
+else
+  "${eval_python}" -m pip install --upgrade pip wheel setuptools
+  if ! "${eval_python}" -c "import vllm" >/dev/null 2>&1; then
+    "${eval_python}" -m pip install "${VLLM_EVAL_INSTALL_SPEC}" --extra-index-url "${VLLM_EVAL_PIP_EXTRA_INDEX_URL}"
+  fi
 fi
-"${VLLM_EVAL_VENV}/bin/python" - <<PY
+"${eval_python}" - <<PY
 import importlib.metadata as metadata
 import vllm
 print("vllm", metadata.version("vllm"))

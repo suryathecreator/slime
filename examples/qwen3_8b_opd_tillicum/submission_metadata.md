@@ -143,6 +143,26 @@ Recorded: 2026-07-01 17:28 PDT
   - vLLM eval jobs write exactly 500 samples each, with dynamic cap metadata
     (`prompt_tokens`, requested/effective cap, clamp flag).
 
+## Failed Cleaned vLLM Setup and Patch
+
+- Failed job: `163539`.
+- Failure:
+  - The container Python could not create a venv because `ensurepip` is not
+    available:
+    `The virtual environment was not created successfully because ensurepip is not available`.
+  - No data prep, training, eval, checkpoint, or report progress was produced.
+- Patch:
+  - `10_setup_vllm_eval_env.sbatch` now attempts `python3 -m venv` first and
+    falls back to a scratch-local `pip --target` install under
+    `$VLLM_EVAL_SITE` when venv support is unavailable.
+  - `06_eval_math500_vllm.sbatch` can run either from the venv Python or from
+    system `python3` with `$VLLM_EVAL_SITE` prepended to `PYTHONPATH`.
+  - `VLLM_EVAL_SITE` and `VLLM_EVAL_PYTHON` are forwarded into the container
+    and covered by the dry-check env forwarding guard.
+- Preservation/resubmission policy:
+  - Stale downstream jobs `163540` through `163550` should be canceled.
+  - Resubmit the cleaned chain from the start after pushing this patch.
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD
