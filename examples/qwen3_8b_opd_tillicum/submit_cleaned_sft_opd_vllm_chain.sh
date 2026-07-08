@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 export CLEANED_EXPERIMENT_LABEL="${CLEANED_EXPERIMENT_LABEL:-cleaned_think_sft25k_opd5k_vllm}"
 export CLEANED_OPD_FIRST_SIZE="${CLEANED_OPD_FIRST_SIZE:-1024}"
 export CLEANED_OPD_NEXT_SIZE="${CLEANED_OPD_NEXT_SIZE:-4096}"
+export CLEANED_RESUME_AFTER_CONVERT="${CLEANED_RESUME_AFTER_CONVERT:-0}"
 export SFT_SIZE="${SFT_SIZE:-25000}"
 export SFT_ROLLOUT_BATCH_SIZE="${SFT_ROLLOUT_BATCH_SIZE:-250}"
 export SFT_GLOBAL_BATCH_SIZE="${SFT_GLOBAL_BATCH_SIZE:-250}"
@@ -103,6 +104,7 @@ submit_log="${SLURM_LOG_DIR}/submit_cleaned_sft_opd_vllm_$(date +%Y%m%d_%H%M%S).
 echo "Submitting cleaned OpenThoughts SFT + OPD vLLM chain"
 echo "submit log: ${submit_log}"
 echo "cleaned label: ${CLEANED_EXPERIMENT_LABEL}"
+echo "resume after convert: ${CLEANED_RESUME_AFTER_CONVERT}"
 echo "SFT data: ${SFT_PARQUET}"
 echo "OPD 1k data: ${CLEANED_OPD_1K_JSONL}"
 echo "OPD next 4k data: ${CLEANED_OPD_4K_JSONL}"
@@ -111,35 +113,60 @@ echo "SFT max tokens/GPU LR epochs: ${SFT_MAX_TOKENS_PER_GPU} ${SFT_LR} ${SFT_NU
 echo "OPD TP/CP max-response/context max-tokens/GPU chunk LR: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE} ${OPD_MAX_RESPONSE_LEN}/${OPD_ROLLOUT_MAX_CONTEXT_LEN} ${OPD_MAX_TOKENS_PER_GPU} ${OPD_LOG_PROBS_CHUNK_SIZE} ${OPD_LR}"
 echo "vLLM eval workers/max-model/max-seqs/batched-tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_MODEL_LEN}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
 
-jid_vllm="$(
-  sbatch --parsable "${SBATCH_ONE[@]}" \
-    --time=02:00:00 \
-    --job-name=slime-qwen3-clean-vllm-setup \
-    --cpus-per-task=8 \
-    --export=ALL \
-    examples/qwen3_8b_opd_tillicum/10_setup_vllm_eval_env.sbatch
-)"
-jid_data="$(
-  sbatch --parsable "${SBATCH_ONE[@]}" \
-    --dependency=afterok:${jid_vllm} \
-    --time=08:00:00 \
-    --job-name=slime-qwen3-clean-data \
-    --cpus-per-task=8 \
-    --export=ALL \
-    examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_data.sbatch
-)"
-jid_convert="$(
-  sbatch --parsable "${SBATCH_FOUR[@]}" \
-    --dependency=afterok:${jid_data} \
-    --time=02:00:00 \
-    --job-name=slime-qwen3-clean-convert \
-    --cpus-per-task=32 \
-    --export=ALL,CONVERT_NPROC=4 \
-    examples/qwen3_8b_opd_tillicum/03_convert_models_if_needed.sbatch
-)"
+smoke_dependency_args=()
+if [[ "${CLEANED_RESUME_AFTER_CONVERT}" == "1" ]]; then
+  echo "Reusing completed vLLM setup, cleaned data, and model conversion artifacts."
+  for required_path in \
+    "${SFT_PARQUET}" \
+    "${CLEANED_METADATA}" \
+    "${CLEANED_OPD_RESERVE_JSONL}" \
+    "${CLEANED_OPD_1K_JSONL}" \
+    "${CLEANED_OPD_4K_JSONL}" \
+    "${STUDENT_HF_DIR}" \
+    "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt"; do
+    if [[ ! -e "${required_path}" ]]; then
+      echo "Cannot resume after convert; missing required artifact: ${required_path}" >&2
+      exit 1
+    fi
+  done
+  jid_vllm="preserved_163642"
+  jid_data="preserved_163643"
+  jid_convert="preserved_163644"
+elif [[ "${CLEANED_RESUME_AFTER_CONVERT}" == "0" ]]; then
+  jid_vllm="$(
+    sbatch --parsable "${SBATCH_ONE[@]}" \
+      --time=02:00:00 \
+      --job-name=slime-qwen3-clean-vllm-setup \
+      --cpus-per-task=8 \
+      --export=ALL \
+      examples/qwen3_8b_opd_tillicum/10_setup_vllm_eval_env.sbatch
+  )"
+  jid_data="$(
+    sbatch --parsable "${SBATCH_ONE[@]}" \
+      --dependency=afterok:${jid_vllm} \
+      --time=08:00:00 \
+      --job-name=slime-qwen3-clean-data \
+      --cpus-per-task=8 \
+      --export=ALL \
+      examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_data.sbatch
+  )"
+  jid_convert="$(
+    sbatch --parsable "${SBATCH_FOUR[@]}" \
+      --dependency=afterok:${jid_data} \
+      --time=02:00:00 \
+      --job-name=slime-qwen3-clean-convert \
+      --cpus-per-task=32 \
+      --export=ALL,CONVERT_NPROC=4 \
+      examples/qwen3_8b_opd_tillicum/03_convert_models_if_needed.sbatch
+  )"
+  smoke_dependency_args=(--dependency=afterok:${jid_convert})
+else
+  echo "CLEANED_RESUME_AFTER_CONVERT must be 0 or 1; got ${CLEANED_RESUME_AFTER_CONVERT}" >&2
+  exit 1
+fi
 jid_sft_smoke="$(
   sbatch --parsable "${SBATCH_FOUR[@]}" \
-    --dependency=afterok:${jid_convert} \
+    "${smoke_dependency_args[@]}" \
     --time=02:00:00 \
     --job-name=slime-qwen3-sft-zero-smoke \
     --cpus-per-task=32 \
@@ -284,6 +311,7 @@ jid_report="$(
 {
   echo "cleaned_experiment_label=${CLEANED_EXPERIMENT_LABEL}"
   echo "submit_time=$(date --iso-8601=seconds)"
+  echo "resume_after_convert=${CLEANED_RESUME_AFTER_CONVERT}"
   echo "vllm_setup=${jid_vllm}"
   echo "clean_data=${jid_data}"
   echo "convert=${jid_convert}"

@@ -2070,3 +2070,36 @@ Recorded: 2026-07-01 17:28 PDT
     `400 Requested token count exceeds the model's maximum context length`.
   - First replacement checkpoint/HF snapshot writes endpoint `opd_005120`,
     rollout `iter_0000039`.
+
+## Cleaned Chain ZeRO Smoke Timeout
+
+- Failed job: `163645` (`slime-qwen3-sft-zero-smoke`), state `TIMEOUT`,
+  elapsed `02:00:28`.
+- Root cause: the smoke wrapper set `SFT_SIZE=4` and one rollout in the
+  environment, but still passed the full cleaned SFT JSONL as `SFT_PARQUET`.
+  Slime therefore trained on the real 25k cleaned SFT file instead of a tiny
+  smoke file.
+- Observed state:
+  - Only ZeRO stage 1 ran; stages 2 and 3 never started.
+  - Stage 1 was training and saving normally, reaching
+    `latest_checkpointed_iteration.txt = 509`.
+  - The accidental smoke output tree reached `8.0T`.
+- Cleanup decision:
+  - The old `outputs/sft_zero_smoke/stage_1_*` artifacts are not intended
+    experiment checkpoints and are not fidelity-preserving progress.
+  - They are safe to delete after this note because the actual cleaned SFT
+    run will start fresh from base on the cleaned 25k SFT split.
+- Cleanup performed:
+  - Deleted only `outputs/sft_zero_smoke/stage_1_full_optim`,
+    `stage_1_hf`, `stage_1_details`, and `stage_1_reports`.
+  - Remaining `outputs/sft_zero_smoke` footprint after cleanup: `1.0K`.
+- Patch:
+  - The smoke job now creates
+    `outputs/sft_zero_smoke/sft_zero_smoke_000004.jsonl` from the first
+    four cleaned SFT rows and passes that file as `SFT_PARQUET`.
+  - Smoke outputs now use fresh `tiny_stage_{1,2,3}_*` directories.
+  - Each stage skips if `iter_0000000/.metadata` and HF
+    `iter_0000000/config.json` already exist.
+  - The cleaned-chain submitter supports `CLEANED_RESUME_AFTER_CONVERT=1`,
+    reusing completed setup/data/convert artifacts from jobs `163642`,
+    `163643`, and `163644`.

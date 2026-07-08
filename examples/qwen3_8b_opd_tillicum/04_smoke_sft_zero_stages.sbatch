@@ -25,14 +25,44 @@ fi
 
 echo "Starting SFT ZeRO smoke checks on $(hostname) at $(date)"
 
+SMOKE_ROOT="${OUTPUT_ROOT}/sft_zero_smoke"
+SMOKE_SFT_JSONL="${SMOKE_ROOT}/sft_zero_smoke_000004.jsonl"
+
+if [[ ! -s "${SMOKE_SFT_JSONL}" ]]; then
+  if [[ ! -s "${SFT_PARQUET}" ]]; then
+    echo "Missing source SFT data for smoke: ${SFT_PARQUET}" >&2
+    exit 1
+  fi
+  head -n 4 "${SFT_PARQUET}" >"${SMOKE_SFT_JSONL}"
+fi
+
+smoke_rows="$(wc -l <"${SMOKE_SFT_JSONL}")"
+echo "SFT ZeRO smoke data: ${SMOKE_SFT_JSONL}"
+echo "SFT ZeRO smoke data row count: ${smoke_rows}"
+if [[ "${smoke_rows}" -ne 4 ]]; then
+  echo "Expected exactly 4 smoke rows, got ${smoke_rows}" >&2
+  exit 1
+fi
+
 for stage in 1 2 3; do
   echo "Running SFT ZeRO stage ${stage} smoke"
   ckpt_format="torch_dist"
   if [[ "${stage}" == "3" ]]; then
     ckpt_format="fsdp_dtensor"
   fi
+
+  stage_save_dir="${SMOKE_ROOT}/tiny_stage_${stage}_full_optim"
+  stage_hf_dir="${SMOKE_ROOT}/tiny_stage_${stage}_hf"
+  stage_final_hf="${stage_hf_dir}/iter_0000000"
+  stage_final_ckpt="${stage_save_dir}/iter_0000000"
+  if [[ -f "${stage_final_ckpt}/.metadata" && -f "${stage_final_hf}/config.json" ]]; then
+    echo "Skipping SFT ZeRO stage ${stage} smoke; existing complete artifacts found."
+    continue
+  fi
+
   env \
     SFT_SIZE=4 \
+    SFT_PARQUET="${SMOKE_SFT_JSONL}" \
     SFT_NUM_EPOCH=1 \
     SFT_ROLLOUT_BATCH_SIZE=4 \
     SFT_GLOBAL_BATCH_SIZE=4 \
@@ -46,13 +76,13 @@ for stage in 1 2 3; do
     SFT_ZERO_STAGE="${stage}" \
     SFT_CKPT_FORMAT="${ckpt_format}" \
     SFT_LR=1e-6 \
-    SFT_SAVE_DIR="${OUTPUT_ROOT}/sft_zero_smoke/stage_${stage}_full_optim" \
-    SFT_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/sft_zero_smoke/stage_${stage}_hf" \
-    SFT_HF_SNAPSHOT_TEMPLATE="${OUTPUT_ROOT}/sft_zero_smoke/stage_${stage}_hf/iter_{rollout_id:07d}" \
-    SFT_FINAL_HF_DIR="${OUTPUT_ROOT}/sft_zero_smoke/stage_${stage}_hf/iter_0000000" \
-    SFT_FINAL_FULL_CKPT_DIR="${OUTPUT_ROOT}/sft_zero_smoke/stage_${stage}_full_optim/iter_0000000" \
-    SFT_DETAILS_DIR="${OUTPUT_ROOT}/sft_zero_smoke/stage_${stage}_details" \
-    CHECKPOINT_REPORT_DIR="${OUTPUT_ROOT}/sft_zero_smoke/stage_${stage}_reports" \
+    SFT_SAVE_DIR="${stage_save_dir}" \
+    SFT_HF_SNAPSHOT_DIR="${stage_hf_dir}" \
+    SFT_HF_SNAPSHOT_TEMPLATE="${stage_hf_dir}/iter_{rollout_id:07d}" \
+    SFT_FINAL_HF_DIR="${stage_final_hf}" \
+    SFT_FINAL_FULL_CKPT_DIR="${stage_final_ckpt}" \
+    SFT_DETAILS_DIR="${SMOKE_ROOT}/tiny_stage_${stage}_details" \
+    CHECKPOINT_REPORT_DIR="${SMOKE_ROOT}/tiny_stage_${stage}_reports" \
     bash "${SCRIPT_DIR}/04_run_sft_100k_8xh200.sbatch"
 done
 
