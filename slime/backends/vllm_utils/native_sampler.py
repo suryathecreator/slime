@@ -463,6 +463,51 @@ def _patch_structured_outputs(structured_outputs_mod: ModuleType) -> None:
     )
 
 
+def _patch_logit_bias(logit_bias_mod: ModuleType) -> None:
+    import torch
+
+    if not hasattr(logit_bias_mod, "apply_logit_bias"):
+        return
+
+    def native_apply_logit_bias(
+        logits: torch.Tensor,
+        expanded_idx_mapping: torch.Tensor,
+        pos: torch.Tensor,
+        num_allowed_token_ids: torch.Tensor,
+        allowed_token_ids: torch.Tensor,
+        num_logit_bias: torch.Tensor,
+        logit_bias_token_ids: torch.Tensor,
+        logit_bias: torch.Tensor,
+        min_lens: torch.Tensor,
+        num_stop_token_ids: torch.Tensor,
+        stop_token_ids: torch.Tensor,
+    ) -> None:
+        for token_idx in range(logits.shape[0]):
+            req_state_idx = int(expanded_idx_mapping[token_idx].item())
+
+            allowed_count = int(num_allowed_token_ids[req_state_idx].item())
+            if allowed_count > 0:
+                ids = allowed_token_ids[req_state_idx, :allowed_count].to(torch.long)
+                saved_logits = logits[token_idx, ids].clone()
+                logits[token_idx].fill_(-float("inf"))
+                logits[token_idx, ids] = saved_logits
+
+            bias_count = int(num_logit_bias[req_state_idx].item())
+            if bias_count > 0:
+                ids = logit_bias_token_ids[req_state_idx, :bias_count].to(torch.long)
+                bias = logit_bias[req_state_idx, :bias_count].to(logits.dtype)
+                logits[token_idx, ids] += bias
+
+            stop_count = int(num_stop_token_ids[req_state_idx].item())
+            token_pos = int(pos[token_idx].item())
+            min_len = int(min_lens[req_state_idx].item())
+            if stop_count > 0 and token_pos + 1 < min_len:
+                ids = stop_token_ids[req_state_idx, :stop_count].to(torch.long)
+                logits[token_idx, ids] = -float("inf")
+
+    logit_bias_mod.apply_logit_bias = native_apply_logit_bias
+
+
 def _patch_loaded_modules() -> bool:
     global _PATCH_INSTALLED
 
@@ -474,6 +519,7 @@ def _patch_loaded_modules() -> bool:
     block_table_mod = sys.modules.get("vllm.v1.worker.gpu.block_table")
     penalties_mod = sys.modules.get("vllm.v1.worker.gpu.sample.penalties")
     structured_outputs_mod = sys.modules.get("vllm.v1.worker.gpu.structured_outputs")
+    logit_bias_mod = sys.modules.get("vllm.v1.worker.gpu.sample.logit_bias")
     if (
         gumbel_mod is None
         and sampler_mod is None
@@ -483,6 +529,7 @@ def _patch_loaded_modules() -> bool:
         and block_table_mod is None
         and penalties_mod is None
         and structured_outputs_mod is None
+        and logit_bias_mod is None
     ):
         return False
 
@@ -508,6 +555,8 @@ def _patch_loaded_modules() -> bool:
         _patch_penalties(penalties_mod)
     if isinstance(structured_outputs_mod, ModuleType):
         _patch_structured_outputs(structured_outputs_mod)
+    if isinstance(logit_bias_mod, ModuleType):
+        _patch_logit_bias(logit_bias_mod)
 
     _PATCH_INSTALLED = True
     return True
@@ -524,6 +573,7 @@ def maybe_force_native_sampler() -> bool:
     from vllm.v1.worker.gpu import buffer_utils as buffer_utils_mod
     from vllm.v1.worker.gpu import block_table as block_table_mod
     from vllm.v1.worker.gpu import structured_outputs as structured_outputs_mod
+    from vllm.v1.worker.gpu.sample import logit_bias as logit_bias_mod
     from vllm.v1.worker.gpu.sample import penalties as penalties_mod
 
     del (
@@ -535,6 +585,7 @@ def maybe_force_native_sampler() -> bool:
         block_table_mod,
         penalties_mod,
         structured_outputs_mod,
+        logit_bias_mod,
     )
     return _patch_loaded_modules()
 
