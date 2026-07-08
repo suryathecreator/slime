@@ -2566,3 +2566,66 @@ Recorded: 2026-07-01 17:28 PDT
   - Replacement jobs have `MailUser=suryadv@cs.washington.edu` and
     `MailType=END,FAIL`.
   - No job requests more than 4 H200s; final report requests 1 H200.
+
+## Cleaned Chain vLLM Structured-Output and Logit-Bias Fallback Retries
+
+- Follow-up vLLM no-compiler failures:
+  - Base eval job `164707` got past the sampler, bookkeeping, and penalties
+    fallbacks, then failed in vLLM V1 structured-output grammar bitmask
+    application. This is another Triton helper reached during V1 sampler
+    warmup/request bookkeeping in the no-compiler Apptainer runtime.
+  - Patch commit `f2140bb` (`Patch vLLM structured output fallback`), pushed
+    to `origin/opd-reproduction`, replaces `StructuredOutputsWorker.apply_grammar_bitmask`
+    with a no-op for this greedy MATH-500 eval path. We do not request guided
+    decoding/structured outputs for these evals.
+  - Replacement base eval job `164741` then got past structured-output handling
+    and failed in `vllm.v1.worker.gpu.sample.logit_bias.apply_logit_bias`, where
+    vLLM launched `_bias_kernel` and hit `Failed to find C compiler`.
+- Latest patch commit: `0e80336` (`Patch vLLM logit bias fallback`), pushed to
+  `origin/opd-reproduction`.
+  - Adds a native torch fallback for vLLM V1 logit-bias handling.
+  - The fallback preserves allowed-token masks, explicit additive logit biases,
+    and min-token stop-token suppression; ordinary greedy requests still skip
+    the helper when vLLM reports no active logit-bias controls.
+  - Eval semantics remain unchanged for the cleaned experiment: 4 one-GPU vLLM
+    workers, greedy decoding, dynamic per-prompt cap, and the same
+    parse-fail-wrong MATH scorer.
+- Validation before resubmission:
+  - `python3 -m py_compile slime/backends/vllm_utils/native_sampler.py`: passed.
+  - `bash -n` on touched shell/sbatch scripts: passed.
+  - `git diff --check`: passed.
+  - Targeted Apptainer/vLLM regression confirmed
+    `logit_bias.apply_logit_bias` is patched to `native_apply_logit_bias` and
+    applies mask/bias/stop-token behavior on a toy tensor.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Canceled stale downstream jobs:
+  - From failed `164707`: `164708` through `164714`.
+  - From failed `164741`: `164742` through `164748`.
+- Replacement submit time/log: `2026-07-08 15:18 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_151853.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164775` (`gpu:h200:4`, `02:00:00`),
+    no dependency; reuses the existing complete smoke/data/convert artifacts.
+  - Base vLLM eval: `164776` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164775`.
+  - SFT 25k: `164777` (`gpu:h200:4`, `16:00:00`), `afterok:164776`.
+  - SFT vLLM eval: `164778` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164777`.
+  - OPD 1k: `164779` (`gpu:h200:4`, `08:00:00`), `afterok:164778`.
+  - OPD 1k vLLM eval: `164780` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164779`.
+  - OPD 5k: `164781` (`gpu:h200:4`, `24:00:00`), `afterok:164780`.
+  - OPD 5k vLLM eval: `164782` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164781`.
+  - Final report: `164783` (`gpu:h200:1`, `00:30:00`), `afterok:164782`.
+- Scheduler validation:
+  - `164776` started on `g019`; downstream jobs remain strict `afterok`.
+  - `164776` has `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`; all replacement scripts use the same mail settings.
+  - No job requests more than 4 H200s; final report requests 1 H200.
+- Runtime validation target:
+  - `164776` should avoid the structured-output and logit-bias
+    `Failed to find C compiler` failures and write
+    `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus `summary.json`
+    with 500 samples.
