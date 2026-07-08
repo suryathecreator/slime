@@ -306,3 +306,9 @@ state points into the old 10k OPD pool; subsequent segments resume the new
 continuation dataset state normally. If a continuation checkpoint already
 exists, the submitter can resume at that endpoint by preserving the completed
 train checkpoint and submitting only the missing val100 stage.
+
+Continuation OPD training also passes `OPD_ROLLOUT_MAX_CONTEXT_LEN`, defaulting
+to `OPD_SEQ_LENGTH`, into rollout generation. Per-sample generation caps are
+clamped to the remaining prompt budget under that context limit, so long prompts
+avoid SGLang context overflow without reducing the global `OPD_MAX_RESPONSE_LEN`
+for shorter prompts.

@@ -1608,3 +1608,44 @@ Recorded: 2026-07-01 17:28 PDT
     `opd_012544`.
   - `162266` writes the final val100 summary for `opd_024960`, then `162267`
     refreshes the report.
+
+## Planned OPD 25k Continuation Context-Overflow Patch
+
+- Latest continuation failure: train job `162222` for endpoint `opd_005120`
+  failed during rollout generation after `03:44:29`.
+- Fatal SGLang error:
+  `Requested token count exceeds the model's maximum context length of 32768 tokens. You requested a total of 32893 tokens: 1149 tokens from the input messages and 31744 tokens for the completion.`
+- Root cause:
+  - OPD requested the global `OPD_MAX_RESPONSE_LEN=31744` for every prompt.
+  - A continuation prompt with `1,149` tokens needed a per-sample response cap
+    of at most `32766 - 1149 = 31617` to stay inside the actor rollout context
+    ceiling aligned with `OPD_SEQ_LENGTH=32766`.
+  - The router then returned HTTP `400`, and later requests degraded into
+    `503 no_available_workers`.
+- Preserved progress:
+  - Full optimizer checkpoint:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_25k_32k_sft_colocate4_continue_full_optim/iter_0000031`.
+  - HF eval snapshot:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_sft_25k_opd_25k_32k_sft_colocate4_continue_eval_snapshots/iter_0000031`.
+  - Val100 summaries through `opd_004096`: `0.70`, `0.72`, `0.77`, `0.74`.
+- Non-progress diagnostics:
+  - Failed-job rollout logs `rollout_32.pt` through `rollout_37.pt`.
+  - Failed-job sanity JSONs `samples_3072_3199.json` through
+    `samples_3712_3839.json`.
+  - These are not used as training progress because no matching full optimizer
+    checkpoint was written after `iter_0000031`.
+- Patch behavior:
+  - `slime/rollout/sglang_rollout.py` clamps each sample's
+    `max_new_tokens` to `rollout_max_context_len - prompt_tokens` when
+    `--rollout-max-context-len` is set.
+  - `OPD_ROLLOUT_MAX_CONTEXT_LEN` defaults to `OPD_SEQ_LENGTH` and is passed to
+    OPD train jobs as `--rollout-max-context-len`.
+  - Short prompts still receive the global `OPD_MAX_RESPONSE_LEN=31744`; only
+    prompts that would overflow are capped lower.
+- Planned replacement:
+  - Cancel stale downstream jobs `162223` through `162267`.
+  - Archive the failed diagnostics above with `.failed_162222` suffixes.
+  - Resubmit with `OPD_CONTINUE_SKIP_PREP_AND_CURRENT_VAL=1` and
+    `OPD_CONTINUE_ALLOW_EXISTING_SAVE=1`.
+  - Auto-resume should preserve endpoints through `4096`; first replacement
+    train starts endpoint `5120` from `iter_0000031` and rollout id `32`.

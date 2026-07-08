@@ -51,6 +51,7 @@ echo "OPD effective samples: ${OPD_EFFECTIVE_TRAIN_SAMPLES}"
 echo "OPD rollout batch/global batch/samples per prompt: ${OPD_ROLLOUT_BATCH_SIZE}/${OPD_GLOBAL_BATCH_SIZE}/${OPD_N_SAMPLES_PER_PROMPT}"
 echo "OPD rollout ids: 0-${OPD_FINAL_ROLLOUT_ID}"
 echo "OPD max response len: ${OPD_MAX_RESPONSE_LEN}"
+echo "OPD rollout max context len: ${OPD_ROLLOUT_MAX_CONTEXT_LEN}"
 echo "OPD actor/rollout/teacher GPU counts: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/1"
 echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
 echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
@@ -286,6 +287,7 @@ ROLLOUT_ARGS=(
   --rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}"
   --n-samples-per-prompt "${OPD_N_SAMPLES_PER_PROMPT}"
   --rollout-max-response-len "${OPD_MAX_RESPONSE_LEN}"
+  --rollout-max-context-len "${OPD_ROLLOUT_MAX_CONTEXT_LEN}"
   --rollout-temperature 1
   --rollout-top-p 1
   --global-batch-size "${OPD_GLOBAL_BATCH_SIZE}"
