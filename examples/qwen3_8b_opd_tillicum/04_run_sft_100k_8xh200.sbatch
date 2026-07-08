@@ -172,10 +172,17 @@ fi
 MISC_ARGS=(
   --attention-dropout 0.0
   --hidden-dropout 0.0
-  --accumulate-allreduce-grads-in-fp32
   --attention-softmax-in-fp32
   --attention-backend flash
 )
+case "${SFT_ZERO_STAGE}" in
+  2|3)
+    echo "SFT FSDP/ZeRO stage ${SFT_ZERO_STAGE}: using BF16 gradient accumulation buffers"
+    ;;
+  *)
+    MISC_ARGS+=(--accumulate-allreduce-grads-in-fp32)
+    ;;
+esac
 
 export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 export no_proxy="127.0.0.1,localhost,${MASTER_ADDR}"
