@@ -276,6 +276,44 @@ Recorded: 2026-07-01 17:28 PDT
   - `container_exec.sh` forwards `LD_LIBRARY_PATH`, and the dry check verifies
     that forwarding entry exists.
 
+## Resubmitted Cleaned OpenThoughts Chain After Target-Library Patch
+
+- Patch commit: `84074df` (`Forward vLLM target library paths`), pushed to
+  `origin/opd-reproduction` before replacement submission.
+- Canceled stale jobs from the third failed chain:
+  `163590 163591 163592 163593 163594 163595 163596 163597 163598 163599 163600`.
+- Replacement submit time/log: `2026-07-07 22:10 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260707_221054.txt`.
+- Replacement job IDs:
+  - vLLM setup: `163642` (`gpu:h200:1`, `02:00:00`), completed successfully
+    on `g015`.
+  - Clean data: `163643` (`gpu:h200:1`, `08:00:00`), started after
+    `163642`.
+  - Model prep/convert: `163644` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163643`.
+  - SFT ZeRO smoke: `163645` (`gpu:h200:4`, `02:00:00`),
+    `afterok:163644`.
+  - Base vLLM eval: `163646` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163645`.
+  - SFT 25k train: `163647` (`gpu:h200:4`, `16:00:00`),
+    `afterok:163646`.
+  - SFT-25k vLLM eval: `163648` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163647`.
+  - OPD-1k train: `163649` (`gpu:h200:4`, `08:00:00`),
+    `afterok:163648`.
+  - OPD-1k vLLM eval: `163650` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163649`.
+  - OPD +4k train to 5,120 total OPD samples: `163651` (`gpu:h200:4`,
+    `24:00:00`), `afterok:163650`.
+  - OPD-5k vLLM eval: `163652` (`gpu:h200:4`, `04:00:00`),
+    `afterok:163651`.
+  - Final report: `163653` (`gpu:h200:1`, `00:30:00`), `afterok:163652`.
+- Runtime validation observed:
+  - Setup log showed fallback to scratch target, then `vllm 0.24.0`, then
+    `Finished vLLM eval environment setup`.
+  - `163643` was running after `163642` completed, confirming the strict
+    `afterok` chain advanced past setup.
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD
