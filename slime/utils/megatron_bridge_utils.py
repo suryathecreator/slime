@@ -118,6 +118,71 @@ def patch_bridge_tp_scatter_for_fsdp():
     mapping_cls._slime_tp_scatter_patch_applied = True
     mapping_cls._slime_original_scatter_to_tp_ranks = original_scatter_to_tp_ranks
 
+    column_cls = param_mapping.ColumnParallelMapping
+    if not getattr(column_cls, "_slime_fsdp_dtensor_patch_applied", False):
+        original_column_hf_to_megatron = column_cls.hf_to_megatron
+
+        def column_hf_to_megatron(self, hf_weights, megatron_module):
+            if self.tp_size == 1:
+                return hf_weights
+
+            normalized_param = self._normalize_expert_param_name(self.megatron_param)
+            _, target_param = param_mapping.get_module_and_param_from_name(megatron_module, normalized_param)
+            if not isinstance(target_param, param_mapping.DTensor):
+                return original_column_hf_to_megatron(self, hf_weights, megatron_module)
+
+            if self.tp_rank == 0:
+                if hf_weights is None:
+                    raise ValueError("hf_weights should not be None on rank 0")
+
+                if hf_weights.dtype != target_param.dtype:
+                    if not getattr(column_cls, "_dtype_warned", False):
+                        column_cls._dtype_warned = True
+                        logger.warning(
+                            "Dtype mismatch: HF weights are %s but Megatron module uses %s. "
+                            "Casting all mismatched weights to %s (further warnings suppressed).",
+                            hf_weights.dtype,
+                            target_param.dtype,
+                            target_param.dtype,
+                        )
+                    hf_weights = hf_weights.to(target_param.dtype)
+
+                actual_dim0_size = hf_weights.shape[0]
+                expect_dim0_size = target_param.shape[0]
+                if actual_dim0_size != expect_dim0_size:
+                    assert self.megatron_param in {"embedding.word_embeddings.weight", "output_layer.weight"}, (
+                        f"{hf_weights.shape=} {target_param.shape=} {self.tp_size=} "
+                        f"{self.megatron_param=} {self.hf_param=}"
+                    )
+                    hf_weights = param_mapping._pad_right_dim0(
+                        hf_weights,
+                        pad_size=expect_dim0_size - actual_dim0_size,
+                    )
+
+                full_size = hf_weights.shape[0]
+                if full_size % self.tp_size != 0:
+                    raise ValueError(f"Cannot evenly split dimension 0 size {full_size} across {self.tp_size} TP ranks")
+                splits = torch.chunk(hf_weights, self.tp_size, dim=0)
+            else:
+                splits = None
+
+            output_shape = [target_param.shape[0] // self.tp_size, *target_param.shape[1:]]
+            logger.debug(
+                "slime Megatron Bridge ColumnParallel DTensor patch mapping %s to local shape %s",
+                self.megatron_param,
+                tuple(output_shape),
+            )
+            return self.scatter_to_tp_ranks(
+                splits,
+                output_shape,
+                target_param.dtype,
+                target_param.device,
+            )
+
+        column_cls.hf_to_megatron = column_hf_to_megatron
+        column_cls._slime_fsdp_dtensor_patch_applied = True
+        column_cls._slime_original_hf_to_megatron = original_column_hf_to_megatron
+
 
 @contextmanager
 def patch_megatron_model(model):
