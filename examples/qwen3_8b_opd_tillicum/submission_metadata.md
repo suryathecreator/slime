@@ -2352,3 +2352,47 @@ Recorded: 2026-07-01 17:28 PDT
     `MailType=END,FAIL`.
   - No replacement job requests more than 4 H200s; final report requests
     1 H200.
+
+## Cleaned Chain vLLM Eval Wrapper Fix
+
+- Base eval job `164410` failed after the Megatron-DP pivot smoke completed:
+  - Log reached `VLLM_EVAL_STAGE stage=base`.
+  - It then failed inside the inner container shell with
+    `/usr/bin/bash: line 4: seq: command not found` and
+    `VLLM_EVAL_PYTHON_CMD: unbound variable`.
+- Patch commit: `e7ac9aa`
+  (`Fix vLLM eval container env forwarding`), pushed to
+  `origin/opd-reproduction`.
+  - Added `VLLM_EVAL_PYTHON_CMD` to the container env allowlist and dry-check
+    required forwarding list.
+  - Replaced the inner `seq` loop with a pure Bash arithmetic `while` loop.
+- Validation:
+  - `bash -n` on touched eval/container/dry-check scripts: passed.
+  - `git diff --check`: passed.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Canceled stale downstream jobs from `164410`:
+  - `164411` through `164417`.
+- Replacement submit time/log: `2026-07-08 12:36 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_123643.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164431` (`gpu:h200:4`, `02:00:00`),
+    no dependency; completed in `00:00:03` by reusing the existing smoke
+    artifact.
+  - Base vLLM eval: `164432` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164431`; running on `g011` at scheduler check.
+  - SFT 25k: `164433` (`gpu:h200:4`, `16:00:00`), `afterok:164432`.
+  - SFT vLLM eval: `164434` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164433`.
+  - OPD 1k: `164435` (`gpu:h200:4`, `08:00:00`), `afterok:164434`.
+  - OPD 1k vLLM eval: `164436` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164435`.
+  - OPD 5k: `164437` (`gpu:h200:4`, `24:00:00`), `afterok:164436`.
+  - OPD 5k vLLM eval: `164438` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164437`.
+  - Final report: `164439` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164438`.
+- Runtime check:
+  - `164432` log no longer shows the old `seq` or
+    `VLLM_EVAL_PYTHON_CMD` failure and proceeds past stage setup into shard
+    execution.
