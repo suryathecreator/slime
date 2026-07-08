@@ -2322,3 +2322,33 @@ Recorded: 2026-07-01 17:28 PDT
   - `git diff --check`: passed.
   - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
     passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Patch commit: `3b42f27`
+  (`Pivot cleaned SFT from ZeRO to Megatron DP optimizer`), pushed to
+  `origin/opd-reproduction`.
+- Replacement submit time/log: `2026-07-08 12:33 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_123304.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164409` (`gpu:h200:4`, `02:00:00`),
+    no dependency.
+  - Base vLLM eval: `164410` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164409`.
+  - SFT 25k: `164411` (`gpu:h200:4`, `16:00:00`), `afterok:164410`.
+  - SFT vLLM eval: `164412` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164411`.
+  - OPD 1k: `164413` (`gpu:h200:4`, `08:00:00`), `afterok:164412`.
+  - OPD 1k vLLM eval: `164414` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164413`.
+  - OPD 5k: `164415` (`gpu:h200:4`, `24:00:00`), `afterok:164414`.
+  - OPD 5k vLLM eval: `164416` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164415`.
+  - Final report: `164417` (`gpu:h200:1`, `00:30:00`),
+    `afterok:164416`.
+- Scheduler validation:
+  - `164409` completed in `00:00:04` by reusing the existing complete tiny
+    Megatron distributed-optimizer smoke artifact.
+  - Downstream jobs are strict `afterok` dependencies and were not
+    `DependencyNeverSatisfied` at check time.
+  - All replacement jobs have `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No replacement job requests more than 4 H200s; final report requests
+    1 H200.
