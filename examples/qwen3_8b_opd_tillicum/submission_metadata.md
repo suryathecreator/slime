@@ -2629,3 +2629,61 @@ Recorded: 2026-07-01 17:28 PDT
     `Failed to find C compiler` failures and write
     `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus `summary.json`
     with 500 samples.
+
+## Cleaned Chain vLLM Bad-Words Fallback Retry
+
+- Base eval job `164776` got past the structured-output and logit-bias
+  fallbacks, initialized the four vLLM engines, loaded Qwen3-8B-Base weights,
+  and reached warmup. It then failed in
+  `vllm.v1.worker.gpu.sample.bad_words.apply_bad_words`, where
+  `_bad_words_kernel` tried to launch Triton and failed with
+  `Failed to find C compiler`.
+- No eval samples were merged from `164776`, so there is no eval artifact to
+  preserve.
+- Patch commit: `5726e31` (`Patch vLLM bad words fallback`), pushed to
+  `origin/opd-reproduction`.
+  - Adds a native torch fallback for vLLM V1 bad-words handling.
+  - The fallback preserves the bad-word semantics by comparing generated
+    suffixes against bad-word prefixes and setting the matching final-token logit
+    to `-inf`.
+  - These MATH-500 greedy evals do not intentionally pass bad-word lists, but
+    vLLM warmup exercises this path; the patch keeps the no-compiler runtime
+    moving without changing requested decoding settings.
+- Validation before resubmission:
+  - `python3 -m py_compile slime/backends/vllm_utils/native_sampler.py`: passed.
+  - `git diff --check`: passed.
+  - Targeted Apptainer/vLLM regression confirmed
+    `bad_words.apply_bad_words` is patched to `native_apply_bad_words` and
+    suppresses the expected logits on a toy tensor.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Canceled stale downstream jobs from failed `164776`:
+  - `164777` through `164783`.
+- Replacement submit time/log: `2026-07-08 15:28 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_152821.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `164824` (`gpu:h200:4`, `02:00:00`),
+    no dependency; reuses the existing complete smoke/data/convert artifacts.
+  - Base vLLM eval: `164825` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164824`.
+  - SFT 25k: `164826` (`gpu:h200:4`, `16:00:00`), `afterok:164825`.
+  - SFT vLLM eval: `164827` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164826`.
+  - OPD 1k: `164828` (`gpu:h200:4`, `08:00:00`), `afterok:164827`.
+  - OPD 1k vLLM eval: `164829` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164828`.
+  - OPD 5k: `164830` (`gpu:h200:4`, `24:00:00`), `afterok:164829`.
+  - OPD 5k vLLM eval: `164831` (`gpu:h200:4`, `04:00:00`),
+    `afterok:164830`.
+  - Final report: `164832` (`gpu:h200:1`, `00:30:00`), `afterok:164831`.
+- Scheduler validation:
+  - `164825` has `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - `164825` requests 4 H200s and waits on `afterok:164824`; downstream jobs
+    remain a strict `afterok` chain.
+  - No job requests more than 4 H200s; final report requests 1 H200.
+- Runtime validation target:
+  - `164825` should avoid the bad-words `Failed to find C compiler` failure,
+    enter real request generation, and write
+    `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus `summary.json`
+    with 500 samples.
