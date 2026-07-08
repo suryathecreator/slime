@@ -2798,3 +2798,59 @@ Recorded: 2026-07-01 17:28 PDT
     enter real request generation, and write
     `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus `summary.json`
     with 500 samples.
+
+## Cleaned Chain vLLM Prompt-Logprob Fallback Retry
+
+- Base eval job `164975` got past the sampled-token logprob fallback and then
+  failed during vLLM V1 warmup in
+  `vllm.v1.worker.gpu.sample.prompt_logprob.get_prompt_logprobs_token_ids`,
+  where `_prompt_logprobs_token_ids_kernel` tried to launch Triton and failed
+  with `Failed to find C compiler`.
+- No eval samples were merged from `164975`, so there is no eval artifact to
+  preserve.
+- Patch commit: `098353c` (`Patch vLLM prompt logprob fallback`), pushed to
+  `origin/opd-reproduction`.
+  - Adds a native torch fallback for prompt-logprob token-id gathering.
+  - Also updates the prompt-logprob module's direct imported
+    `compute_topk_logprobs` reference to the native logprob fallback.
+  - The cleaned MATH-500 eval path does not request prompt logprobs, but vLLM
+    warmup exercises this path.
+- Validation before resubmission:
+  - `python3 -m py_compile slime/backends/vllm_utils/native_sampler.py`: passed.
+  - `git diff --check`: passed.
+  - Targeted Apptainer/vLLM regression confirmed
+    `prompt_logprob.get_prompt_logprobs_token_ids` is patched to
+    `native_get_prompt_logprobs_token_ids` and that its
+    `compute_topk_logprobs` reference points at the native fallback.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`:
+    passed with the known harmless Apptainer fuse-overlay cleanup warning.
+- Canceled stale downstream jobs from failed `164975`:
+  - `164976` through `164982`.
+- Replacement submit time/log: `2026-07-08 16:04 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_160404.txt`.
+- Replacement job IDs:
+  - SFT Megatron-DP optimizer smoke: `165034` (`gpu:h200:4`, `02:00:00`),
+    no dependency; reuses the existing complete smoke/data/convert artifacts.
+  - Base vLLM eval: `165035` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165034`.
+  - SFT 25k: `165036` (`gpu:h200:4`, `16:00:00`), `afterok:165035`.
+  - SFT vLLM eval: `165037` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165036`.
+  - OPD 1k: `165038` (`gpu:h200:4`, `08:00:00`), `afterok:165037`.
+  - OPD 1k vLLM eval: `165039` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165038`.
+  - OPD 5k: `165040` (`gpu:h200:4`, `24:00:00`), `afterok:165039`.
+  - OPD 5k vLLM eval: `165041` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165040`.
+  - Final report: `165042` (`gpu:h200:1`, `00:30:00`), `afterok:165041`.
+- Scheduler validation:
+  - `165035` has `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - `165035` requests 4 H200s and waits on `afterok:165034`; downstream jobs
+    remain a strict `afterok` chain.
+  - No job requests more than 4 H200s; final report requests 1 H200.
+- Runtime validation target:
+  - `165035` should avoid the prompt-logprob `Failed to find C compiler`
+    failure, enter real request generation, and write
+    `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus `summary.json`
+    with 500 samples.
