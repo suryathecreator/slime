@@ -203,6 +203,23 @@ Recorded: 2026-07-01 17:28 PDT
     convert, smoke, train, and eval jobs.
   - No replacement job was `DependencyNeverSatisfied` at the post-submit check.
 
+## Failed Cleaned vLLM Setup Partial-Venv Retry and Patch
+
+- Failed job: `163564`.
+- Failure:
+  - The previous failed setup left a partial
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/vllm_eval_venv/bin/python`
+    without `pip`.
+  - The fallback patch saw the executable and tried to use it, then failed
+    with `No module named pip`.
+- Patch:
+  - `10_setup_vllm_eval_env.sbatch` now verifies that a found venv Python can
+    run `-m pip --version`; if not, it ignores the partial venv and falls back
+    to `$VLLM_EVAL_SITE`.
+  - `06_eval_math500_vllm.sbatch` prefers the scratch target install when
+    `$VLLM_EVAL_SITE/vllm` exists, so a partial venv cannot shadow the valid
+    target install.
+
 ## Accidental Base -> OPD Cleanup
 
 - Purpose: complete a valid final MATH-500 report for the accidental base -> OPD

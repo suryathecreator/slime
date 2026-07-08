@@ -33,11 +33,11 @@ echo "vLLM target site: ${VLLM_EVAL_SITE}"
 echo "vLLM workers/seqs/batched tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
 echo "Eval max response/context: ${EVAL_MAX_RESPONSE_LEN}/${EVAL_MAX_CONTEXT_LEN}"
 
-if [[ -x "${VLLM_EVAL_VENV}/bin/python" ]]; then
-  export VLLM_EVAL_PYTHON_CMD="${VLLM_EVAL_VENV}/bin/python"
-elif [[ -d "${VLLM_EVAL_SITE}" ]]; then
+if [[ -d "${VLLM_EVAL_SITE}/vllm" ]]; then
   export VLLM_EVAL_PYTHON_CMD="${VLLM_EVAL_PYTHON}"
   export PYTHONPATH="${VLLM_EVAL_SITE}:${PYTHONPATH:-}"
+elif [[ -x "${VLLM_EVAL_VENV}/bin/python" ]]; then
+  export VLLM_EVAL_PYTHON_CMD="${VLLM_EVAL_VENV}/bin/python"
 else
   echo "Missing vLLM eval environment: ${VLLM_EVAL_VENV} or ${VLLM_EVAL_SITE}" >&2
   echo "Run 10_setup_vllm_eval_env.sbatch first." >&2

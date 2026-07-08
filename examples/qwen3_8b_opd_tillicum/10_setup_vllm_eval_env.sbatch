@@ -42,6 +42,11 @@ if [[ ! -x "${eval_python}" ]]; then
     eval_python="${VLLM_EVAL_PYTHON}"
   fi
 fi
+if [[ "${eval_python}" != "${VLLM_EVAL_PYTHON}" ]] && ! "${eval_python}" -m pip --version >/dev/null 2>&1; then
+  echo "Ignoring incomplete vLLM venv without pip: ${VLLM_EVAL_VENV}" >&2
+  echo "Falling back to scratch-local pip --target install at ${VLLM_EVAL_SITE}." >&2
+  eval_python="${VLLM_EVAL_PYTHON}"
+fi
 
 if [[ "${eval_python}" == "${VLLM_EVAL_PYTHON}" ]]; then
   export PYTHONPATH="${VLLM_EVAL_SITE}:${PYTHONPATH:-}"
