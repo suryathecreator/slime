@@ -444,6 +444,25 @@ def _patch_penalties(penalties_mod: ModuleType) -> None:
     penalties_mod.apply_penalties = native_apply_penalties
 
 
+def _patch_structured_outputs(structured_outputs_mod: ModuleType) -> None:
+    if not hasattr(structured_outputs_mod, "StructuredOutputsWorker"):
+        return
+
+    def native_apply_grammar_bitmask(
+        self: Any,
+        logits: Any,
+        input_batch: Any,
+        grammar_req_ids: list[str],
+        grammar_bitmask: Any,
+    ) -> None:
+        del self, logits, input_batch, grammar_req_ids, grammar_bitmask
+        return
+
+    structured_outputs_mod.StructuredOutputsWorker.apply_grammar_bitmask = (
+        native_apply_grammar_bitmask
+    )
+
+
 def _patch_loaded_modules() -> bool:
     global _PATCH_INSTALLED
 
@@ -454,6 +473,7 @@ def _patch_loaded_modules() -> bool:
     buffer_utils_mod = sys.modules.get("vllm.v1.worker.gpu.buffer_utils")
     block_table_mod = sys.modules.get("vllm.v1.worker.gpu.block_table")
     penalties_mod = sys.modules.get("vllm.v1.worker.gpu.sample.penalties")
+    structured_outputs_mod = sys.modules.get("vllm.v1.worker.gpu.structured_outputs")
     if (
         gumbel_mod is None
         and sampler_mod is None
@@ -462,6 +482,7 @@ def _patch_loaded_modules() -> bool:
         and buffer_utils_mod is None
         and block_table_mod is None
         and penalties_mod is None
+        and structured_outputs_mod is None
     ):
         return False
 
@@ -485,6 +506,8 @@ def _patch_loaded_modules() -> bool:
         _patch_block_table(block_table_mod)
     if isinstance(penalties_mod, ModuleType):
         _patch_penalties(penalties_mod)
+    if isinstance(structured_outputs_mod, ModuleType):
+        _patch_structured_outputs(structured_outputs_mod)
 
     _PATCH_INSTALLED = True
     return True
@@ -500,6 +523,7 @@ def maybe_force_native_sampler() -> bool:
     from vllm.v1.worker.gpu import input_batch as input_batch_mod
     from vllm.v1.worker.gpu import buffer_utils as buffer_utils_mod
     from vllm.v1.worker.gpu import block_table as block_table_mod
+    from vllm.v1.worker.gpu import structured_outputs as structured_outputs_mod
     from vllm.v1.worker.gpu.sample import penalties as penalties_mod
 
     del (
@@ -510,6 +534,7 @@ def maybe_force_native_sampler() -> bool:
         buffer_utils_mod,
         block_table_mod,
         penalties_mod,
+        structured_outputs_mod,
     )
     return _patch_loaded_modules()
 
