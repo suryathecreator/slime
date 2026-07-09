@@ -2895,3 +2895,56 @@ Recorded: 2026-07-01 17:28 PDT
   - Then run SFT vLLM eval, OPD-1k, OPD-1k eval, OPD +4k, OPD-5k eval, and the
     final report in the corrected `qwen3mask` output dirs.
   - Replacement job IDs and patch commit will be recorded after submission.
+
+## Submitted Corrected Cleaned Qwen3-Mask Tail
+
+- Patch commit: `e98c321` (`Fix cleaned SFT Qwen3 loss mask`), pushed to
+  `origin/opd-reproduction` before submission.
+- Submit time/log: `2026-07-08 21:08 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_210806.txt`.
+- Reused preserved artifacts:
+  - vLLM setup: `preserved_163642`.
+  - Cleaned data: `preserved_163643`.
+  - Model conversion: `preserved_163644`.
+  - Megatron-DP optimizer smoke: `preserved_165034`.
+  - Base vLLM eval: `preserved_165035`.
+- Replacement job IDs:
+  - Corrected SFT 25k: `165695` (`gpu:h200:4`, `16:00:00`), no dependency;
+    running on `g005` at the post-submit check.
+  - Corrected SFT vLLM eval: `165696` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165695`.
+  - Corrected OPD-1k train: `165697` (`gpu:h200:4`, `08:00:00`),
+    `afterok:165696`.
+  - Corrected OPD-1k vLLM eval: `165698` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165697`.
+  - Corrected OPD +4k train: `165699` (`gpu:h200:4`, `24:00:00`),
+    `afterok:165698`.
+  - Corrected OPD-5k vLLM eval: `165700` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165699`.
+  - Final report: `165701` (`gpu:h200:1`, `00:30:00`), `afterok:165700`.
+- Corrected output dirs:
+  - SFT full optimizer:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_qwen3mask_full_optim`.
+  - SFT HF snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_qwen3mask_eval_snapshots`.
+  - SFT eval:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_sft_25k_qwen3mask_vllm`.
+  - OPD eval/report:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_qwen3mask_opd_1k_5k_vllm`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_qwen3mask_combined_vllm`.
+- Scheduler validation after submission:
+  - `165695` had `Dependency=(null)` and was running.
+  - `165696` through `165701` were pending on a strict `afterok` chain.
+  - Every replacement job had `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No replacement job requested more than 4 H200s.
+- Runtime validation targets:
+  - `165695` log must show `SFT loss mask type: qwen3` and
+    `SFT loss-mask preflight: enabled=1 require_think=1`.
+  - The preflight should print decoded train snippets containing complete
+    `<think>...</think>` traces before training starts.
+  - Early corrected rollout tensors should have long loss-masked assistant
+    targets, not the short `qwen`-masked targets from `165036`.
+  - Final corrected SFT checkpoint/HF snapshot should write `iter_0000099`.
+  - OPD jobs must load the corrected `qwen3mask` SFT HF snapshot, not the
+    diagnostic `165036` snapshot.
