@@ -2950,3 +2950,99 @@ Recorded: 2026-07-01 17:28 PDT
   - Final corrected SFT checkpoint/HF snapshot should write `iter_0000099`.
   - OPD jobs must load the corrected `qwen3mask` SFT HF snapshot, not the
     diagnostic `165036` snapshot.
+
+## Resume-Safe vLLM Tail Resubmission After SFT Eval Timeout
+
+- Incident:
+  - Corrected SFT train `165695` completed and wrote the intended qwen3-mask
+    final artifacts:
+    - full optimizer checkpoint:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_qwen3mask_full_optim/iter_0000099`;
+    - HF snapshot:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_qwen3mask_eval_snapshots/iter_0000099`.
+  - Corrected SFT vLLM eval `165696` timed out at the old `04:00:00`
+    walltime before writing a complete `debug_eval_0.pt` or `summary.json`.
+  - The old vLLM eval path only wrote `debug_eval_shard_*.pt` after an entire
+    125-sample shard finished, so the in-memory partial generations from
+    `165696` were not fidelity-safe progress.
+  - Stale downstream jobs `165697` through `165701` were canceled.
+- Patch:
+  - Patch commit `b645954` (`Make vLLM Math500 eval resumable`) was pushed to
+    `origin/opd-reproduction` before resubmission.
+  - `eval_math500_vllm.py` now supports deterministic chunk artifacts:
+    `debug_eval_chunk_shard{shard}_start{first}_end{last}.pt`.
+  - Chunk writes are atomic via a temporary file plus rename.
+  - Reruns use `--resume-completed` to skip valid completed chunks.
+  - Merge now accepts both legacy shard files and new chunk files, then requires
+    exactly 500 unique `eval_index` values before writing the standard
+    `debug_eval_0.pt`.
+  - `06_eval_math500_vllm.sbatch` passes
+    `VLLM_EVAL_CHUNK_SIZE=16` and `VLLM_EVAL_RESUME_COMPLETED=1`, so progress is
+    saved in the same granularity as the 16-sequence vLLM batch setting.
+  - The cleaned-chain submitter gained `CLEANED_RESUME_AFTER_SFT=1`, which
+    skips preserved setup/data/convert/smoke/base/SFT artifacts and starts at
+    SFT eval.
+- Walltime correction:
+  - An initial replacement chain `166656` through `166661` was submitted with
+    `72:00:00` train/eval walltimes, matching the requested 3-day cap, then
+    canceled because Tillicum `normal` QOS reports `MaxWall=1-00:00:00`.
+  - Patch commit `2f540e2` (`Use runnable cleaned-chain walltimes`) was pushed
+    to `origin/opd-reproduction`.
+  - The cleaned-chain default train/eval walltimes are now `24:00:00`, the
+    largest runnable walltime under the available `normal` QOS. Report jobs use
+    `06:00:00`.
+  - Resume safety now comes from chunk artifacts rather than an unavailable
+    72-hour walltime.
+- Validation before final resubmission:
+  - `python3 -m py_compile examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py`
+    passed.
+  - `bash -n` passed on touched shell/sbatch scripts.
+  - `git diff --check` passed.
+  - A synthetic chunk-merge regression wrote partial chunk files and merged them
+    into exact indices `[0, 1, 2]`.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`
+    passed.
+- Final replacement submission:
+  - Submit time/log: `2026-07-09 16:34 PDT`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260709_163402.txt`.
+  - Reused preserved artifacts:
+    - vLLM setup: `preserved_163642`;
+    - cleaned data: `preserved_163643`;
+    - model conversion: `preserved_163644`;
+    - Megatron-DP optimizer smoke: `preserved_165034`;
+    - base vLLM eval: `preserved_165035`;
+    - corrected qwen3-mask SFT train: `preserved_165695`.
+  - Replacement job IDs:
+    - SFT vLLM eval: `166666` (`gpu:h200:4`, `24:00:00`), no dependency;
+      running on `g008` at the post-submit check.
+    - OPD-1k train: `166667` (`gpu:h200:4`, `24:00:00`),
+      `afterok:166666`.
+    - OPD-1k vLLM eval: `166668` (`gpu:h200:4`, `24:00:00`),
+      `afterok:166667`.
+    - OPD +4k train: `166669` (`gpu:h200:4`, `24:00:00`),
+      `afterok:166668`.
+    - OPD-5k vLLM eval: `166670` (`gpu:h200:4`, `24:00:00`),
+      `afterok:166669`.
+    - Final report: `166671` (`gpu:h200:1`, `06:00:00`),
+      `afterok:166670`.
+  - Output dirs:
+    - SFT eval:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_sft_25k_qwen3mask_vllm`.
+    - OPD eval:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_qwen3mask_opd_1k_5k_vllm`.
+    - Combined report:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_qwen3mask_combined_vllm`.
+  - Scheduler validation:
+    - `166666` started immediately with `Dependency=(null)`.
+    - `166667` through `166671` are a strict `afterok` chain.
+    - Every replacement job has `MailUser=suryadv@cs.washington.edu` and
+      `MailType=END,FAIL`.
+    - No replacement job requests more than 4 H200s; the final report requests
+      1 H200.
+  - Runtime validation targets:
+    - `166666` should log `vLLM chunk resume: chunk_size=16 resume_completed=1`.
+    - Chunk files should appear during generation before final merge.
+    - If interrupted, rerunning the same stage should skip completed valid
+      chunk files and only generate missing chunks.
+    - Final SFT eval should write `sft_025000/debug_eval_0.pt` and
+      `sft_025000/summary.json`, after which OPD-1k `166667` can start.
