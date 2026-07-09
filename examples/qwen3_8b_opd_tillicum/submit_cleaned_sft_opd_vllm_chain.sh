@@ -7,6 +7,8 @@ export CLEANED_EXPERIMENT_LABEL="${CLEANED_EXPERIMENT_LABEL:-cleaned_think_sft25
 export CLEANED_OPD_FIRST_SIZE="${CLEANED_OPD_FIRST_SIZE:-1024}"
 export CLEANED_OPD_NEXT_SIZE="${CLEANED_OPD_NEXT_SIZE:-4096}"
 export CLEANED_RESUME_AFTER_CONVERT="${CLEANED_RESUME_AFTER_CONVERT:-0}"
+export CLEANED_RESUME_AFTER_BASE_EVAL="${CLEANED_RESUME_AFTER_BASE_EVAL:-0}"
+export CLEANED_OUTPUT_TAG="${CLEANED_OUTPUT_TAG:-qwen3mask}"
 export SFT_SIZE="${SFT_SIZE:-25000}"
 export SFT_ROLLOUT_BATCH_SIZE="${SFT_ROLLOUT_BATCH_SIZE:-250}"
 export SFT_GLOBAL_BATCH_SIZE="${SFT_GLOBAL_BATCH_SIZE:-250}"
@@ -25,6 +27,10 @@ export SFT_OPTIMIZER_MODE="${SFT_OPTIMIZER_MODE:-megatron_distributed_optimizer}
 # fsdp_dtensor integration failures during smoke.
 export SFT_ZERO_STAGE="${SFT_ZERO_STAGE:-1}"
 export SFT_CKPT_FORMAT="${SFT_CKPT_FORMAT:-torch_dist}"
+export SFT_LOSS_MASK_TYPE="${SFT_LOSS_MASK_TYPE:-qwen3}"
+export SFT_LOSS_MASK_PREFLIGHT_ENABLED="${SFT_LOSS_MASK_PREFLIGHT_ENABLED:-1}"
+export SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK="${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK:-1}"
+export SFT_LOSS_MASK_PREFLIGHT_SAMPLES="${SFT_LOSS_MASK_PREFLIGHT_SAMPLES:-3}"
 export SFT_MAX_TOKENS_PER_GPU="${SFT_MAX_TOKENS_PER_GPU:-16384}"
 export SFT_LR="${SFT_LR:-1e-6}"
 export OPD_ACTOR_GPUS="${OPD_ACTOR_GPUS:-3}"
@@ -59,7 +65,7 @@ export VLLM_EVAL_MAX_NUM_BATCHED_TOKENS="${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS:-131
 export REPORT_SFT_FINAL_ONLY="${REPORT_SFT_FINAL_ONLY:-1}"
 export REPORT_OPD_FINAL_ONLY="${REPORT_OPD_FINAL_ONLY:-0}"
 export REPORT_INCLUDE_SFT="${REPORT_INCLUDE_SFT:-1}"
-export REPORT_EXPERIMENT_NOTE="${REPORT_EXPERIMENT_NOTE:-Cleaned OpenThoughts SFT OPD vLLM final eval run}"
+export REPORT_EXPERIMENT_NOTE="${REPORT_EXPERIMENT_NOTE:-Cleaned OpenThoughts SFT OPD vLLM final eval run with Qwen3 loss masking}"
 
 source "${SCRIPT_DIR}/env.sh"
 
@@ -70,29 +76,29 @@ export CLEANED_OPD_RESERVE_JSONL="${DATA_ROOT}/openthoughts3_cleaned_${CLEANED_E
 export CLEANED_OPD_1K_JSONL="${DATA_ROOT}/openthoughts3_cleaned_${CLEANED_EXPERIMENT_LABEL}_opd_001024.jsonl"
 export CLEANED_OPD_4K_JSONL="${DATA_ROOT}/openthoughts3_cleaned_${CLEANED_EXPERIMENT_LABEL}_opd_next_004096.jsonl"
 
-export SFT_SAVE_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_full_optim"
-export SFT_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_eval_snapshots"
-export SFT_DETAILS_DIR="${OUTPUT_ROOT}/cleaned_sft_25k_details"
+export SFT_SAVE_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_${CLEANED_OUTPUT_TAG}_full_optim"
+export SFT_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_${CLEANED_OUTPUT_TAG}_eval_snapshots"
+export SFT_DETAILS_DIR="${OUTPUT_ROOT}/cleaned_sft_25k_${CLEANED_OUTPUT_TAG}_details"
 export SFT_HF_SNAPSHOT_TEMPLATE="${SFT_HF_SNAPSHOT_DIR}/iter_{rollout_id:07d}"
 export SFT_FINAL_HF_DIR="${SFT_HF_SNAPSHOT_DIR}/iter_0000099"
 export SFT_FINAL_FULL_CKPT_DIR="${SFT_SAVE_DIR}/iter_0000099"
-export SFT_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_sft_25k_vllm"
+export SFT_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_sft_25k_${CLEANED_OUTPUT_TAG}_vllm"
 export BASE_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_base_vllm"
-export OPD_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_opd_1k_5k_vllm"
-export COMBINED_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_combined_vllm"
-export CHECKPOINT_REPORT_DIR="${OUTPUT_ROOT}/checkpoint_reports_${CLEANED_EXPERIMENT_LABEL}"
+export OPD_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_${CLEANED_OUTPUT_TAG}_opd_1k_5k_vllm"
+export COMBINED_EVAL_OUTPUT_DIR="${OUTPUT_ROOT}/math500_eval_cleaned_${CLEANED_OUTPUT_TAG}_combined_vllm"
+export CHECKPOINT_REPORT_DIR="${OUTPUT_ROOT}/checkpoint_reports_${CLEANED_EXPERIMENT_LABEL}_${CLEANED_OUTPUT_TAG}"
 export REPORT_OPD_X_OFFSET_SAMPLES="25000"
 export REPORT_OPD_LABEL_PREFIX="SFT+"
 
 OPD1_RUN_LABEL="cleaned_1k_32k_sft_colocate4"
 OPD5_RUN_LABEL="cleaned_5k_32k_sft_colocate4"
-OPD1_SAVE_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_opd_1k_32k_full_optim"
-OPD1_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_opd_1k_32k_eval_snapshots"
+OPD1_SAVE_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_${CLEANED_OUTPUT_TAG}_opd_1k_32k_full_optim"
+OPD1_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_${CLEANED_OUTPUT_TAG}_opd_1k_32k_eval_snapshots"
 OPD1_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/opd_${OPD1_RUN_LABEL}_rollout_logs"
 OPD1_SANITY_DIR="${OUTPUT_ROOT}/opd_${OPD1_RUN_LABEL}_sanity"
 OPD1_FINAL_HF_DIR="${OPD1_HF_SNAPSHOT_DIR}/iter_0000007"
-OPD5_SAVE_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_opd_5k_32k_full_optim"
-OPD5_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_opd_5k_32k_eval_snapshots"
+OPD5_SAVE_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_${CLEANED_OUTPUT_TAG}_opd_5k_32k_full_optim"
+OPD5_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/qwen3_8b_cleaned_sft_25k_${CLEANED_OUTPUT_TAG}_opd_5k_32k_eval_snapshots"
 OPD5_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/opd_${OPD5_RUN_LABEL}_rollout_logs"
 OPD5_SANITY_DIR="${OUTPUT_ROOT}/opd_${OPD5_RUN_LABEL}_sanity"
 OPD5_FINAL_HF_DIR="${OPD5_HF_SNAPSHOT_DIR}/iter_0000039"
@@ -110,86 +116,111 @@ echo "Submitting cleaned OpenThoughts SFT + OPD vLLM chain"
 echo "submit log: ${submit_log}"
 echo "cleaned label: ${CLEANED_EXPERIMENT_LABEL}"
 echo "resume after convert: ${CLEANED_RESUME_AFTER_CONVERT}"
+echo "resume after base eval: ${CLEANED_RESUME_AFTER_BASE_EVAL}"
+echo "output tag: ${CLEANED_OUTPUT_TAG}"
 echo "SFT data: ${SFT_PARQUET}"
 echo "OPD 1k data: ${CLEANED_OPD_1K_JSONL}"
 echo "OPD next 4k data: ${CLEANED_OPD_4K_JSONL}"
-echo "SFT TP/CP/DP/optimizer: ${SFT_TENSOR_MODEL_PARALLEL_SIZE}/${SFT_CONTEXT_PARALLEL_SIZE}/2/${SFT_OPTIMIZER_MODE}"
+echo "SFT TP/CP/DP/optimizer/loss-mask: ${SFT_TENSOR_MODEL_PARALLEL_SIZE}/${SFT_CONTEXT_PARALLEL_SIZE}/2/${SFT_OPTIMIZER_MODE}/${SFT_LOSS_MASK_TYPE}"
+echo "SFT loss-mask preflight: enabled=${SFT_LOSS_MASK_PREFLIGHT_ENABLED} require_think=${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK} samples=${SFT_LOSS_MASK_PREFLIGHT_SAMPLES}"
 echo "SFT max tokens/GPU LR epochs: ${SFT_MAX_TOKENS_PER_GPU} ${SFT_LR} ${SFT_NUM_EPOCH}"
 echo "OPD TP/CP max-response/context max-tokens/GPU chunk LR: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE} ${OPD_MAX_RESPONSE_LEN}/${OPD_ROLLOUT_MAX_CONTEXT_LEN} ${OPD_MAX_TOKENS_PER_GPU} ${OPD_LOG_PROBS_CHUNK_SIZE} ${OPD_LR}"
 echo "vLLM eval workers/max-model/max-seqs/batched-tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_MODEL_LEN}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
 
-smoke_dependency_args=()
-if [[ "${CLEANED_RESUME_AFTER_CONVERT}" == "1" ]]; then
-  echo "Reusing completed vLLM setup, cleaned data, and model conversion artifacts."
+common_required_paths=(
+  "${SFT_PARQUET}"
+  "${CLEANED_METADATA}"
+  "${CLEANED_OPD_RESERVE_JSONL}"
+  "${CLEANED_OPD_1K_JSONL}"
+  "${CLEANED_OPD_4K_JSONL}"
+  "${STUDENT_HF_DIR}"
+  "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt"
+)
+
+sft_dependency_args=()
+if [[ "${CLEANED_RESUME_AFTER_BASE_EVAL}" == "1" ]]; then
+  echo "Reusing completed vLLM setup, cleaned data, model conversion, smoke, and base eval artifacts."
   for required_path in \
-    "${SFT_PARQUET}" \
-    "${CLEANED_METADATA}" \
-    "${CLEANED_OPD_RESERVE_JSONL}" \
-    "${CLEANED_OPD_1K_JSONL}" \
-    "${CLEANED_OPD_4K_JSONL}" \
-    "${STUDENT_HF_DIR}" \
-    "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt"; do
+    "${common_required_paths[@]}" \
+    "${BASE_EVAL_OUTPUT_DIR}/base/summary.json"; do
     if [[ ! -e "${required_path}" ]]; then
-      echo "Cannot resume after convert; missing required artifact: ${required_path}" >&2
+      echo "Cannot resume after base eval; missing required artifact: ${required_path}" >&2
       exit 1
     fi
   done
   jid_vllm="preserved_163642"
   jid_data="preserved_163643"
   jid_convert="preserved_163644"
-elif [[ "${CLEANED_RESUME_AFTER_CONVERT}" == "0" ]]; then
-  jid_vllm="$(
-    sbatch --parsable "${SBATCH_ONE[@]}" \
-      --time=02:00:00 \
-      --job-name=slime-qwen3-clean-vllm-setup \
-      --cpus-per-task=8 \
-      --export=ALL \
-      examples/qwen3_8b_opd_tillicum/10_setup_vllm_eval_env.sbatch
-  )"
-  jid_data="$(
-    sbatch --parsable "${SBATCH_ONE[@]}" \
-      --dependency=afterok:${jid_vllm} \
-      --time=08:00:00 \
-      --job-name=slime-qwen3-clean-data \
-      --cpus-per-task=8 \
-      --export=ALL \
-      examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_data.sbatch
-  )"
-  jid_convert="$(
-    sbatch --parsable "${SBATCH_FOUR[@]}" \
-      --dependency=afterok:${jid_data} \
-      --time=02:00:00 \
-      --job-name=slime-qwen3-clean-convert \
-      --cpus-per-task=32 \
-      --export=ALL,CONVERT_NPROC=4 \
-      examples/qwen3_8b_opd_tillicum/03_convert_models_if_needed.sbatch
-  )"
-  smoke_dependency_args=(--dependency=afterok:${jid_convert})
+  jid_sft_smoke="preserved_165034"
+  jid_base_eval="preserved_165035"
 else
-  echo "CLEANED_RESUME_AFTER_CONVERT must be 0 or 1; got ${CLEANED_RESUME_AFTER_CONVERT}" >&2
-  exit 1
+  smoke_dependency_args=()
+  if [[ "${CLEANED_RESUME_AFTER_CONVERT}" == "1" ]]; then
+    echo "Reusing completed vLLM setup, cleaned data, and model conversion artifacts."
+    for required_path in "${common_required_paths[@]}"; do
+      if [[ ! -e "${required_path}" ]]; then
+        echo "Cannot resume after convert; missing required artifact: ${required_path}" >&2
+        exit 1
+      fi
+    done
+    jid_vllm="preserved_163642"
+    jid_data="preserved_163643"
+    jid_convert="preserved_163644"
+  elif [[ "${CLEANED_RESUME_AFTER_CONVERT}" == "0" ]]; then
+    jid_vllm="$(
+      sbatch --parsable "${SBATCH_ONE[@]}" \
+        --time=02:00:00 \
+        --job-name=slime-qwen3-clean-vllm-setup \
+        --cpus-per-task=8 \
+        --export=ALL \
+        examples/qwen3_8b_opd_tillicum/10_setup_vllm_eval_env.sbatch
+    )"
+    jid_data="$(
+      sbatch --parsable "${SBATCH_ONE[@]}" \
+        --dependency=afterok:${jid_vllm} \
+        --time=08:00:00 \
+        --job-name=slime-qwen3-clean-data \
+        --cpus-per-task=8 \
+        --export=ALL \
+        examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_data.sbatch
+    )"
+    jid_convert="$(
+      sbatch --parsable "${SBATCH_FOUR[@]}" \
+        --dependency=afterok:${jid_data} \
+        --time=02:00:00 \
+        --job-name=slime-qwen3-clean-convert \
+        --cpus-per-task=32 \
+        --export=ALL,CONVERT_NPROC=4 \
+        examples/qwen3_8b_opd_tillicum/03_convert_models_if_needed.sbatch
+    )"
+    smoke_dependency_args=(--dependency=afterok:${jid_convert})
+  else
+    echo "CLEANED_RESUME_AFTER_CONVERT must be 0 or 1; got ${CLEANED_RESUME_AFTER_CONVERT}" >&2
+    exit 1
+  fi
+  jid_sft_smoke="$(
+    sbatch --parsable "${SBATCH_FOUR[@]}" \
+      "${smoke_dependency_args[@]}" \
+      --time=02:00:00 \
+      --job-name=slime-qwen3-sft-dpopt-smoke \
+      --cpus-per-task=32 \
+      --export=ALL \
+      examples/qwen3_8b_opd_tillicum/04_smoke_sft_zero_stages.sbatch
+  )"
+  jid_base_eval="$(
+    sbatch --parsable "${SBATCH_FOUR[@]}" \
+      --dependency=afterok:${jid_sft_smoke} \
+      --time=04:00:00 \
+      --job-name=slime-qwen3-clean-base-vllm \
+      --cpus-per-task=32 \
+      --export=ALL,EVAL_TARGETS=base,EVAL_SKIP_COMPLETED=1 \
+      examples/qwen3_8b_opd_tillicum/06_eval_math500_vllm.sbatch
+  )"
+  sft_dependency_args=(--dependency=afterok:${jid_base_eval})
 fi
-jid_sft_smoke="$(
-  sbatch --parsable "${SBATCH_FOUR[@]}" \
-    "${smoke_dependency_args[@]}" \
-    --time=02:00:00 \
-    --job-name=slime-qwen3-sft-dpopt-smoke \
-    --cpus-per-task=32 \
-    --export=ALL \
-    examples/qwen3_8b_opd_tillicum/04_smoke_sft_zero_stages.sbatch
-)"
-jid_base_eval="$(
-  sbatch --parsable "${SBATCH_FOUR[@]}" \
-    --dependency=afterok:${jid_sft_smoke} \
-    --time=04:00:00 \
-    --job-name=slime-qwen3-clean-base-vllm \
-    --cpus-per-task=32 \
-    --export=ALL,EVAL_TARGETS=base,EVAL_SKIP_COMPLETED=1 \
-    examples/qwen3_8b_opd_tillicum/06_eval_math500_vllm.sbatch
-)"
 jid_sft="$(
   sbatch --parsable "${SBATCH_FOUR[@]}" \
-    --dependency=afterok:${jid_base_eval} \
+    "${sft_dependency_args[@]}" \
     --time=16:00:00 \
     --job-name=slime-qwen3-clean-sft25k \
     --cpus-per-task=32 \
@@ -317,6 +348,8 @@ jid_report="$(
   echo "cleaned_experiment_label=${CLEANED_EXPERIMENT_LABEL}"
   echo "submit_time=$(date --iso-8601=seconds)"
   echo "resume_after_convert=${CLEANED_RESUME_AFTER_CONVERT}"
+  echo "resume_after_base_eval=${CLEANED_RESUME_AFTER_BASE_EVAL}"
+  echo "output_tag=${CLEANED_OUTPUT_TAG}"
   echo "vllm_setup=${jid_vllm}"
   echo "clean_data=${jid_data}"
   echo "convert=${jid_convert}"
@@ -350,6 +383,10 @@ jid_report="$(
   echo "sft_optimizer_mode=${SFT_OPTIMIZER_MODE}"
   echo "sft_legacy_zero_stage=${SFT_ZERO_STAGE}"
   echo "sft_ckpt_format=${SFT_CKPT_FORMAT}"
+  echo "sft_loss_mask_type=${SFT_LOSS_MASK_TYPE}"
+  echo "sft_loss_mask_preflight_enabled=${SFT_LOSS_MASK_PREFLIGHT_ENABLED}"
+  echo "sft_loss_mask_preflight_require_think=${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK}"
+  echo "sft_loss_mask_preflight_samples=${SFT_LOSS_MASK_PREFLIGHT_SAMPLES}"
   echo "sft_max_tokens_per_gpu=${SFT_MAX_TOKENS_PER_GPU}"
   echo "opd_max_tokens_per_gpu=${OPD_MAX_TOKENS_PER_GPU}"
   echo "opd_log_probs_chunk_size=${OPD_LOG_PROBS_CHUNK_SIZE}"

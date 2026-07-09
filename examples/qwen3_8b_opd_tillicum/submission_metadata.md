@@ -2854,3 +2854,44 @@ Recorded: 2026-07-01 17:28 PDT
     failure, enter real request generation, and write
     `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus `summary.json`
     with 500 samples.
+
+## Cleaned SFT Loss-Mask Incident and Corrected Rerun
+
+- Incident jobs:
+  - Base vLLM eval `165035` completed and is preserved:
+    `accuracy=0.612`, `parse_failure_rate=0.176`, `cap_hit_rate=0.040`.
+  - SFT train `165036` completed 25k cleaned rows but used
+    `loss_mask_type=qwen`, which is not the intended Qwen3 thinking-trace mask.
+  - The bad SFT checkpoint/snapshots/details are kept as diagnostics only and
+    must not be used as the intended cleaned SFT -> OPD starting point.
+- Evidence:
+  - Cleaned SFT row `0` raw assistant text has `15,299` tokens and complete
+    `<think>...</think>` tags.
+  - `loss_mask_type=qwen` produced only `668` train/loss tokens for that row.
+  - `loss_mask_type=qwen3` produced `15,302` train/loss tokens for that row,
+    preserving the thinking trace.
+  - Tracked note:
+    `examples/qwen3_8b_opd_tillicum/results/cleaned_sft_loss_mask_incident.md`.
+- Cancellation/preservation:
+  - Invalid downstream jobs `165037` through `165042` were canceled before OPD
+    could use the bad SFT checkpoint.
+  - Cleaned data, model conversion, Megatron-DP optimizer smoke, and base eval
+    artifacts are preserved and reused.
+- Patch:
+  - The cleaned SFT submitter now sets `SFT_LOSS_MASK_TYPE=qwen3`.
+  - Corrected SFT/OPD/eval/report output dirs include the `qwen3mask` tag to
+    prevent accidental loading of the `165036` artifacts.
+  - The SFT wrapper now accepts `--loss-mask-type "${SFT_LOSS_MASK_TYPE}"`.
+  - The cleaned chain enables a preflight loss-mask check that decodes the
+    actual train target, requires complete `<think>` and `</think>` tags, and
+    verifies loss-token coverage against raw assistant tokens.
+  - The preflight is opt-in (`SFT_LOSS_MASK_PREFLIGHT_ENABLED=1`) so unrelated
+    SFT jobs are not surprised by cleaned-data-specific thinking-trace checks.
+- Replacement plan:
+  - Submit with `CLEANED_RESUME_AFTER_BASE_EVAL=1` so vLLM setup, cleaned data,
+    model conversion, Megatron-DP smoke, and base eval are skipped/reused.
+  - Rerun SFT 25k from base with `loss_mask_type=qwen3`, `lr=1e-6`, one epoch,
+    Megatron distributed optimizer over `DP=2`.
+  - Then run SFT vLLM eval, OPD-1k, OPD-1k eval, OPD +4k, OPD-5k eval, and the
+    final report in the corrected `qwen3mask` output dirs.
+  - Replacement job IDs and patch commit will be recorded after submission.

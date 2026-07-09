@@ -79,6 +79,7 @@ PYTHON_FILES=(
   examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_openthoughts3.py
   examples/qwen3_8b_opd_tillicum/02_prepare_openthoughts3_math_sample.py
   examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py
+  examples/qwen3_8b_opd_tillicum/check_sft_loss_mask.py
   examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py
   examples/qwen3_8b_opd_tillicum/summarize_opd_sanity.py
   examples/qwen3_8b_opd_tillicum/summarize_eval.py
@@ -101,6 +102,10 @@ done
 
 echo "Checking required container env forwarding"
 REQUIRED_CONTAINER_ENV=(
+  SFT_LOSS_MASK_TYPE
+  SFT_LOSS_MASK_PREFLIGHT_ENABLED
+  SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK
+  SFT_LOSS_MASK_PREFLIGHT_SAMPLES
   OPD_INITIAL_LOAD_MODE
   OPD_INITIAL_LOAD_DIR
   OPD_COLOCATE

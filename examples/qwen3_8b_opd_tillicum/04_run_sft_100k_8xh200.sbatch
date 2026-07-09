@@ -19,6 +19,11 @@ fi
 source "${SCRIPT_DIR}/env.sh"
 source "${SCRIPT_DIR}/checkpoint_utils.sh"
 
+export SFT_LOSS_MASK_TYPE="${SFT_LOSS_MASK_TYPE:-qwen}"
+export SFT_LOSS_MASK_PREFLIGHT_ENABLED="${SFT_LOSS_MASK_PREFLIGHT_ENABLED:-0}"
+export SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK="${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK:-0}"
+export SFT_LOSS_MASK_PREFLIGHT_SAMPLES="${SFT_LOSS_MASK_PREFLIGHT_SAMPLES:-3}"
+
 mkdir -p "${SLURM_LOG_DIR}" "${SFT_SAVE_DIR}" "${SFT_HF_SNAPSHOT_DIR}" "${SFT_DETAILS_DIR}" "${CHECKPOINT_REPORT_DIR}"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   export RAY_TMPDIR="/tmp/${USER:-suryadv}/slime-ray-${SLURM_JOB_ID}"
@@ -44,6 +49,8 @@ echo "SFT actor GPUs: ${SFT_ACTOR_GPUS}"
 echo "SFT TP/CP/PP: ${SFT_TENSOR_MODEL_PARALLEL_SIZE}/${SFT_CONTEXT_PARALLEL_SIZE}/${SFT_PIPELINE_MODEL_PARALLEL_SIZE}"
 echo "SFT optimizer mode: ${SFT_OPTIMIZER_MODE:-legacy_stage_${SFT_ZERO_STAGE}}"
 echo "SFT legacy sharding stage: ${SFT_ZERO_STAGE}"
+echo "SFT loss mask type: ${SFT_LOSS_MASK_TYPE}"
+echo "SFT loss mask preflight: enabled=${SFT_LOSS_MASK_PREFLIGHT_ENABLED} require_think=${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK} samples=${SFT_LOSS_MASK_PREFLIGHT_SAMPLES}"
 echo "SFT LR: ${SFT_LR}"
 echo "SFT max tokens per GPU: ${SFT_MAX_TOKENS_PER_GPU}"
 
@@ -68,6 +75,23 @@ fi
 echo "HAS_NVLINK=${HAS_NVLINK} (detected ${NVLINK_COUNT} NVLink references)"
 
 source scripts/models/qwen3-8B.sh
+
+if [[ "${SFT_LOSS_MASK_PREFLIGHT_ENABLED}" == "1" ]]; then
+  PREFLIGHT_ARGS=(
+    --data "${SFT_PARQUET}"
+    --hf-checkpoint "${STUDENT_HF_DIR}"
+    --loss-mask-type "${SFT_LOSS_MASK_TYPE}"
+    --num-samples "${SFT_LOSS_MASK_PREFLIGHT_SAMPLES}"
+    --min-mask-raw-ratio 0.80
+    --print-snippets
+  )
+  if [[ "${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK}" == "1" ]]; then
+    PREFLIGHT_ARGS+=(--require-think)
+  fi
+  python3 examples/qwen3_8b_opd_tillicum/check_sft_loss_mask.py "${PREFLIGHT_ARGS[@]}"
+else
+  echo "SFT loss-mask preflight disabled."
+fi
 
 SFT_DP=$((SFT_ACTOR_GPUS / (SFT_TENSOR_MODEL_PARALLEL_SIZE * SFT_CONTEXT_PARALLEL_SIZE * SFT_PIPELINE_MODEL_PARALLEL_SIZE)))
 if [[ "${SFT_DP}" -lt 1 ]]; then
@@ -148,6 +172,7 @@ SFT_ARGS=(
   --rollout-batch-size "${SFT_ROLLOUT_BATCH_SIZE}"
   --global-batch-size "${SFT_GLOBAL_BATCH_SIZE}"
   --loss-type sft_loss
+  --loss-mask-type "${SFT_LOSS_MASK_TYPE}"
   --calculate-per-token-loss
   --disable-compute-advantages-and-returns
   --debug-train-only
