@@ -2860,6 +2860,8 @@ Recorded: 2026-07-01 17:28 PDT
 - Incident jobs:
   - Base vLLM eval `165035` completed and is preserved:
     `accuracy=0.612`, `parse_failure_rate=0.176`, `cap_hit_rate=0.040`.
+  - Original non-cleaned SFT `151633` also logged `loss_mask_type=qwen`, so it
+    should be treated as not using the Qwen3 full-thinking-trace mask.
   - SFT train `165036` completed 25k cleaned rows but used
     `loss_mask_type=qwen`, which is not the intended Qwen3 thinking-trace mask.
   - The bad SFT checkpoint/snapshots/details are kept as diagnostics only and

@@ -10,6 +10,17 @@ dropping most of the intended thinking trace from the trainable target.
 This checkpoint is diagnostic only and must not be used as the intended
 cleaned SFT -> OPD starting point.
 
+## Affected SFT Runs
+
+| Slurm Job | Run | Loss Mask | Status |
+| --- | --- | --- | --- |
+| `151633` | Original non-cleaned SFT | `qwen` | Diagnostic for this issue; it did not use the Qwen3 thinking-trace mask. |
+| `165036` | First cleaned SFT | `qwen` | Invalid for the intended cleaned full-thinking-trace experiment. |
+| `165695` | Corrected cleaned SFT rerun | `qwen3` | Intended rerun; preflight verified full `<think>...</think>` targets. |
+
+The `qwen`-masked runs can still be useful as historical/diagnostic artifacts,
+but they should not be interpreted as Qwen3 full-thinking-trace SFT.
+
 ## Evidence
 
 For cleaned SFT JSONL row `0`:
@@ -47,4 +58,3 @@ The corrected SFT launcher runs a preflight check before training:
 - verifies the loss target covers at least 80% of raw assistant tokens,
 - requires decoded train targets to contain both `<think>` and `</think>`,
 - prints compact decoded snippets for inspection.
-
