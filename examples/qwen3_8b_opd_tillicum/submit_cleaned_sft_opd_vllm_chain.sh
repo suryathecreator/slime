@@ -8,7 +8,20 @@ export CLEANED_OPD_FIRST_SIZE="${CLEANED_OPD_FIRST_SIZE:-1024}"
 export CLEANED_OPD_NEXT_SIZE="${CLEANED_OPD_NEXT_SIZE:-4096}"
 export CLEANED_RESUME_AFTER_CONVERT="${CLEANED_RESUME_AFTER_CONVERT:-0}"
 export CLEANED_RESUME_AFTER_BASE_EVAL="${CLEANED_RESUME_AFTER_BASE_EVAL:-0}"
+export CLEANED_RESUME_AFTER_SFT="${CLEANED_RESUME_AFTER_SFT:-0}"
 export CLEANED_OUTPUT_TAG="${CLEANED_OUTPUT_TAG:-qwen3mask}"
+export CLEANED_WALLTIME_VLLM_SETUP="${CLEANED_WALLTIME_VLLM_SETUP:-06:00:00}"
+export CLEANED_WALLTIME_CLEAN_DATA="${CLEANED_WALLTIME_CLEAN_DATA:-24:00:00}"
+export CLEANED_WALLTIME_CONVERT="${CLEANED_WALLTIME_CONVERT:-06:00:00}"
+export CLEANED_WALLTIME_SMOKE="${CLEANED_WALLTIME_SMOKE:-06:00:00}"
+export CLEANED_WALLTIME_BASE_EVAL="${CLEANED_WALLTIME_BASE_EVAL:-72:00:00}"
+export CLEANED_WALLTIME_SFT="${CLEANED_WALLTIME_SFT:-72:00:00}"
+export CLEANED_WALLTIME_SFT_EVAL="${CLEANED_WALLTIME_SFT_EVAL:-72:00:00}"
+export CLEANED_WALLTIME_OPD1="${CLEANED_WALLTIME_OPD1:-72:00:00}"
+export CLEANED_WALLTIME_OPD1_EVAL="${CLEANED_WALLTIME_OPD1_EVAL:-72:00:00}"
+export CLEANED_WALLTIME_OPD5="${CLEANED_WALLTIME_OPD5:-72:00:00}"
+export CLEANED_WALLTIME_OPD5_EVAL="${CLEANED_WALLTIME_OPD5_EVAL:-72:00:00}"
+export CLEANED_WALLTIME_REPORT="${CLEANED_WALLTIME_REPORT:-06:00:00}"
 export SFT_SIZE="${SFT_SIZE:-25000}"
 export SFT_ROLLOUT_BATCH_SIZE="${SFT_ROLLOUT_BATCH_SIZE:-250}"
 export SFT_GLOBAL_BATCH_SIZE="${SFT_GLOBAL_BATCH_SIZE:-250}"
@@ -62,6 +75,8 @@ export VLLM_EVAL_MAX_MODEL_LEN="${VLLM_EVAL_MAX_MODEL_LEN:-32768}"
 export VLLM_EVAL_GPU_MEMORY_UTILIZATION="${VLLM_EVAL_GPU_MEMORY_UTILIZATION:-0.92}"
 export VLLM_EVAL_MAX_NUM_SEQS="${VLLM_EVAL_MAX_NUM_SEQS:-16}"
 export VLLM_EVAL_MAX_NUM_BATCHED_TOKENS="${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS:-131072}"
+export VLLM_EVAL_CHUNK_SIZE="${VLLM_EVAL_CHUNK_SIZE:-16}"
+export VLLM_EVAL_RESUME_COMPLETED="${VLLM_EVAL_RESUME_COMPLETED:-1}"
 export REPORT_SFT_FINAL_ONLY="${REPORT_SFT_FINAL_ONLY:-1}"
 export REPORT_OPD_FINAL_ONLY="${REPORT_OPD_FINAL_ONLY:-0}"
 export REPORT_INCLUDE_SFT="${REPORT_INCLUDE_SFT:-1}"
@@ -117,6 +132,7 @@ echo "submit log: ${submit_log}"
 echo "cleaned label: ${CLEANED_EXPERIMENT_LABEL}"
 echo "resume after convert: ${CLEANED_RESUME_AFTER_CONVERT}"
 echo "resume after base eval: ${CLEANED_RESUME_AFTER_BASE_EVAL}"
+echo "resume after sft: ${CLEANED_RESUME_AFTER_SFT}"
 echo "output tag: ${CLEANED_OUTPUT_TAG}"
 echo "SFT data: ${SFT_PARQUET}"
 echo "OPD 1k data: ${CLEANED_OPD_1K_JSONL}"
@@ -126,6 +142,8 @@ echo "SFT loss-mask preflight: enabled=${SFT_LOSS_MASK_PREFLIGHT_ENABLED} requir
 echo "SFT max tokens/GPU LR epochs: ${SFT_MAX_TOKENS_PER_GPU} ${SFT_LR} ${SFT_NUM_EPOCH}"
 echo "OPD TP/CP max-response/context max-tokens/GPU chunk LR: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE} ${OPD_MAX_RESPONSE_LEN}/${OPD_ROLLOUT_MAX_CONTEXT_LEN} ${OPD_MAX_TOKENS_PER_GPU} ${OPD_LOG_PROBS_CHUNK_SIZE} ${OPD_LR}"
 echo "vLLM eval workers/max-model/max-seqs/batched-tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_MODEL_LEN}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
+echo "vLLM eval chunk resume: chunk_size=${VLLM_EVAL_CHUNK_SIZE} resume_completed=${VLLM_EVAL_RESUME_COMPLETED}"
+echo "walltimes setup/data/convert/smoke/base/sft/sft_eval/opd1/opd1_eval/opd5/opd5_eval/report: ${CLEANED_WALLTIME_VLLM_SETUP} ${CLEANED_WALLTIME_CLEAN_DATA} ${CLEANED_WALLTIME_CONVERT} ${CLEANED_WALLTIME_SMOKE} ${CLEANED_WALLTIME_BASE_EVAL} ${CLEANED_WALLTIME_SFT} ${CLEANED_WALLTIME_SFT_EVAL} ${CLEANED_WALLTIME_OPD1} ${CLEANED_WALLTIME_OPD1_EVAL} ${CLEANED_WALLTIME_OPD5} ${CLEANED_WALLTIME_OPD5_EVAL} ${CLEANED_WALLTIME_REPORT}"
 
 common_required_paths=(
   "${SFT_PARQUET}"
@@ -138,7 +156,27 @@ common_required_paths=(
 )
 
 sft_dependency_args=()
-if [[ "${CLEANED_RESUME_AFTER_BASE_EVAL}" == "1" ]]; then
+submit_sft=1
+if [[ "${CLEANED_RESUME_AFTER_SFT}" == "1" ]]; then
+  echo "Reusing completed vLLM setup, cleaned data, model conversion, smoke, base eval, and corrected SFT artifacts."
+  for required_path in \
+    "${common_required_paths[@]}" \
+    "${BASE_EVAL_OUTPUT_DIR}/base/summary.json" \
+    "${SFT_FINAL_HF_DIR}/config.json" \
+    "${SFT_FINAL_FULL_CKPT_DIR}/.metadata"; do
+    if [[ ! -e "${required_path}" ]]; then
+      echo "Cannot resume after SFT; missing required artifact: ${required_path}" >&2
+      exit 1
+    fi
+  done
+  jid_vllm="preserved_163642"
+  jid_data="preserved_163643"
+  jid_convert="preserved_163644"
+  jid_sft_smoke="preserved_165034"
+  jid_base_eval="preserved_165035"
+  jid_sft="preserved_165695"
+  submit_sft=0
+elif [[ "${CLEANED_RESUME_AFTER_BASE_EVAL}" == "1" ]]; then
   echo "Reusing completed vLLM setup, cleaned data, model conversion, smoke, and base eval artifacts."
   for required_path in \
     "${common_required_paths[@]}" \
@@ -169,7 +207,7 @@ else
   elif [[ "${CLEANED_RESUME_AFTER_CONVERT}" == "0" ]]; then
     jid_vllm="$(
       sbatch --parsable "${SBATCH_ONE[@]}" \
-        --time=02:00:00 \
+        --time="${CLEANED_WALLTIME_VLLM_SETUP}" \
         --job-name=slime-qwen3-clean-vllm-setup \
         --cpus-per-task=8 \
         --export=ALL \
@@ -178,7 +216,7 @@ else
     jid_data="$(
       sbatch --parsable "${SBATCH_ONE[@]}" \
         --dependency=afterok:${jid_vllm} \
-        --time=08:00:00 \
+        --time="${CLEANED_WALLTIME_CLEAN_DATA}" \
         --job-name=slime-qwen3-clean-data \
         --cpus-per-task=8 \
         --export=ALL \
@@ -187,7 +225,7 @@ else
     jid_convert="$(
       sbatch --parsable "${SBATCH_FOUR[@]}" \
         --dependency=afterok:${jid_data} \
-        --time=02:00:00 \
+        --time="${CLEANED_WALLTIME_CONVERT}" \
         --job-name=slime-qwen3-clean-convert \
         --cpus-per-task=32 \
         --export=ALL,CONVERT_NPROC=4 \
@@ -201,7 +239,7 @@ else
   jid_sft_smoke="$(
     sbatch --parsable "${SBATCH_FOUR[@]}" \
       "${smoke_dependency_args[@]}" \
-      --time=02:00:00 \
+      --time="${CLEANED_WALLTIME_SMOKE}" \
       --job-name=slime-qwen3-sft-dpopt-smoke \
       --cpus-per-task=32 \
       --export=ALL \
@@ -210,7 +248,7 @@ else
   jid_base_eval="$(
     sbatch --parsable "${SBATCH_FOUR[@]}" \
       --dependency=afterok:${jid_sft_smoke} \
-      --time=04:00:00 \
+      --time="${CLEANED_WALLTIME_BASE_EVAL}" \
       --job-name=slime-qwen3-clean-base-vllm \
       --cpus-per-task=32 \
       --export=ALL,EVAL_TARGETS=base,EVAL_SKIP_COMPLETED=1 \
@@ -218,19 +256,24 @@ else
   )"
   sft_dependency_args=(--dependency=afterok:${jid_base_eval})
 fi
-jid_sft="$(
-  sbatch --parsable "${SBATCH_FOUR[@]}" \
-    "${sft_dependency_args[@]}" \
-    --time=16:00:00 \
-    --job-name=slime-qwen3-clean-sft25k \
-    --cpus-per-task=32 \
-    --export=ALL \
-    examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
-)"
+if [[ "${submit_sft}" == "1" ]]; then
+  jid_sft="$(
+    sbatch --parsable "${SBATCH_FOUR[@]}" \
+      "${sft_dependency_args[@]}" \
+      --time="${CLEANED_WALLTIME_SFT}" \
+      --job-name=slime-qwen3-clean-sft25k \
+      --cpus-per-task=32 \
+      --export=ALL \
+      examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
+  )"
+  sft_eval_dependency_args=(--dependency=afterok:${jid_sft})
+else
+  sft_eval_dependency_args=()
+fi
 jid_sft_eval="$(
   sbatch --parsable "${SBATCH_FOUR[@]}" \
-    --dependency=afterok:${jid_sft} \
-    --time=04:00:00 \
+    "${sft_eval_dependency_args[@]}" \
+    --time="${CLEANED_WALLTIME_SFT_EVAL}" \
     --job-name=slime-qwen3-clean-sft-vllm \
     --cpus-per-task=32 \
     --export=ALL,EVAL_TARGETS=sft,EVAL_SKIP_COMPLETED=1 \
@@ -267,7 +310,7 @@ export OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH="0"
 jid_opd1="$(
   sbatch --parsable "${SBATCH_FOUR[@]}" \
     --dependency=afterok:${jid_sft_eval} \
-    --time=08:00:00 \
+    --time="${CLEANED_WALLTIME_OPD1}" \
     --job-name=slime-qwen3-clean-opd1k \
     --cpus-per-task=32 \
     --export=ALL \
@@ -276,7 +319,7 @@ jid_opd1="$(
 jid_opd1_eval="$(
   sbatch --parsable "${SBATCH_FOUR[@]}" \
     --dependency=afterok:${jid_opd1} \
-    --time=04:00:00 \
+    --time="${CLEANED_WALLTIME_OPD1_EVAL}" \
     --job-name=slime-qwen3-clean-opd1k-vllm \
     --cpus-per-task=32 \
     --export=ALL,EVAL_TARGETS=opd,EVAL_SKIP_COMPLETED=1 \
@@ -319,7 +362,7 @@ export OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH="1"
 jid_opd5="$(
   sbatch --parsable "${SBATCH_FOUR[@]}" \
     --dependency=afterok:${jid_opd1_eval} \
-    --time=24:00:00 \
+    --time="${CLEANED_WALLTIME_OPD5}" \
     --job-name=slime-qwen3-clean-opd5k \
     --cpus-per-task=32 \
     --export=ALL \
@@ -328,7 +371,7 @@ jid_opd5="$(
 jid_opd5_eval="$(
   sbatch --parsable "${SBATCH_FOUR[@]}" \
     --dependency=afterok:${jid_opd5} \
-    --time=04:00:00 \
+    --time="${CLEANED_WALLTIME_OPD5_EVAL}" \
     --job-name=slime-qwen3-clean-opd5k-vllm \
     --cpus-per-task=32 \
     --export=ALL,EVAL_TARGETS=opd,EVAL_SKIP_COMPLETED=1 \
@@ -337,7 +380,7 @@ jid_opd5_eval="$(
 jid_report="$(
   sbatch --parsable "${SBATCH_REPORT[@]}" \
     --dependency=afterok:${jid_opd5_eval} \
-    --time=00:30:00 \
+    --time="${CLEANED_WALLTIME_REPORT}" \
     --job-name=slime-qwen3-clean-report \
     --cpus-per-task=8 \
     --export=ALL,EVAL_TARGETS=report \
@@ -349,6 +392,7 @@ jid_report="$(
   echo "submit_time=$(date --iso-8601=seconds)"
   echo "resume_after_convert=${CLEANED_RESUME_AFTER_CONVERT}"
   echo "resume_after_base_eval=${CLEANED_RESUME_AFTER_BASE_EVAL}"
+  echo "resume_after_sft=${CLEANED_RESUME_AFTER_SFT}"
   echo "output_tag=${CLEANED_OUTPUT_TAG}"
   echo "vllm_setup=${jid_vllm}"
   echo "clean_data=${jid_data}"
@@ -391,6 +435,20 @@ jid_report="$(
   echo "opd_max_tokens_per_gpu=${OPD_MAX_TOKENS_PER_GPU}"
   echo "opd_log_probs_chunk_size=${OPD_LOG_PROBS_CHUNK_SIZE}"
   echo "vllm_eval_num_gpus=${VLLM_EVAL_NUM_GPUS}"
+  echo "vllm_eval_chunk_size=${VLLM_EVAL_CHUNK_SIZE}"
+  echo "vllm_eval_resume_completed=${VLLM_EVAL_RESUME_COMPLETED}"
+  echo "walltime_vllm_setup=${CLEANED_WALLTIME_VLLM_SETUP}"
+  echo "walltime_clean_data=${CLEANED_WALLTIME_CLEAN_DATA}"
+  echo "walltime_convert=${CLEANED_WALLTIME_CONVERT}"
+  echo "walltime_smoke=${CLEANED_WALLTIME_SMOKE}"
+  echo "walltime_base_eval=${CLEANED_WALLTIME_BASE_EVAL}"
+  echo "walltime_sft=${CLEANED_WALLTIME_SFT}"
+  echo "walltime_sft_eval=${CLEANED_WALLTIME_SFT_EVAL}"
+  echo "walltime_opd1=${CLEANED_WALLTIME_OPD1}"
+  echo "walltime_opd1_eval=${CLEANED_WALLTIME_OPD1_EVAL}"
+  echo "walltime_opd5=${CLEANED_WALLTIME_OPD5}"
+  echo "walltime_opd5_eval=${CLEANED_WALLTIME_OPD5_EVAL}"
+  echo "walltime_report=${CLEANED_WALLTIME_REPORT}"
 } | tee "${submit_log}"
 
 echo "Submitted cleaned chain. Job IDs are recorded in ${submit_log}."

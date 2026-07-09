@@ -32,6 +32,8 @@ def parse_args() -> argparse.Namespace:
     shard.add_argument("--dtype", default="bfloat16")
     shard.add_argument("--trust-remote-code", action="store_true")
     shard.add_argument("--hf-home", default=os.environ.get("HF_HOME"))
+    shard.add_argument("--chunk-size", type=int, default=16)
+    shard.add_argument("--resume-completed", action="store_true")
 
     merge = sub.add_parser("merge")
     merge.add_argument("--stage-dir", required=True)
@@ -79,19 +81,47 @@ def build_prompt(tokenizer: Any, prompt: str) -> str:
         return prompt
 
 
-def run_shard(args: argparse.Namespace) -> None:
+def chunk_path(stage_dir: Path, shard_index: int, rows: list[dict[str, Any]]) -> Path:
+    first = rows[0]["_eval_index"]
+    last = rows[-1]["_eval_index"]
+    return stage_dir / f"debug_eval_chunk_shard{shard_index}_start{first}_end{last}.pt"
+
+
+def load_valid_chunk(path: Path, expected_indices: set[int]) -> list[dict[str, Any]] | None:
+    if not path.exists() or path.stat().st_size == 0:
+        return None
     import torch
-    from transformers import AutoTokenizer
-    from slime.backends.vllm_utils.native_sampler import maybe_force_native_sampler
 
-    if maybe_force_native_sampler():
-        print("VLLM_EVAL_FORCE_NATIVE_SAMPLER=1: patched vLLM V1 sampler in eval parent")
-    from vllm import LLM, SamplingParams
+    try:
+        payload = torch.load(path, map_location="cpu", weights_only=False)
+    except Exception as exc:
+        print(f"Ignoring unreadable vLLM chunk {path}: {exc}")
+        return None
+    samples = payload.get("samples", [])
+    found_indices = {int(sample["eval_index"]) for sample in samples}
+    if found_indices != expected_indices or len(samples) != len(expected_indices):
+        print(
+            f"Ignoring incomplete vLLM chunk {path}: "
+            f"expected_indices={sorted(expected_indices)} found_indices={sorted(found_indices)} samples={len(samples)}"
+        )
+        return None
+    return samples
 
-    data_path = Path(args.data)
-    rows = [row for row in load_rows(data_path) if row["_eval_index"] % args.num_shards == args.shard_index]
-    tokenizer = AutoTokenizer.from_pretrained(args.model, cache_dir=args.hf_home, trust_remote_code=True)
 
+def save_chunk_atomic(path: Path, payload: dict[str, Any]) -> None:
+    import torch
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.tmp.{os.getpid()}")
+    torch.save(payload, tmp)
+    tmp.replace(path)
+
+
+def prepare_chunk_rows(
+    tokenizer: Any,
+    rows: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> tuple[list[tuple[int, str, dict[str, Any]]], list[dict[str, Any]]]:
     prepared = []
     zero_cap_samples = []
     for row in rows:
@@ -118,20 +148,19 @@ def run_shard(args: argparse.Namespace) -> None:
             zero_cap_samples.append({**base, "response": "", "response_length": 0, "status": "truncated"})
         else:
             prepared.append((effective_cap, rendered_prompt, base))
+    return prepared, zero_cap_samples
 
-    llm = LLM(
-        model=args.model,
-        tokenizer=args.model,
-        trust_remote_code=args.trust_remote_code,
-        tensor_parallel_size=1,
-        dtype=args.dtype,
-        max_model_len=args.max_model_len,
-        gpu_memory_utilization=args.gpu_memory_utilization,
-        max_num_seqs=args.max_num_seqs,
-        max_num_batched_tokens=args.max_num_batched_tokens,
-    )
 
-    samples = zero_cap_samples
+def run_chunk(
+    llm: Any,
+    tokenizer: Any,
+    rows: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    from vllm import SamplingParams
+
+    prepared, zero_cap_samples = prepare_chunk_rows(tokenizer, rows, args)
+    samples = list(zero_cap_samples)
     grouped: dict[int, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
     for cap, prompt, base in prepared:
         grouped[cap].append((prompt, base))
@@ -156,25 +185,107 @@ def run_shard(args: argparse.Namespace) -> None:
                     "finish_reason": finish_reason,
                 }
             )
-
     samples.sort(key=lambda item: item["eval_index"])
-    out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    torch.save({"samples": samples}, out)
-    print(f"Wrote vLLM shard {args.shard_index}/{args.num_shards}: {out} samples={len(samples)}")
+    return samples
+
+
+def run_shard(args: argparse.Namespace) -> None:
+    if args.chunk_size <= 0:
+        raise ValueError(f"--chunk-size must be positive, got {args.chunk_size}")
+
+    data_path = Path(args.data)
+    rows = [row for row in load_rows(data_path) if row["_eval_index"] % args.num_shards == args.shard_index]
+    stage_dir = Path(args.out).parent
+    chunks = [rows[index : index + args.chunk_size] for index in range(0, len(rows), args.chunk_size)]
+
+    pending_chunks = []
+    for chunk in chunks:
+        path = chunk_path(stage_dir, args.shard_index, chunk)
+        expected_indices = {int(row["_eval_index"]) for row in chunk}
+        if args.resume_completed and load_valid_chunk(path, expected_indices) is not None:
+            print(f"VLLM_EVAL_CHUNK_SKIP shard={args.shard_index} path={path} samples={len(expected_indices)}")
+            continue
+        pending_chunks.append((chunk, path, expected_indices))
+
+    if not pending_chunks:
+        print(f"VLLM_EVAL_SHARD_COMPLETE shard={args.shard_index} chunks={len(chunks)}")
+        return
+
+    from transformers import AutoTokenizer
+    from slime.backends.vllm_utils.native_sampler import maybe_force_native_sampler
+
+    if maybe_force_native_sampler():
+        print("VLLM_EVAL_FORCE_NATIVE_SAMPLER=1: patched vLLM V1 sampler in eval parent")
+    from vllm import LLM
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model, cache_dir=args.hf_home, trust_remote_code=True)
+    llm = LLM(
+        model=args.model,
+        tokenizer=args.model,
+        trust_remote_code=args.trust_remote_code,
+        tensor_parallel_size=1,
+        dtype=args.dtype,
+        max_model_len=args.max_model_len,
+        gpu_memory_utilization=args.gpu_memory_utilization,
+        max_num_seqs=args.max_num_seqs,
+        max_num_batched_tokens=args.max_num_batched_tokens,
+    )
+
+    for chunk, path, expected_indices in pending_chunks:
+        samples = run_chunk(llm, tokenizer, chunk, args)
+        found_indices = {int(sample["eval_index"]) for sample in samples}
+        if found_indices != expected_indices:
+            raise RuntimeError(
+                f"Chunk index mismatch for {path}: expected {sorted(expected_indices)}, found {sorted(found_indices)}"
+            )
+        payload = {
+            "samples": samples,
+            "stage": args.stage,
+            "shard_index": args.shard_index,
+            "num_shards": args.num_shards,
+            "chunk_start_eval_index": min(expected_indices),
+            "chunk_end_eval_index": max(expected_indices),
+        }
+        save_chunk_atomic(path, payload)
+        print(
+            f"Wrote vLLM chunk shard={args.shard_index}/{args.num_shards} "
+            f"path={path} samples={len(samples)}"
+        )
 
 
 def merge_shards(args: argparse.Namespace) -> None:
     import torch
 
     stage_dir = Path(args.stage_dir)
-    samples = []
+    by_index: dict[int, tuple[Path, dict[str, Any]]] = {}
     for path in sorted(stage_dir.glob("debug_eval_shard_*.pt")):
         payload = torch.load(path, map_location="cpu", weights_only=False)
-        samples.extend(payload.get("samples", []))
-    samples.sort(key=lambda item: item["eval_index"])
-    if len(samples) != args.expected_samples:
-        raise RuntimeError(f"Expected {args.expected_samples} merged samples, found {len(samples)}")
+        for sample in payload.get("samples", []):
+            eval_index = int(sample["eval_index"])
+            if eval_index in by_index:
+                raise RuntimeError(
+                    f"Duplicate eval_index={eval_index} in {path}; already found in {by_index[eval_index][0]}"
+                )
+            by_index[eval_index] = (path, sample)
+    for path in sorted(stage_dir.glob("debug_eval_chunk_shard*_start*_end*.pt")):
+        payload = torch.load(path, map_location="cpu", weights_only=False)
+        for sample in payload.get("samples", []):
+            eval_index = int(sample["eval_index"])
+            if eval_index in by_index:
+                raise RuntimeError(
+                    f"Duplicate eval_index={eval_index} in {path}; already found in {by_index[eval_index][0]}"
+                )
+            by_index[eval_index] = (path, sample)
+
+    samples = [sample for _, sample in sorted(by_index.values(), key=lambda item: int(item[1]["eval_index"]))]
+    expected_indices = set(range(args.expected_samples))
+    if len(samples) != args.expected_samples or set(by_index) != expected_indices:
+        missing = sorted(expected_indices - set(by_index))[:20]
+        extra = sorted(set(by_index) - expected_indices)[:20]
+        raise RuntimeError(
+            f"Expected {args.expected_samples} merged samples, found {len(samples)}; "
+            f"first_missing_eval_indices={missing}; first_extra_eval_indices={extra}"
+        )
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     torch.save({"samples": samples}, out)
