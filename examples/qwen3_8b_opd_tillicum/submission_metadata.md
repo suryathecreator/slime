@@ -3087,3 +3087,44 @@ Recorded: 2026-07-01 17:28 PDT
   - Cancel `166666` through `166671`, then resubmit from SFT eval with the
     existing strict serialized tail.
   - Patch commit and replacement job ids are recorded below after submission.
+
+### Submitted Special-Token-Corrected Tail
+
+- Patch commit: `cf960ae` (`Fix Qwen3 thinking and eval stop semantics`),
+  pushed to `origin/opd-reproduction` before submission.
+- Old chain cleanup:
+  - Canceled `166666` through `166671`.
+  - Preserved all 12 old SFT-eval chunks under
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_sft_25k_qwen3mask_vllm/sft_025000.pre_special_token_fix_166666`.
+  - Created no corrected summary from those incompatible chunks.
+- Submit time/log: `2026-07-10 13:56 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260710_135659.txt`.
+- Preserved inputs:
+  - setup/data/convert/smoke: `163642`/`163643`/`163644`/`165034`;
+  - base eval: `165035`;
+  - corrected Qwen3-mask SFT: `165695`, full and HF `iter_0000099`.
+- Replacement serialized chain:
+  - SFT eval `167285`: 4 H200, `24:00:00`, no dependency;
+  - OPD-1k train `167286`: 4 H200, `24:00:00`, `afterok:167285`;
+  - OPD-1k eval `167287`: 4 H200, `24:00:00`, `afterok:167286`;
+  - OPD +4k train `167288`: 4 H200, `24:00:00`, `afterok:167287`;
+  - OPD-5k eval `167289`: 4 H200, `24:00:00`, `afterok:167288`;
+  - final report `167290`: 1 H200, `06:00:00`, `afterok:167289`.
+- Scheduler validation:
+  - `167285` started on `g008`; downstream jobs are pending on the strict
+    `afterok` chain, so no train/eval stages overlap.
+  - Every job has `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No job requests more than four H200s.
+- Initial runtime validation from `167285`:
+  - log shows `Qwen3 thinking enabled: 1`;
+  - stop ids are `151645 151643`;
+  - special-token preservation is enabled;
+  - all four workers report generation-policy fingerprint
+    `13f2476ed504ea7885c74fa9033e212956488bf1314c534b34792ecedb6139aa`;
+  - policy records schema `2`, `enable_thinking=true`, and both stop ids;
+  - stage loads corrected SFT HF snapshot `iter_0000099` and writes to a fresh
+    `sft_025000` directory.
+- Remaining runtime check: inspect the first completed new chunk for nonempty
+  `prefill_token_ids`/`generated_token_ids`, visible special tokens in
+  `response`, and terminal stopping below the old universal 31,744-token cap.
