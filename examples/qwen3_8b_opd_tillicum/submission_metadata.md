@@ -2854,3 +2854,195 @@ Recorded: 2026-07-01 17:28 PDT
     failure, enter real request generation, and write
     `math500_eval_cleaned_base_vllm/base/debug_eval_0.pt` plus `summary.json`
     with 500 samples.
+
+## Cleaned SFT Loss-Mask Incident and Corrected Rerun
+
+- Incident jobs:
+  - Base vLLM eval `165035` completed and is preserved:
+    `accuracy=0.612`, `parse_failure_rate=0.176`, `cap_hit_rate=0.040`.
+  - Original non-cleaned SFT `151633` also logged `loss_mask_type=qwen`, so it
+    should be treated as not using the Qwen3 full-thinking-trace mask.
+  - SFT train `165036` completed 25k cleaned rows but used
+    `loss_mask_type=qwen`, which is not the intended Qwen3 thinking-trace mask.
+  - The bad SFT checkpoint/snapshots/details are kept as diagnostics only and
+    must not be used as the intended cleaned SFT -> OPD starting point.
+- Evidence:
+  - Cleaned SFT row `0` raw assistant text has `15,299` tokens and complete
+    `<think>...</think>` tags.
+  - `loss_mask_type=qwen` produced only `668` train/loss tokens for that row.
+  - `loss_mask_type=qwen3` produced `15,302` train/loss tokens for that row,
+    preserving the thinking trace.
+  - Tracked note:
+    `examples/qwen3_8b_opd_tillicum/results/cleaned_sft_loss_mask_incident.md`.
+- Cancellation/preservation:
+  - Invalid downstream jobs `165037` through `165042` were canceled before OPD
+    could use the bad SFT checkpoint.
+  - Cleaned data, model conversion, Megatron-DP optimizer smoke, and base eval
+    artifacts are preserved and reused.
+- Patch:
+  - The cleaned SFT submitter now sets `SFT_LOSS_MASK_TYPE=qwen3`.
+  - Corrected SFT/OPD/eval/report output dirs include the `qwen3mask` tag to
+    prevent accidental loading of the `165036` artifacts.
+  - The SFT wrapper now accepts `--loss-mask-type "${SFT_LOSS_MASK_TYPE}"`.
+  - The cleaned chain enables a preflight loss-mask check that decodes the
+    actual train target, requires complete `<think>` and `</think>` tags, and
+    verifies loss-token coverage against raw assistant tokens.
+  - The preflight is opt-in (`SFT_LOSS_MASK_PREFLIGHT_ENABLED=1`) so unrelated
+    SFT jobs are not surprised by cleaned-data-specific thinking-trace checks.
+- Replacement plan:
+  - Submit with `CLEANED_RESUME_AFTER_BASE_EVAL=1` so vLLM setup, cleaned data,
+    model conversion, Megatron-DP smoke, and base eval are skipped/reused.
+  - Rerun SFT 25k from base with `loss_mask_type=qwen3`, `lr=1e-6`, one epoch,
+    Megatron distributed optimizer over `DP=2`.
+  - Then run SFT vLLM eval, OPD-1k, OPD-1k eval, OPD +4k, OPD-5k eval, and the
+    final report in the corrected `qwen3mask` output dirs.
+  - Replacement job IDs and patch commit will be recorded after submission.
+
+## Submitted Corrected Cleaned Qwen3-Mask Tail
+
+- Patch commit: `e98c321` (`Fix cleaned SFT Qwen3 loss mask`), pushed to
+  `origin/opd-reproduction` before submission.
+- Submit time/log: `2026-07-08 21:08 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260708_210806.txt`.
+- Reused preserved artifacts:
+  - vLLM setup: `preserved_163642`.
+  - Cleaned data: `preserved_163643`.
+  - Model conversion: `preserved_163644`.
+  - Megatron-DP optimizer smoke: `preserved_165034`.
+  - Base vLLM eval: `preserved_165035`.
+- Replacement job IDs:
+  - Corrected SFT 25k: `165695` (`gpu:h200:4`, `16:00:00`), no dependency;
+    running on `g005` at the post-submit check.
+  - Corrected SFT vLLM eval: `165696` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165695`.
+  - Corrected OPD-1k train: `165697` (`gpu:h200:4`, `08:00:00`),
+    `afterok:165696`.
+  - Corrected OPD-1k vLLM eval: `165698` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165697`.
+  - Corrected OPD +4k train: `165699` (`gpu:h200:4`, `24:00:00`),
+    `afterok:165698`.
+  - Corrected OPD-5k vLLM eval: `165700` (`gpu:h200:4`, `04:00:00`),
+    `afterok:165699`.
+  - Final report: `165701` (`gpu:h200:1`, `00:30:00`), `afterok:165700`.
+- Corrected output dirs:
+  - SFT full optimizer:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_qwen3mask_full_optim`.
+  - SFT HF snapshots:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_qwen3mask_eval_snapshots`.
+  - SFT eval:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_sft_25k_qwen3mask_vllm`.
+  - OPD eval/report:
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_qwen3mask_opd_1k_5k_vllm`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_qwen3mask_combined_vllm`.
+- Scheduler validation after submission:
+  - `165695` had `Dependency=(null)` and was running.
+  - `165696` through `165701` were pending on a strict `afterok` chain.
+  - Every replacement job had `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No replacement job requested more than 4 H200s.
+- Runtime validation targets:
+  - `165695` log must show `SFT loss mask type: qwen3` and
+    `SFT loss-mask preflight: enabled=1 require_think=1`.
+  - The preflight should print decoded train snippets containing complete
+    `<think>...</think>` traces before training starts.
+  - Early corrected rollout tensors should have long loss-masked assistant
+    targets, not the short `qwen`-masked targets from `165036`.
+  - Final corrected SFT checkpoint/HF snapshot should write `iter_0000099`.
+  - OPD jobs must load the corrected `qwen3mask` SFT HF snapshot, not the
+    diagnostic `165036` snapshot.
+
+## Resume-Safe vLLM Tail Resubmission After SFT Eval Timeout
+
+- Incident:
+  - Corrected SFT train `165695` completed and wrote the intended qwen3-mask
+    final artifacts:
+    - full optimizer checkpoint:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_qwen3mask_full_optim/iter_0000099`;
+    - HF snapshot:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/qwen3_8b_cleaned_sft_25k_qwen3mask_eval_snapshots/iter_0000099`.
+  - Corrected SFT vLLM eval `165696` timed out at the old `04:00:00`
+    walltime before writing a complete `debug_eval_0.pt` or `summary.json`.
+  - The old vLLM eval path only wrote `debug_eval_shard_*.pt` after an entire
+    125-sample shard finished, so the in-memory partial generations from
+    `165696` were not fidelity-safe progress.
+  - Stale downstream jobs `165697` through `165701` were canceled.
+- Patch:
+  - Patch commit `b645954` (`Make vLLM Math500 eval resumable`) was pushed to
+    `origin/opd-reproduction` before resubmission.
+  - `eval_math500_vllm.py` now supports deterministic chunk artifacts:
+    `debug_eval_chunk_shard{shard}_start{first}_end{last}.pt`.
+  - Chunk writes are atomic via a temporary file plus rename.
+  - Reruns use `--resume-completed` to skip valid completed chunks.
+  - Merge now accepts both legacy shard files and new chunk files, then requires
+    exactly 500 unique `eval_index` values before writing the standard
+    `debug_eval_0.pt`.
+  - `06_eval_math500_vllm.sbatch` passes
+    `VLLM_EVAL_CHUNK_SIZE=16` and `VLLM_EVAL_RESUME_COMPLETED=1`, so progress is
+    saved in the same granularity as the 16-sequence vLLM batch setting.
+  - The cleaned-chain submitter gained `CLEANED_RESUME_AFTER_SFT=1`, which
+    skips preserved setup/data/convert/smoke/base/SFT artifacts and starts at
+    SFT eval.
+- Walltime correction:
+  - An initial replacement chain `166656` through `166661` was submitted with
+    `72:00:00` train/eval walltimes, matching the requested 3-day cap, then
+    canceled because Tillicum `normal` QOS reports `MaxWall=1-00:00:00`.
+  - Patch commit `2f540e2` (`Use runnable cleaned-chain walltimes`) was pushed
+    to `origin/opd-reproduction`.
+  - The cleaned-chain default train/eval walltimes are now `24:00:00`, the
+    largest runnable walltime under the available `normal` QOS. Report jobs use
+    `06:00:00`.
+  - Resume safety now comes from chunk artifacts rather than an unavailable
+    72-hour walltime.
+- Validation before final resubmission:
+  - `python3 -m py_compile examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py`
+    passed.
+  - `bash -n` passed on touched shell/sbatch scripts.
+  - `git diff --check` passed.
+  - A synthetic chunk-merge regression wrote partial chunk files and merged them
+    into exact indices `[0, 1, 2]`.
+  - `RUN_CONTAINER_CHECKS=1 bash examples/qwen3_8b_opd_tillicum/run_all_dry_check.sh`
+    passed.
+- Final replacement submission:
+  - Submit time/log: `2026-07-09 16:34 PDT`,
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260709_163402.txt`.
+  - Reused preserved artifacts:
+    - vLLM setup: `preserved_163642`;
+    - cleaned data: `preserved_163643`;
+    - model conversion: `preserved_163644`;
+    - Megatron-DP optimizer smoke: `preserved_165034`;
+    - base vLLM eval: `preserved_165035`;
+    - corrected qwen3-mask SFT train: `preserved_165695`.
+  - Replacement job IDs:
+    - SFT vLLM eval: `166666` (`gpu:h200:4`, `24:00:00`), no dependency;
+      running on `g008` at the post-submit check.
+    - OPD-1k train: `166667` (`gpu:h200:4`, `24:00:00`),
+      `afterok:166666`.
+    - OPD-1k vLLM eval: `166668` (`gpu:h200:4`, `24:00:00`),
+      `afterok:166667`.
+    - OPD +4k train: `166669` (`gpu:h200:4`, `24:00:00`),
+      `afterok:166668`.
+    - OPD-5k vLLM eval: `166670` (`gpu:h200:4`, `24:00:00`),
+      `afterok:166669`.
+    - Final report: `166671` (`gpu:h200:1`, `06:00:00`),
+      `afterok:166670`.
+  - Output dirs:
+    - SFT eval:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_sft_25k_qwen3mask_vllm`.
+    - OPD eval:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_qwen3mask_opd_1k_5k_vllm`.
+    - Combined report:
+      `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_qwen3mask_combined_vllm`.
+  - Scheduler validation:
+    - `166666` started immediately with `Dependency=(null)`.
+    - `166667` through `166671` are a strict `afterok` chain.
+    - Every replacement job has `MailUser=suryadv@cs.washington.edu` and
+      `MailType=END,FAIL`.
+    - No replacement job requests more than 4 H200s; the final report requests
+      1 H200.
+  - Runtime validation targets:
+    - `166666` should log `vLLM chunk resume: chunk_size=16 resume_completed=1`.
+    - Chunk files should appear during generation before final merge.
+    - If interrupted, rerunning the same stage should skip completed valid
+      chunk files and only generate missing chunks.
+    - Final SFT eval should write `sft_025000/debug_eval_0.pt` and
+      `sft_025000/summary.json`, after which OPD-1k `166667` can start.

@@ -32,6 +32,7 @@ echo "vLLM venv: ${VLLM_EVAL_VENV}"
 echo "vLLM target site: ${VLLM_EVAL_SITE}"
 echo "vLLM workers/seqs/batched tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
 echo "vLLM force native sampler: ${VLLM_EVAL_FORCE_NATIVE_SAMPLER}"
+echo "vLLM chunk resume: chunk_size=${VLLM_EVAL_CHUNK_SIZE} resume_completed=${VLLM_EVAL_RESUME_COMPLETED}"
 echo "Eval max response/context: ${EVAL_MAX_RESPONSE_LEN}/${EVAL_MAX_CONTEXT_LEN}"
 export SLIME_VLLM_PATCH_SITE="${VLLM_EVAL_FORCE_NATIVE_SAMPLER}"
 echo "vLLM startup site patch: ${SLIME_VLLM_PATCH_SITE}"
@@ -114,6 +115,8 @@ while [[ "${shard}" -lt "${VLLM_EVAL_NUM_GPUS}" ]]; do
       --max-num-seqs "${VLLM_EVAL_MAX_NUM_SEQS}" \
       --max-num-batched-tokens "${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}" \
       --dtype "${VLLM_EVAL_DTYPE}" \
+      --chunk-size "${VLLM_EVAL_CHUNK_SIZE}" \
+      '"$([[ "${VLLM_EVAL_RESUME_COMPLETED}" == "1" ]] && printf "%s" "--resume-completed")"' \
       '"$([[ "${VLLM_EVAL_TRUST_REMOTE_CODE}" == "1" ]] && printf "%s" "--trust-remote-code")"' \
       --hf-home "${HF_HOME}"
   ) &
