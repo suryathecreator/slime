@@ -173,6 +173,7 @@ SFT_ARGS=(
   --global-batch-size "${SFT_GLOBAL_BATCH_SIZE}"
   --loss-type sft_loss
   --loss-mask-type "${SFT_LOSS_MASK_TYPE}"
+  --apply-chat-template-kwargs "{\"enable_thinking\": true}"
   --calculate-per-token-loss
   --disable-compute-advantages-and-returns
   --debug-train-only

@@ -49,6 +49,8 @@ echo "OPD rollout batch/global batch/samples per prompt: ${OPD_ROLLOUT_BATCH_SIZ
 echo "OPD rollout ids: 0-${OPD_FINAL_ROLLOUT_ID}"
 echo "OPD max response len: ${OPD_MAX_RESPONSE_LEN}"
 echo "OPD rollout max context len: ${OPD_ROLLOUT_MAX_CONTEXT_LEN}"
+echo "Qwen3 thinking enabled: ${QWEN3_ENABLE_THINKING}"
+echo "OPD rollout stop token ids: ${OPD_ROLLOUT_STOP_TOKEN_IDS} (im_end=${QWEN3_IM_END_TOKEN_ID}, endoftext=${QWEN3_ENDOFTEXT_TOKEN_ID})"
 echo "OPD actor/rollout/teacher GPU counts: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/1"
 echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
 echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
@@ -102,6 +104,15 @@ trap cleanup_pruner EXIT
 "${SCRIPT_DIR}/container_exec.sh" bash -lc '
 set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
+
+if [[ "${QWEN3_ENABLE_THINKING}" != "1" ]]; then
+  echo "This Qwen3 OPD run requires QWEN3_ENABLE_THINKING=1." >&2
+  exit 2
+fi
+python3 examples/qwen3_8b_opd_tillicum/validate_qwen3_generation.py \
+  --tokenizer "${STUDENT_HF_DIR}" \
+  --im-end-token-id "${QWEN3_IM_END_TOKEN_ID}" \
+  --endoftext-token-id "${QWEN3_ENDOFTEXT_TOKEN_ID}"
 
 ray stop --force >/dev/null 2>&1 || true
 
@@ -280,12 +291,14 @@ ROLLOUT_ARGS=(
   --prompt-data "${OPD_JSONL}"
   --input-key prompt
   --apply-chat-template
+  --apply-chat-template-kwargs "{\"enable_thinking\": true}"
   --rollout-shuffle
   --num-rollout "${OPD_NUM_ROLLOUT}"
   --rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}"
   --n-samples-per-prompt "${OPD_N_SAMPLES_PER_PROMPT}"
   --rollout-max-response-len "${OPD_MAX_RESPONSE_LEN}"
   --rollout-max-context-len "${OPD_ROLLOUT_MAX_CONTEXT_LEN}"
+  --rollout-stop-token-ids ${OPD_ROLLOUT_STOP_TOKEN_IDS}
   --rollout-temperature 1
   --rollout-top-p 1
   --global-batch-size "${OPD_GLOBAL_BATCH_SIZE}"

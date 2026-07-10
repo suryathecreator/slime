@@ -297,6 +297,14 @@ The next experiment is the cleaned-data run described in
 bash examples/qwen3_8b_opd_tillicum/submit_cleaned_sft_opd_vllm_chain.sh
 ```
 
+The corrected cleaned-SFT eval special-token incident and the auditable
+thinking/dual-stop fix are recorded in
+`results/cleaned_sft_eval_special_token_incident.md`. Qwen3 generation now
+passes `enable_thinking=True` explicitly, accepts both `<|im_end|>` and
+`<|endoftext|>` as stops, and saves special-preserving text plus raw prefill and
+generated token ids. The same note records the remaining language-cleaning
+gap and the optional future `<think>\n` prefill diagnostic.
+
 This chain first validates/installs a scratch-local vLLM eval environment,
 cleans OpenThoughts3 by requiring complete thinking traces and removing
 mixed-language rows, deterministically shuffles valid rows with seed `1234`,

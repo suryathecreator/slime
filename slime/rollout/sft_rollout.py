@@ -37,7 +37,11 @@ def generate_rollout(args, rollout_id, data_buffer, evaluation=False):
         PROCESSOR = load_processor(args.hf_checkpoint, trust_remote_code=True)
 
     if MASK_GENERATOR is None:
-        MASK_GENERATOR = MultiTurnLossMaskGenerator(TOKENIZER, tokenizer_type=args.loss_mask_type)
+        MASK_GENERATOR = MultiTurnLossMaskGenerator(
+            TOKENIZER,
+            tokenizer_type=args.loss_mask_type,
+            apply_chat_template_kwargs=args.apply_chat_template_kwargs,
+        )
 
     samples = data_buffer.get_samples(args.rollout_batch_size)
 

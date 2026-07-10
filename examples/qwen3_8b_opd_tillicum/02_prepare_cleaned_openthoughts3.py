@@ -195,7 +195,12 @@ def token_stats(tokenizer: Any, sft_rows: list[dict[str, Any]], opd_rows: list[d
     sft_texts = []
     for row in sft_rows:
         try:
-            text = tokenizer.apply_chat_template(row["messages"], tokenize=False, add_generation_prompt=False)
+            text = tokenizer.apply_chat_template(
+                row["messages"],
+                tokenize=False,
+                add_generation_prompt=False,
+                enable_thinking=True,
+            )
         except Exception:
             text = "\n".join(f"{m['role']}: {m['content']}" for m in row["messages"])
         sft_texts.append(text)
@@ -203,7 +208,12 @@ def token_stats(tokenizer: Any, sft_rows: list[dict[str, Any]], opd_rows: list[d
     for row in opd_rows:
         messages = [{"role": "user", "content": row["prompt"]}]
         try:
-            text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            text = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=True,
+            )
         except Exception:
             text = row["prompt"]
         opd_texts.append(text)

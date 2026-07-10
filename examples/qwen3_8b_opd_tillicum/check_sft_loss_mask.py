@@ -44,7 +44,17 @@ def main() -> None:
     args = parser.parse_args()
 
     tokenizer = load_tokenizer(args.hf_checkpoint, trust_remote_code=True)
-    mask_generator = MultiTurnLossMaskGenerator(tokenizer, tokenizer_type=args.loss_mask_type)
+    template_kwargs = {"enable_thinking": True} if args.loss_mask_type == "qwen3" else {}
+    mask_generator = MultiTurnLossMaskGenerator(
+        tokenizer,
+        tokenizer_type=args.loss_mask_type,
+        apply_chat_template_kwargs=template_kwargs,
+    )
+    default_mask_generator = (
+        MultiTurnLossMaskGenerator(tokenizer, tokenizer_type=args.loss_mask_type)
+        if args.loss_mask_type == "qwen3"
+        else None
+    )
 
     checked = 0
     for row_index, row in iter_rows(args.data, args.num_samples):
@@ -52,6 +62,12 @@ def main() -> None:
         assistant = assistant_text(messages)
         raw_assistant_tokens = tokenizer(assistant, add_special_tokens=False)["input_ids"]
         token_ids, loss_mask = mask_generator.get_loss_mask(messages)
+        if default_mask_generator is not None:
+            default_token_ids, default_loss_mask = default_mask_generator.get_loss_mask(messages)
+            if token_ids != default_token_ids or loss_mask != default_loss_mask:
+                raise SystemExit(
+                    f"row {row_index}: explicit enable_thinking=True changed Qwen3 SFT token ids or loss mask"
+                )
         response_length = mask_generator.get_response_lengths([loss_mask])[0]
         if response_length <= 0:
             raise SystemExit(f"row {row_index}: no trainable response tokens produced")

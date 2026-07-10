@@ -12,6 +12,17 @@ echo "  account/partition/qos: ${ACCOUNT}/${PARTITION}/${QOS}"
 echo "  scratch: ${SCRATCH_ROOT}"
 echo "  container (${SLIME_CONTAINER_FORMAT}): ${SLIME_SIF}"
 
+if [[ "${QWEN3_ENABLE_THINKING}" != "1" ]]; then
+  echo "QWEN3_ENABLE_THINKING must be 1 for this Qwen3 experiment." >&2
+  exit 1
+fi
+if [[ " ${QWEN3_STOP_TOKEN_IDS} " != *" ${QWEN3_IM_END_TOKEN_ID} "* ]] || \
+   [[ " ${QWEN3_STOP_TOKEN_IDS} " != *" ${QWEN3_ENDOFTEXT_TOKEN_ID} "* ]]; then
+  echo "QWEN3_STOP_TOKEN_IDS must contain both im_end and endoftext ids." >&2
+  echo "  stop ids=${QWEN3_STOP_TOKEN_IDS}" >&2
+  exit 1
+fi
+
 if [[ "${OPD_CONTEXT_PARALLEL_SIZE}" -gt 1 ]]; then
   opd_seq_modulus=$((2 * OPD_CONTEXT_PARALLEL_SIZE))
   if (( OPD_SEQ_LENGTH % opd_seq_modulus != 0 )); then
@@ -79,6 +90,7 @@ PYTHON_FILES=(
   examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_openthoughts3.py
   examples/qwen3_8b_opd_tillicum/02_prepare_openthoughts3_math_sample.py
   examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py
+  examples/qwen3_8b_opd_tillicum/validate_qwen3_generation.py
   examples/qwen3_8b_opd_tillicum/check_sft_loss_mask.py
   examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py
   examples/qwen3_8b_opd_tillicum/summarize_opd_sanity.py
@@ -102,6 +114,10 @@ done
 
 echo "Checking required container env forwarding"
 REQUIRED_CONTAINER_ENV=(
+  QWEN3_ENABLE_THINKING
+  QWEN3_IM_END_TOKEN_ID
+  QWEN3_ENDOFTEXT_TOKEN_ID
+  QWEN3_STOP_TOKEN_IDS
   SFT_LOSS_MASK_TYPE
   SFT_LOSS_MASK_PREFLIGHT_ENABLED
   SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK
@@ -126,6 +142,7 @@ REQUIRED_CONTAINER_ENV=(
   OPD_MANIFEST_FROM_ROLLOUT_LOGS
   OPD_REF_LOAD_DIR
   OPD_ROLLOUT_MAX_CONTEXT_LEN
+  OPD_ROLLOUT_STOP_TOKEN_IDS
   OPD_LOG_PROBS_CHUNK_SIZE
   OPD_TRAIN_MEMORY_MARGIN_BYTES
   OPD_LR
@@ -159,6 +176,7 @@ REQUIRED_CONTAINER_ENV=(
   SFT_LR
   SFT_CKPT_FORMAT
   EVAL_MAX_CONTEXT_LEN
+  EVAL_STOP_TOKEN_IDS
   EVAL_BACKEND
   REPORT_SFT_FINAL_ONLY
   REPORT_OPD_FINAL_ONLY
@@ -175,6 +193,7 @@ REQUIRED_CONTAINER_ENV=(
   VLLM_EVAL_MAX_NUM_BATCHED_TOKENS
   VLLM_EVAL_CHUNK_SIZE
   VLLM_EVAL_RESUME_COMPLETED
+  VLLM_EVAL_PRESERVE_SPECIAL_TOKENS
   VLLM_EVAL_DTYPE
   VLLM_EVAL_TRUST_REMOTE_CODE
   VLLM_EVAL_FORCE_NATIVE_SAMPLER
@@ -187,6 +206,17 @@ for name in "${REQUIRED_CONTAINER_ENV[@]}"; do
     exit 1
   fi
 done
+
+if ! grep -Fq -- '--apply-chat-template-kwargs "{\"enable_thinking\": true}"' \
+  examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch; then
+  echo "OPD wrapper must pass enable_thinking=true explicitly." >&2
+  exit 1
+fi
+if ! grep -Fq -- '--rollout-stop-token-ids ${OPD_ROLLOUT_STOP_TOKEN_IDS}' \
+  examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch; then
+  echo "OPD wrapper must pass the configured dual stop token ids." >&2
+  exit 1
+fi
 
 echo "Checking Python syntax"
 python3 -m py_compile "${PYTHON_FILES[@]}"

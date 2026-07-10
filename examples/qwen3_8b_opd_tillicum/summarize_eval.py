@@ -40,6 +40,16 @@ def parse_args() -> argparse.Namespace:
 
 
 FINAL_ANSWER_RE = re.compile(r"(?i)\b(?:final\s+answer|answer)\s*(?:is|:)\s*(?P<answer>.+)$")
+TERMINAL_CONTROL_RE = re.compile(r"(?:<\|im_end\|>|<\|endoftext\|>|</s>|<pad>)\s*$")
+
+
+def scoring_response(response: str) -> str:
+    cleaned = response
+    while True:
+        stripped = TERMINAL_CONTROL_RE.sub("", cleaned)
+        if stripped == cleaned:
+            return cleaned
+        cleaned = stripped
 
 
 def answer_segment(response: str) -> str:
@@ -52,7 +62,7 @@ def answer_segment(response: str) -> str:
 
 def clean_final_answer_candidate(candidate: str) -> str:
     candidate = candidate.strip()
-    candidate = re.split(r"<\|endoftext\|>|</s>|<pad>", candidate, maxsplit=1)[0].strip()
+    candidate = re.split(r"<\|im_end\|>|<\|endoftext\|>|</s>|<pad>", candidate, maxsplit=1)[0].strip()
     candidate = candidate.split(". ", 1)[0].strip()
     candidate = candidate.split("\n", 1)[0].strip()
 
@@ -97,7 +107,7 @@ def extract_ground_truth(label: Any) -> str:
 def score_sample(sample: dict[str, Any]) -> tuple[float, bool]:
     from slime.rollout.rm_hub.math_utils import grade_answer_mathd, grade_answer_sympy
 
-    response = str(sample.get("response", ""))
+    response = scoring_response(str(sample.get("response", "")))
     label = sample.get("label", "")
     prediction = extract_prediction(response)
     if prediction is None:

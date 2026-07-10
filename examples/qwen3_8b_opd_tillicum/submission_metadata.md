@@ -3046,3 +3046,44 @@ Recorded: 2026-07-01 17:28 PDT
       chunk files and only generate missing chunks.
     - Final SFT eval should write `sft_025000/debug_eval_0.pt` and
       `sft_025000/summary.json`, after which OPD-1k `166667` can start.
+
+## Corrected Qwen3 Thinking and Stop Semantics
+
+- Incident observed in SFT eval `166666`:
+  - 12 resumable chunks covered 192/500 MATH-500 examples.
+  - All 192 responses reached 31,744 generated tokens and ended with
+    `finish_reason=length`; observed cap-hit rate was 1.0.
+  - The old chunk schema saved decoded text but discarded generated token ids,
+    while vLLM skipped special tokens by default. Those files cannot prove
+    whether `<think>`, `</think>`, or `<|im_end|>` was emitted.
+  - Corrected SFT targets end in `<|im_end|>` id `151645`, but the old eval
+    only reliably recognized configured EOS `<|endoftext|>` id `151643`.
+- Patch policy:
+  - Pass `enable_thinking=True` explicitly in every Qwen3 prompt-rendering path
+    used by this experiment.
+  - Stop vLLM eval and SGLang OPD on either `151645` or `151643`.
+  - Save exact prefill/generated token ids and special-preserving response text.
+  - Fingerprint the complete generation policy so old or mismatched chunks are
+    rejected rather than silently resumed.
+  - Preserve the valid base result from `165035`: accuracy `0.612`, parse
+    failure `0.176`, cap hit `0.040`.
+- Cleaning follow-up recorded, not yet applied:
+  - Our counts were incomplete-think `743,814`, mixed-language `94,920`, valid
+    `429,713`; the reference counts were `749,380`, `397,642`, and `332,843`.
+  - Cleaned source row `655427` still includes fragments such as
+    `Por lo tanto`, `因此`, and Korean text because English dominates its long
+    response and non-English characters stay below the script-ratio threshold.
+  - If corrected eval semantics do not resolve most of the behavior, the next
+    pass should remove the worst English-contaminated, Latin-script
+    non-English, multilingual, and web-noise rows while preserving LaTeX and
+    mathematical notation.
+- Tracked incident note:
+  `examples/qwen3_8b_opd_tillicum/results/cleaned_sft_eval_special_token_incident.md`.
+- Preservation/resubmission decision:
+  - Preserve `166666` chunks in a diagnostic `pre_special_token_fix_166666`
+    directory; do not merge or score them as the corrected eval.
+  - Preserve cleaned data, conversion, base summary, and corrected SFT
+    `iter_0000099` full/HF checkpoints.
+  - Cancel `166666` through `166671`, then resubmit from SFT eval with the
+    existing strict serialized tail.
+  - Patch commit and replacement job ids are recorded below after submission.

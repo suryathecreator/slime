@@ -34,8 +34,20 @@ echo "vLLM workers/seqs/batched tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_NU
 echo "vLLM force native sampler: ${VLLM_EVAL_FORCE_NATIVE_SAMPLER}"
 echo "vLLM chunk resume: chunk_size=${VLLM_EVAL_CHUNK_SIZE} resume_completed=${VLLM_EVAL_RESUME_COMPLETED}"
 echo "Eval max response/context: ${EVAL_MAX_RESPONSE_LEN}/${EVAL_MAX_CONTEXT_LEN}"
+echo "Qwen3 thinking enabled: ${QWEN3_ENABLE_THINKING}"
+echo "Qwen3 stop token ids: ${EVAL_STOP_TOKEN_IDS} (im_end=${QWEN3_IM_END_TOKEN_ID}, endoftext=${QWEN3_ENDOFTEXT_TOKEN_ID})"
+echo "vLLM preserve special tokens: ${VLLM_EVAL_PRESERVE_SPECIAL_TOKENS}"
 export SLIME_VLLM_PATCH_SITE="${VLLM_EVAL_FORCE_NATIVE_SAMPLER}"
 echo "vLLM startup site patch: ${SLIME_VLLM_PATCH_SITE}"
+
+if [[ "${QWEN3_ENABLE_THINKING}" != "1" ]]; then
+  echo "This Qwen3 eval requires QWEN3_ENABLE_THINKING=1." >&2
+  exit 2
+fi
+if [[ "${VLLM_EVAL_PRESERVE_SPECIAL_TOKENS}" != "1" ]]; then
+  echo "This Qwen3 eval requires VLLM_EVAL_PRESERVE_SPECIAL_TOKENS=1." >&2
+  exit 2
+fi
 
 if [[ -d "${VLLM_EVAL_SITE}/vllm" ]]; then
   export VLLM_EVAL_PYTHON_CMD="${VLLM_EVAL_PYTHON}"
@@ -116,6 +128,11 @@ while [[ "${shard}" -lt "${VLLM_EVAL_NUM_GPUS}" ]]; do
       --max-num-batched-tokens "${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}" \
       --dtype "${VLLM_EVAL_DTYPE}" \
       --chunk-size "${VLLM_EVAL_CHUNK_SIZE}" \
+      --enable-thinking \
+      --stop-token-ids ${EVAL_STOP_TOKEN_IDS} \
+      --im-end-token-id "${QWEN3_IM_END_TOKEN_ID}" \
+      --endoftext-token-id "${QWEN3_ENDOFTEXT_TOKEN_ID}" \
+      --preserve-special-tokens \
       '"$([[ "${VLLM_EVAL_RESUME_COMPLETED}" == "1" ]] && printf "%s" "--resume-completed")"' \
       '"$([[ "${VLLM_EVAL_TRUST_REMOTE_CODE}" == "1" ]] && printf "%s" "--trust-remote-code")"' \
       --hf-home "${HF_HOME}"
