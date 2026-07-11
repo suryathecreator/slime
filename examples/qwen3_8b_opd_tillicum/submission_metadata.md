@@ -9,6 +9,7 @@
 - Base comparison: reuse valid job `165035` summary.
 - Submission architecture: 1-GPU language setup -> 1-GPU resumable cleaning/count gate -> 1-GPU dynamic dispatcher -> serialized jobs requesting at most 4 H200s.
 - The implementation commit and replacement job IDs are recorded below after push/submission.
+- First submission attempt `168159`-`168161` was canceled before cleaning ran: the submission log exposed inherited legacy data paths. No data artifact was written or overwritten. The strict config now assigns all experiment paths through dedicated `STRICT_EN_*` override names.
 
 Recorded: 2026-07-01 17:28 PDT
 

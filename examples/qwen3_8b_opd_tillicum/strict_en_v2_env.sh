@@ -5,11 +5,13 @@ export STRICT_EN_EXPERIMENT_LABEL="${STRICT_EN_EXPERIMENT_LABEL:-strict_en_v2_ma
 export CLEANED_EXPERIMENT_LABEL="${STRICT_EN_EXPERIMENT_LABEL}"
 export CLEANED_OUTPUT_TAG="${STRICT_EN_EXPERIMENT_LABEL}"
 export STRICT_EN_DATASET_DIR="${STRICT_EN_DATASET_DIR:-${DATA_ROOT}/openthoughts3_${STRICT_EN_EXPERIMENT_LABEL}}"
-export SFT_PARQUET="${SFT_PARQUET:-${STRICT_EN_DATASET_DIR}/strict_math_sft.jsonl}"
-export CLEANED_OPD_RESERVE_JSONL="${CLEANED_OPD_RESERVE_JSONL:-${STRICT_EN_DATASET_DIR}/strict_math_opd_reserve.jsonl}"
-export CLEANED_OPD_1K_JSONL="${CLEANED_OPD_1K_JSONL:-${STRICT_EN_DATASET_DIR}/strict_math_opd_001024.jsonl}"
-export CLEANED_OPD_4K_JSONL="${CLEANED_OPD_4K_JSONL:-${STRICT_EN_DATASET_DIR}/strict_math_opd_continuation.jsonl}"
-export CLEANED_METADATA="${CLEANED_METADATA:-${STRICT_EN_DATASET_DIR}/split_metadata.json}"
+# env.sh defines paths for the older cleaned experiment. Use strict-specific
+# override names so sourcing order can never redirect this run into old paths.
+export SFT_PARQUET="${STRICT_EN_SFT_JSONL:-${STRICT_EN_DATASET_DIR}/strict_math_sft.jsonl}"
+export CLEANED_OPD_RESERVE_JSONL="${STRICT_EN_OPD_RESERVE_JSONL:-${STRICT_EN_DATASET_DIR}/strict_math_opd_reserve.jsonl}"
+export CLEANED_OPD_1K_JSONL="${STRICT_EN_OPD_1K_JSONL:-${STRICT_EN_DATASET_DIR}/strict_math_opd_001024.jsonl}"
+export CLEANED_OPD_4K_JSONL="${STRICT_EN_OPD_CONTINUATION_JSONL:-${STRICT_EN_DATASET_DIR}/strict_math_opd_continuation.jsonl}"
+export CLEANED_METADATA="${STRICT_EN_METADATA:-${STRICT_EN_DATASET_DIR}/split_metadata.json}"
 export SPLIT_METADATA="${CLEANED_METADATA}"
 
 export STRICT_MATH_MAX_SELECTED="${STRICT_MATH_MAX_SELECTED:-50000}"
