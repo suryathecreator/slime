@@ -1,5 +1,15 @@
 # Tillicum Qwen3 OPD Submission Metadata
 
+## 2026-07-11 strict-English v2 replacement
+
+- Superseded jobs canceled: `167285`, `167286`, `167287`, `167288`, `167289`, `167290`.
+- Cleanup policy: scheduler jobs only. No checkpoint, eval chunk, log, or diagnostic artifact was deleted.
+- Preserved partial diagnostic: job `167285` had schema-2 resumable chunks covering 128 MATH-500 examples under `math500_eval_cleaned_sft_25k_qwen3mask_vllm/sft_025000`.
+- Replacement experiment: `strict_en_v2_math45k_opd5k`.
+- Base comparison: reuse valid job `165035` summary.
+- Submission architecture: 1-GPU language setup -> 1-GPU resumable cleaning/count gate -> 1-GPU dynamic dispatcher -> serialized jobs requesting at most 4 H200s.
+- The implementation commit and replacement job IDs are recorded below after push/submission.
+
 Recorded: 2026-07-01 17:28 PDT
 
 ## Planned Cleaned OpenThoughts SFT + OPD vLLM Chain

@@ -1,5 +1,7 @@
 # Tillicum Qwen3 OPD Results
 
+- [Strict-English v2 experiment](strict_en_v2_experiment.md): stricter multilingual/noise filtering, count gates, a dynamic 45k/5k split, and old-job cleanup.
+
 ## Accidental Base -> OPD Salvage
 
 These files record the completed salvage eval for the accidental `1k_32k`

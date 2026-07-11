@@ -17,6 +17,12 @@ The reproduction branch also carries small runtime fixes needed for this run,
 including skipping entropy allocation when `--entropy-coef 0.00` and handling
 non-scalar rollout rewards in logging.
 
+The isolated strict-English v2 SFT -> OPD run is specified in
+[`results/strict_en_v2_experiment.md`](results/strict_en_v2_experiment.md).
+It saves a reusable all-domain corpus, gates cleaning counts against the
+comparison implementation, derives a high-quality math subset, and dynamically
+dispatches the batch-aligned training chain.
+
 ## Required environment
 
 Source `env.sh` before running commands:

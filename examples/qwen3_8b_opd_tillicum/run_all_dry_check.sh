@@ -70,6 +70,8 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/submit_opd_continue_1k_to_25k_val100_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_cleaned_sft_opd_vllm_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_cleanup_base_opd_2gpu.sh
+  examples/qwen3_8b_opd_tillicum/submit_strict_en_v2_chain.sh
+  examples/qwen3_8b_opd_tillicum/strict_en_v2_env.sh
   examples/qwen3_8b_opd_tillicum/02_prepare_data_25k_10k.sbatch
   examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_data.sbatch
   examples/qwen3_8b_opd_tillicum/02_prepare_opd_continuation_25k_val100.sbatch
@@ -84,10 +86,15 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/08_maybe_base_eval_math500.sbatch
   examples/qwen3_8b_opd_tillicum/09_cleanup_base_opd_2gpu.sbatch
   examples/qwen3_8b_opd_tillicum/10_setup_vllm_eval_env.sbatch
+  examples/qwen3_8b_opd_tillicum/11_setup_strict_language_env.sbatch
+  examples/qwen3_8b_opd_tillicum/12_prepare_strict_english_data.sbatch
+  examples/qwen3_8b_opd_tillicum/13_dispatch_strict_en_chain.sbatch
 )
 
 PYTHON_FILES=(
   examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_openthoughts3.py
+  examples/qwen3_8b_opd_tillicum/prepare_strict_english_openthoughts3.py
+  examples/qwen3_8b_opd_tillicum/_strict_english_filters.py
   examples/qwen3_8b_opd_tillicum/02_prepare_openthoughts3_math_sample.py
   examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py
   examples/qwen3_8b_opd_tillicum/validate_qwen3_generation.py
@@ -167,6 +174,14 @@ REQUIRED_CONTAINER_ENV=(
   CLEANED_OPD_RESERVE_JSONL
   CLEANED_OPD_1K_JSONL
   CLEANED_OPD_4K_JSONL
+  STRICT_EN_EXPERIMENT_LABEL
+  STRICT_EN_DATASET_DIR
+  STRICT_LANGUAGE_SITE
+  STRICT_LANGUAGE_INSTALL_SPEC
+  STRICT_EN_SHARD_SIZE
+  STRICT_EN_WORKERS
+  STRICT_MATH_MAX_SELECTED
+  STRICT_OPD_RESERVE_SIZE
   SFT_ACTOR_GPUS
   SFT_TENSOR_MODEL_PARALLEL_SIZE
   SFT_CONTEXT_PARALLEL_SIZE
@@ -235,6 +250,9 @@ SBATCH_FILES=(
   examples/qwen3_8b_opd_tillicum/08_maybe_base_eval_math500.sbatch
   examples/qwen3_8b_opd_tillicum/09_cleanup_base_opd_2gpu.sbatch
   examples/qwen3_8b_opd_tillicum/10_setup_vllm_eval_env.sbatch
+  examples/qwen3_8b_opd_tillicum/11_setup_strict_language_env.sbatch
+  examples/qwen3_8b_opd_tillicum/12_prepare_strict_english_data.sbatch
+  examples/qwen3_8b_opd_tillicum/13_dispatch_strict_en_chain.sbatch
 )
 
 echo "Checking Slurm scripts with sbatch --test-only"
