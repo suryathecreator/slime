@@ -10,6 +10,14 @@
 - Submission architecture: 1-GPU language setup -> 1-GPU resumable cleaning/count gate -> 1-GPU dynamic dispatcher -> serialized jobs requesting at most 4 H200s.
 - The implementation commit and replacement job IDs are recorded below after push/submission.
 - First submission attempt `168159`-`168161` was canceled before cleaning ran: the submission log exposed inherited legacy data paths. No data artifact was written or overwritten. The strict config now assigns all experiment paths through dedicated `STRICT_EN_*` override names.
+- Implementation commits: `8249de4` (strict cleaner/experiment) and `2425091` (isolated strict paths).
+- Corrected initial jobs submitted 2026-07-11 02:00 PDT:
+  - language setup `168162`: 1 H200, 8 CPUs, `06:00:00`, no dependency;
+  - resumable strict cleaning `168163`: 1 H200, 8 CPUs, `24:00:00`, `afterok:168162`;
+  - dynamic dispatcher `168164`: 1 H200, 4 CPUs, `01:00:00`, `afterok:168163`.
+- All three use `MailUser=suryadv@cs.washington.edu`, `MailType=END,FAIL` and have no stale dependency.
+- Strict data root: `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_strict_en_v2_math45k_opd5k`.
+- The dispatcher submits downstream SFT/eval/OPD/report IDs only after the count gate passes and actual batch-aligned sizes are known. It records them in `outputs/slurm_logs/strict_en_v2_dispatched_jobs_168164.txt`.
 
 Recorded: 2026-07-01 17:28 PDT
 
