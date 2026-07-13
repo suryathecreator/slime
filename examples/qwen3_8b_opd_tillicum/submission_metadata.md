@@ -66,6 +66,22 @@
   thinking tags and terminal `151645`; SFT `iter_0000199`; OPD iterations
   `7/15/23/31/39`; exactly 500 records in each of the three new MATH-500
   summaries; and successful model-only/full-optimizer rotation.
+
+### Data-preflight failure `170071`
+
+- Data job `170071` failed after `00:03:21`, before writing any experiment
+  JSONL, metadata, checkpoint, or training state.
+- The pinned dataset download and all ten generated Arrow cache shards are
+  complete and preserved under `HF_HOME`; the empty isolated data directory is
+  safe to reuse.
+- Root cause was validation code, not OpenR1 data: this Transformers version
+  returns a `BatchEncoding` from `apply_chat_template()`, and the Qwen3 template
+  renders the assistant ending as `<|im_end|>\n`, token IDs `151645, 198`.
+  The old check treated the return value as a flat list and required its final
+  entry to be exactly `151645`.
+- The replacement normalizes `BatchEncoding`/legacy list returns and accepts
+  only whitespace after the final semantic `<|im_end|>`. The same correction is
+  applied to the SFT loss-mask preflight so it cannot fail on token `198` next.
 - Direction change: low-data OpenThoughts SFT improved math accuracy but also exposed high cap-hit, redundant-reasoning, and inconsistent-formatting behavior. Strict cleaning is expensive and may require substantially more clean SFT data to generalize.
 
 ## 2026-07-11 strict-English v2 replacement

@@ -12,6 +12,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from examples.qwen3_8b_opd_tillicum.validate_qwen3_generation import semantic_terminal_audit
+
 
 def parse_args() -> argparse.Namespace:
     env = os.environ
@@ -232,14 +234,17 @@ def validate_chat_targets(tokenizer: Any, sft_rows: list[dict[str, Any]], im_end
     audit: list[dict[str, Any]] = []
     for index in (0, len(sft_rows) // 2, len(sft_rows) - 1):
         row = sft_rows[index]
-        token_ids = tokenizer.apply_chat_template(
+        rendered = tokenizer.apply_chat_template(
             row["messages"],
             tokenize=True,
             add_generation_prompt=False,
             enable_thinking=True,
         )
-        if not token_ids or token_ids[-1] != im_end_token_id:
-            raise RuntimeError(f"SFT row {index} does not render with terminal <|im_end|>")
+        try:
+            terminal_audit = semantic_terminal_audit(tokenizer, rendered, im_end_token_id)
+        except ValueError as exc:
+            raise RuntimeError(f"SFT row {index} does not render with terminal <|im_end|>: {exc}") from exc
+        token_ids = terminal_audit["input_ids"]
         assistant = row["messages"][-1]["content"]
         if not has_ordered_think_tags(assistant):
             raise RuntimeError(f"SFT row {index} lost its thinking tags")
@@ -248,7 +253,10 @@ def validate_chat_targets(tokenizer: Any, sft_rows: list[dict[str, Any]], im_end
                 "sft_offset": index,
                 "source_row_id": row["metadata"]["source_row_id"],
                 "rendered_tokens": len(token_ids),
-                "terminal_token_id": token_ids[-1],
+                "terminal_token_id": terminal_audit["terminal_token_id"],
+                "terminal_token_position": terminal_audit["terminal_token_position"],
+                "trailing_token_ids": terminal_audit["trailing_token_ids"],
+                "trailing_text": terminal_audit["trailing_text"],
                 "think_start": assistant.find("<think>"),
                 "think_end": assistant.find("</think>"),
             }

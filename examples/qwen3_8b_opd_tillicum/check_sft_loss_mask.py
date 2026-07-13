@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
+from examples.qwen3_8b_opd_tillicum.validate_qwen3_generation import semantic_terminal_audit
 from slime.utils.mask_utils import MultiTurnLossMaskGenerator
 from slime.utils.processing_utils import load_tokenizer
 
@@ -72,6 +73,17 @@ def main() -> None:
         if response_length <= 0:
             raise SystemExit(f"row {row_index}: no trainable response tokens produced")
         train_target_ids = token_ids[-response_length:]
+        terminal_audit = None
+        if args.require_think:
+            try:
+                terminal_audit = semantic_terminal_audit(
+                    tokenizer,
+                    train_target_ids,
+                    tokenizer.convert_tokens_to_ids("<|im_end|>"),
+                )
+            except ValueError as exc:
+                raise SystemExit(f"row {row_index}: decoded train target has invalid terminal: {exc}") from exc
+            train_target_ids = terminal_audit["input_ids"]
         train_target = tokenizer.decode(train_target_ids, skip_special_tokens=False)
         loss_tokens = int(sum(loss_mask))
         ratio = loss_tokens / max(len(raw_assistant_tokens), 1)
@@ -91,12 +103,8 @@ def main() -> None:
             )
         if args.require_think and ("<think>" not in train_target or "</think>" not in train_target):
             raise SystemExit(f"row {row_index}: decoded train target does not contain complete think tags")
-        if args.require_think:
-            im_end_token_id = tokenizer.convert_tokens_to_ids("<|im_end|>")
-            if not train_target_ids or train_target_ids[-1] != im_end_token_id:
-                raise SystemExit(
-                    f"row {row_index}: decoded train target does not end in <|im_end|> ({im_end_token_id})"
-                )
+        if args.require_think and terminal_audit["terminal_token_id"] != tokenizer.convert_tokens_to_ids("<|im_end|>"):
+            raise SystemExit(f"row {row_index}: decoded train target lacks semantic terminal <|im_end|>")
         if args.print_snippets:
             print(f"SFT_LOSS_MASK_SNIPPET row={row_index}")
             print(compact(train_target))
