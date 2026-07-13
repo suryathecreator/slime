@@ -28,8 +28,44 @@
   until the replacement checkpoint and its HF snapshot validate successfully.
 - Base evaluation is reused from job `165035`. The full implementation contract
   and timing estimates are in `results/openr1_math220k_reproduction.md`.
-- Pre-submission validation and implementation commit are pending below; job IDs
-  will be appended after the strict serialized chain is submitted.
+- Archived status commit: `d39d67e` (`Archive experiment results before OpenR1
+  pivot`). Implementation commit: `dca4022` (`Add OpenR1 50k SFT and OPD
+  reproduction`). Both were pushed to `origin/opd-reproduction` before
+  submission.
+- Submission time: `2026-07-13T00:33:53-07:00`. Scratch submission log:
+  `outputs/slurm_logs/submit_openr1_math220k_20260713_003352.txt`.
+- Strict serialized jobs:
+  - data `170071`: 1 H200, 8 CPUs, `06:00:00`, no dependency;
+  - SFT-50k `170072`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170071`;
+  - SFT MATH-500 `170073`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170072`;
+  - OPD-1,024 `170074`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170073`;
+  - OPD-1,024 MATH-500 `170075`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170074`;
+  - OPD endpoints 2,048/3,072/4,096/5,120: `170076`/`170077`/`170078`/`170079`,
+    each 4 H200s, 32 CPUs, `24:00:00`, chained in that order;
+  - OPD-5,120 MATH-500 `170080`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170079`;
+  - final report `170081`: 1 H200, 8 CPUs, `06:00:00`, `afterok:170080`.
+- Scheduler validation found no `DependencyNeverSatisfied`. Every job has
+  `MailUser=suryadv@cs.washington.edu`, `MailType=END,FAIL`, and no job requests
+  more than four H200s.
+- Output roots:
+  - data: `data/openr1_math220k_default_sft50k_opd5120`;
+  - SFT optimizer/snapshots:
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_sft_full_optim` and
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_sft_eval_snapshots`;
+  - OPD-1k optimizer/snapshots:
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_opd1k_full_optim` and
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_opd1k_eval_snapshots`;
+  - continuation optimizer/snapshots:
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_opd_continue_full_optim`
+    and
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_opd_continue_eval_snapshots`;
+  - eval/report roots begin with
+    `outputs/math500_eval_openr1_math220k_default_sft50k_opd5120_`.
+- Runtime validation targets: exact 50,000/1,024/4,096 data counts; zero
+  source-ID/UUID/prompt-hash overlap; Qwen3 target snippets containing complete
+  thinking tags and terminal `151645`; SFT `iter_0000199`; OPD iterations
+  `7/15/23/31/39`; exactly 500 records in each of the three new MATH-500
+  summaries; and successful model-only/full-optimizer rotation.
 - Direction change: low-data OpenThoughts SFT improved math accuracy but also exposed high cap-hit, redundant-reasoning, and inconsistent-formatting behavior. Strict cleaning is expensive and may require substantially more clean SFT data to generalize.
 
 ## 2026-07-11 strict-English v2 replacement
