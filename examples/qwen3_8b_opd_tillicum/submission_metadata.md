@@ -82,6 +82,36 @@
 - The replacement normalizes `BatchEncoding`/legacy list returns and accepts
   only whitespace after the final semantic `<|im_end|>`. The same correction is
   applied to the SFT loss-mask preflight so it cannot fail on token `198` next.
+- Patch commit `f6f082b` (`Fix OpenR1 Qwen3 terminal preflight`) was pushed to
+  `origin/opd-reproduction` before resubmission. Host tests, the full container
+  dry check, and an actual Qwen3 tokenizer/loss-mask probe all passed; the
+  container probe observed the expected terminal tail `151645, 198` and decoded
+  the trailing token as only `\n`.
+- Stale dependent jobs `170072`-`170081` were canceled. No selected data,
+  checkpoint, eval, or training artifact from `170071` was used as progress.
+- Replacement submission time: `2026-07-13T11:31:09-07:00`. Scratch submission
+  log: `outputs/slurm_logs/submit_openr1_math220k_20260713_113109.txt`.
+- Replacement strict `afterok` chain:
+  - data `170454`: 1 H200, 8 CPUs, `06:00:00`, no dependency;
+  - SFT-50k `170455`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170454`;
+  - SFT MATH-500 `170456`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170455`;
+  - OPD-1,024 `170457`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170456`;
+  - OPD-1,024 MATH-500 `170458`: 4 H200s, 32 CPUs, `24:00:00`,
+    `afterok:170457`;
+  - OPD endpoints 2,048/3,072/4,096/5,120: `170459`/`170460`/`170461`/`170462`,
+    each 4 H200s, 32 CPUs, `24:00:00`, serialized in that order;
+  - OPD-5,120 MATH-500 `170463`: 4 H200s, 32 CPUs, `24:00:00`,
+    `afterok:170462`;
+  - final report `170464`: 1 H200, 8 CPUs, `06:00:00`, `afterok:170463`.
+- Scheduler verification found no `DependencyNeverSatisfied`. Every replacement
+  has `MailUser=suryadv@cs.washington.edu`, `MailType=END,FAIL`, and requests no
+  more than four H200s. Data job `170454` started on `g022`; all downstream jobs
+  remained correctly blocked on their immediate predecessor.
+- The replacement reuses the unchanged output roots listed above and the
+  completed pinned Hugging Face cache. Runtime gates remain exact
+  `50,000/1,024/4,096` output counts, zero source-ID/UUID/prompt-hash overlap,
+  semantically terminated Qwen3 SFT targets, and successful strict dependency
+  release into SFT.
 - Direction change: low-data OpenThoughts SFT improved math accuracy but also exposed high cap-hit, redundant-reasoning, and inconsistent-formatting behavior. Strict cleaning is expensive and may require substantially more clean SFT data to generalize.
 
 ## 2026-07-11 strict-English v2 replacement
