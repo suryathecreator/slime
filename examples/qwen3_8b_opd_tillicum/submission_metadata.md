@@ -1,5 +1,13 @@
 # Tillicum Qwen3 OPD Submission Metadata
 
+## 2026-07-13 OpenThoughts pause and OpenR1 direction change
+
+- Strict-language setup `168162` completed in `00:02:00`.
+- Strict cleaner `168163` timed out at `24:00:20` after 390,000 rows. The broken Lingua microspan rule marked all 390,000 rows non-English, so its zero-valid output is invalid and cannot seed training.
+- Pending dispatcher `168164` was canceled on 2026-07-13. No strict cleaner shard, prior checkpoint, eval chunk, or script was deleted.
+- All valid full MATH-500 summaries, val100 diagnostics, and invalid/incomplete run status are frozen under `results/status_through_2026-07-13/` before the OpenR1-Math-220k replacement is implemented.
+- Direction change: low-data OpenThoughts SFT improved math accuracy but also exposed high cap-hit, redundant-reasoning, and inconsistent-formatting behavior. Strict cleaning is expensive and may require substantially more clean SFT data to generalize.
+
 ## 2026-07-11 strict-English v2 replacement
 
 - Superseded jobs canceled: `167285`, `167286`, `167287`, `167288`, `167289`, `167290`.

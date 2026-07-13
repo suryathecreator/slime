@@ -1,0 +1,16 @@
+{
+  "stage": "base",
+  "train_samples": 0,
+  "debug_file": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_base_25k_opd_1k_32k/base/debug_eval_0.pt",
+  "n": 500,
+  "correct_count": 319,
+  "parseable_count": 420,
+  "accuracy": 0.638,
+  "accuracy_on_parseable": 0.7595238095238095,
+  "mean_accuracy": 0.638,
+  "std_accuracy": null,
+  "avg_generated_tokens": 1686.402,
+  "max_generated_tokens": 31744,
+  "parse_failure_rate": 0.16,
+  "cap_hit_rate": 0.036
+}

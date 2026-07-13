@@ -1,6 +1,7 @@
 # Tillicum Qwen3 OPD Results
 
 - [Strict-English v2 experiment](strict_en_v2_experiment.md): stricter multilingual/noise filtering, count gates, a dynamic 45k/5k split, and old-job cleanup.
+- [Status through 2026-07-13](status_through_2026-07-13/README.md): frozen full-eval summaries, val100 diagnostics, invalid/incomplete run status, and the OpenR1 direction change.
 
 ## Accidental Base -> OPD Salvage
 

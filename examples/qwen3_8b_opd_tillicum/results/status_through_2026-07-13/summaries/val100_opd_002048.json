@@ -1,0 +1,1 @@
+{"stage":"opd_002048","train_samples":2048,"n":100,"correct_count":72,"parseable_count":88,"accuracy":0.72,"accuracy_on_parseable":0.8181818181818182,"mean_accuracy":0.72,"std_accuracy":null,"avg_generated_tokens":31365.73,"max_generated_tokens":31744,"parse_failure_rate":0.12,"cap_hit_rate":0.98}

@@ -1,0 +1,1 @@
+{"stage":"sft_015360","train_samples":15360,"n":500,"correct_count":373,"parseable_count":478,"accuracy":0.746,"accuracy_on_parseable":0.7803347280334728,"mean_accuracy":0.746,"std_accuracy":null,"avg_generated_tokens":22238.692,"max_generated_tokens":31744,"parse_failure_rate":0.044,"cap_hit_rate":0.694}
