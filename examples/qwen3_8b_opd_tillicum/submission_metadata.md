@@ -112,6 +112,13 @@
   `50,000/1,024/4,096` output counts, zero source-ID/UUID/prompt-hash overlap,
   semantically terminated Qwen3 SFT targets, and successful strict dependency
   release into SFT.
+- Runtime data validation completed successfully: `170454` finished in
+  `00:01:31` with exit code `0`, writing exactly `50,000` SFT, `1,024` first
+  OPD, and `4,096` continuation OPD rows. Metadata reports zero intersections
+  for source IDs, UUIDs, and prompt hashes. Its three Qwen3 audits all record
+  terminal token `151645` followed only by whitespace token `198`. SFT job
+  `170455` was released from dependency and is pending only for node
+  availability.
 - Direction change: low-data OpenThoughts SFT improved math accuracy but also exposed high cap-hit, redundant-reasoning, and inconsistent-formatting behavior. Strict cleaning is expensive and may require substantially more clean SFT data to generalize.
 
 ## 2026-07-11 strict-English v2 replacement
