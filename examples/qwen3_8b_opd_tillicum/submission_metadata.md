@@ -6,6 +6,30 @@
 - Strict cleaner `168163` timed out at `24:00:20` after 390,000 rows. The broken Lingua microspan rule marked all 390,000 rows non-English, so its zero-valid output is invalid and cannot seed training.
 - Pending dispatcher `168164` was canceled on 2026-07-13. No strict cleaner shard, prior checkpoint, eval chunk, or script was deleted.
 - All valid full MATH-500 summaries, val100 diagnostics, and invalid/incomplete run status are frozen under `results/status_through_2026-07-13/` before the OpenR1-Math-220k replacement is implemented.
+
+## 2026-07-13 OpenR1-Math-220k implementation
+
+- New isolated label: `openr1_math220k_default_sft50k_opd5120`.
+- Data contract: pinned OpenR1 `default` revision, seed `1234`, 50,000 SFT
+  prompts, 1,024 first-phase OPD prompts, and 4,096 additional OPD prompts.
+- Trace selection trusts only supplied reasoning-complete and Math Verify/Llama
+  correctness flags. One eligible trace per prompt is chosen deterministically;
+  no new verifier, language filter, or quality heuristic is used.
+- SFT and OPD are disjoint by source row, UUID, and prompt hash. The selected
+  correct OPD trace is stored for provenance but is not an OPD target.
+- SFT starts from Qwen3-8B-Base and uses 4 H200s, TP2/CP1/DP2, Megatron's
+  distributed optimizer, Qwen3 loss masking, one epoch, batch 250, and LR
+  `1e-6`.
+- OPD uses the validated four-H200 colocated layout, first for 1,024 prompts and
+  then as four serialized 1,024-prompt continuation jobs. Only SFT, OPD-1k,
+  and cumulative OPD-5,120 receive full MATH-500 evals.
+- Checkpoint rotation retains every model snapshot while keeping only the newest
+  completed full optimizer checkpoint. The old full state is never removed
+  until the replacement checkpoint and its HF snapshot validate successfully.
+- Base evaluation is reused from job `165035`. The full implementation contract
+  and timing estimates are in `results/openr1_math220k_reproduction.md`.
+- Pre-submission validation and implementation commit are pending below; job IDs
+  will be appended after the strict serialized chain is submitted.
 - Direction change: low-data OpenThoughts SFT improved math accuracy but also exposed high cap-hit, redundant-reasoning, and inconsistent-formatting behavior. Strict cleaning is expensive and may require substantially more clean SFT data to generalize.
 
 ## 2026-07-11 strict-English v2 replacement

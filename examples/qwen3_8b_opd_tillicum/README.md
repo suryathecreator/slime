@@ -23,6 +23,19 @@ It saves a reusable all-domain corpus, gates cleaning counts against the
 comparison implementation, derives a high-quality math subset, and dynamically
 dispatches the batch-aligned training chain.
 
+The active replacement reproduction is specified in
+[`results/openr1_math220k_reproduction.md`](results/openr1_math220k_reproduction.md).
+It uses the curated OpenR1-Math-220k `default` subset for 50k SFT, then disjoint
+1,024 and 4,096-prompt OPD phases. Launch the serialized four-GPU chain with:
+
+```bash
+bash examples/qwen3_8b_opd_tillicum/submit_openr1_math220k_chain.sh
+```
+
+All prior OpenThoughts scripts and scratch artifacts are intentionally retained;
+the status at the direction change is frozen under
+`results/status_through_2026-07-13/`.
+
 ## Required environment
 
 Source `env.sh` before running commands:

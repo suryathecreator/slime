@@ -546,4 +546,30 @@ if [[ -f "${SPLIT_METADATA}" ]]; then
   cp -f "${SPLIT_METADATA}" "${OPD_FINAL_HF_DIR}/split_metadata.json"
 fi
 
+if [[ -n "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR:-}" ]]; then
+  if [[ "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR}" == "${OPD_SAVE_DIR}" ]]; then
+    echo "Refusing to retire the active OPD save dir: ${OPD_SAVE_DIR}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${OPD_FINAL_HF_DIR}/config.json" ]]; then
+    echo "Cannot retire previous full checkpoint before current HF snapshot is validated: ${OPD_FINAL_HF_DIR}" >&2
+    exit 1
+  fi
+  if [[ -z "${OPD_RETIRE_PREVIOUS_HF_DIR:-}" || ! -f "${OPD_RETIRE_PREVIOUS_HF_DIR}/config.json" ]]; then
+    echo "Cannot retire previous full checkpoint without its retained HF snapshot: ${OPD_RETIRE_PREVIOUS_HF_DIR:-<unset>}" >&2
+    exit 1
+  fi
+  incomplete_previous="$(find "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR}" -maxdepth 1 -type d -name 'iter_*' ! -exec test -f '{}/.metadata' \; -print -quit)"
+  if [[ -n "${incomplete_previous}" ]]; then
+    echo "Refusing to retire previous save dir with incomplete checkpoint: ${incomplete_previous}" >&2
+    exit 1
+  fi
+  while IFS= read -r previous_iter; do
+    [[ -n "${previous_iter}" ]] || continue
+    echo "CHECKPOINT_RETIRE_FULL previous=${previous_iter} retained_hf=${OPD_RETIRE_PREVIOUS_HF_DIR}"
+    rm -rf -- "${previous_iter}"
+  done < <(find "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR}" -maxdepth 1 -type d -name 'iter_*' -print)
+  rm -f -- "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR}/latest_checkpointed_iteration.txt"
+fi
+
 echo "Finished OPD at $(date)"

@@ -72,6 +72,8 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/submit_cleanup_base_opd_2gpu.sh
   examples/qwen3_8b_opd_tillicum/submit_strict_en_v2_chain.sh
   examples/qwen3_8b_opd_tillicum/strict_en_v2_env.sh
+  examples/qwen3_8b_opd_tillicum/submit_openr1_math220k_chain.sh
+  examples/qwen3_8b_opd_tillicum/openr1_math220k_env.sh
   examples/qwen3_8b_opd_tillicum/02_prepare_data_25k_10k.sbatch
   examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_data.sbatch
   examples/qwen3_8b_opd_tillicum/02_prepare_opd_continuation_25k_val100.sbatch
@@ -89,6 +91,7 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/11_setup_strict_language_env.sbatch
   examples/qwen3_8b_opd_tillicum/12_prepare_strict_english_data.sbatch
   examples/qwen3_8b_opd_tillicum/13_dispatch_strict_en_chain.sbatch
+  examples/qwen3_8b_opd_tillicum/14_prepare_openr1_math220k.sbatch
 )
 
 PYTHON_FILES=(
@@ -104,6 +107,7 @@ PYTHON_FILES=(
   examples/qwen3_8b_opd_tillicum/summarize_eval.py
   examples/qwen3_8b_opd_tillicum/prepare_math500_subset.py
   examples/qwen3_8b_opd_tillicum/prepare_opd_continuation_pool.py
+  examples/qwen3_8b_opd_tillicum/prepare_openr1_math220k.py
   examples/qwen3_8b_opd_tillicum/write_opd_trained_manifest.py
   sitecustomize.py
   slime/backends/sglang_utils/native_rope.py
@@ -182,6 +186,13 @@ REQUIRED_CONTAINER_ENV=(
   STRICT_EN_WORKERS
   STRICT_MATH_MAX_SELECTED
   STRICT_OPD_RESERVE_SIZE
+  OPENR1_EXPERIMENT_LABEL
+  OPENR1_DATASET
+  OPENR1_CONFIG
+  OPENR1_SPLIT
+  OPENR1_REVISION
+  OPENR1_DATA_DIR
+  OPENR1_SUCCESS_FILE
   SFT_ACTOR_GPUS
   SFT_TENSOR_MODEL_PARALLEL_SIZE
   SFT_CONTEXT_PARALLEL_SIZE
@@ -212,6 +223,8 @@ REQUIRED_CONTAINER_ENV=(
   VLLM_EVAL_DTYPE
   VLLM_EVAL_TRUST_REMOTE_CODE
   VLLM_EVAL_FORCE_NATIVE_SAMPLER
+  OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR
+  OPD_RETIRE_PREVIOUS_HF_DIR
   SLIME_VLLM_PATCH_SITE
   LD_LIBRARY_PATH
 )
@@ -253,6 +266,7 @@ SBATCH_FILES=(
   examples/qwen3_8b_opd_tillicum/11_setup_strict_language_env.sbatch
   examples/qwen3_8b_opd_tillicum/12_prepare_strict_english_data.sbatch
   examples/qwen3_8b_opd_tillicum/13_dispatch_strict_en_chain.sbatch
+  examples/qwen3_8b_opd_tillicum/14_prepare_openr1_math220k.sbatch
 )
 
 echo "Checking Slurm scripts with sbatch --test-only"

@@ -91,6 +91,12 @@ def main() -> None:
             )
         if args.require_think and ("<think>" not in train_target or "</think>" not in train_target):
             raise SystemExit(f"row {row_index}: decoded train target does not contain complete think tags")
+        if args.require_think:
+            im_end_token_id = tokenizer.convert_tokens_to_ids("<|im_end|>")
+            if not train_target_ids or train_target_ids[-1] != im_end_token_id:
+                raise SystemExit(
+                    f"row {row_index}: decoded train target does not end in <|im_end|> ({im_end_token_id})"
+                )
         if args.print_snippets:
             print(f"SFT_LOSS_MASK_SNIPPET row={row_index}")
             print(compact(train_target))
