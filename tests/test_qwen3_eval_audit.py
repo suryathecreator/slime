@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
-import sys
 from argparse import Namespace
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 import torch
 
 
@@ -51,33 +51,6 @@ class FakeTokenizer:
         return {"<|im_end|>": 151645, "<|endoftext|>": 151643}[token]
 
 
-class FakeSamplingParams:
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-
-class FakeTokensPrompt:
-    def __init__(self, *, prompt_token_ids):
-        self.prompt_token_ids = prompt_token_ids
-
-
-class FakeLLM:
-    def __init__(self):
-        self.prompts = None
-        self.sampling_params = None
-
-    def generate(self, prompts, sampling_params, use_tqdm):
-        self.prompts = prompts
-        self.sampling_params = sampling_params
-        completion = SimpleNamespace(
-            token_ids=[151667, 42, 151668],
-            finish_reason="stop",
-            stop_reason=151645,
-            text="The answer is \\boxed{4}.",
-        )
-        return [SimpleNamespace(outputs=[completion])]
-
-
 def args(tmp_path: Path) -> Namespace:
     return Namespace(
         model=str(tmp_path / "model"),
@@ -92,27 +65,38 @@ def args(tmp_path: Path) -> Namespace:
         im_end_token_id=151645,
         endoftext_token_id=151643,
         preserve_special_tokens=True,
+        gpu_memory_utilization=0.97,
+        max_num_seqs=24,
+        max_num_batched_tokens=16384,
+        kv_cache_dtype="auto",
+        enable_prefix_caching=False,
+        enable_chunked_prefill=True,
+        async_scheduling=True,
+        safetensors_load_strategy="prefetch",
+        speculative_method="ngram_gpu",
+        num_speculative_tokens=8,
+        prompt_lookup_min=5,
+        prompt_lookup_max=5,
     )
 
 
-def test_run_chunk_preserves_special_text_and_raw_token_ids(monkeypatch, tmp_path):
-    fake_vllm = SimpleNamespace(SamplingParams=FakeSamplingParams, TokensPrompt=FakeTokensPrompt)
-    monkeypatch.setitem(sys.modules, "vllm", fake_vllm)
+def test_sample_from_output_preserves_special_text_and_raw_token_ids(tmp_path):
     tokenizer = FakeTokenizer()
-    llm = FakeLLM()
-
-    samples = eval_vllm.run_chunk(
-        llm,
+    prepared, _ = eval_vllm.prepare_chunk_rows(
         tokenizer,
         [{"_eval_index": 0, "prompt": "2+2?", "label": "4", "metadata": {}}],
         args(tmp_path),
     )
+    cap, prompt_ids, base = prepared[0]
+    completion = SimpleNamespace(
+        token_ids=[151667, 42, 151668],
+        finish_reason="stop",
+        stop_reason=151645,
+    )
+    sample = eval_vllm.sample_from_output(tokenizer, base, cap, SimpleNamespace(outputs=[completion]))
 
-    sample = samples[0]
     assert tokenizer.template_kwargs["enable_thinking"] is True
-    assert llm.prompts[0].prompt_token_ids == sample["prefill_token_ids"] == [10, 11, 12]
-    assert llm.sampling_params.kwargs["stop_token_ids"] == [151645, 151643]
-    assert llm.sampling_params.kwargs["skip_special_tokens"] is False
+    assert prompt_ids == sample["prefill_token_ids"] == [10, 11, 12]
     assert sample["generated_token_ids"] == [151667, 42, 151668]
     assert sample["terminal_stop_token_id"] == 151645
     assert sample["generated_token_ids_with_terminal"] == [151667, 42, 151668, 151645]
@@ -135,6 +119,55 @@ def test_chunk_policy_rejects_legacy_and_accepts_matching(tmp_path):
         path,
     )
     assert eval_vllm.load_valid_chunk(path, {0}, policy) == [{"eval_index": 0}]
+
+
+def save_artifact(path: Path, policy: dict, indices: list[int]) -> None:
+    torch.save(
+        {
+            "samples": [{"eval_index": index} for index in indices],
+            "generation_policy": policy,
+            "generation_policy_fingerprint": eval_vllm.generation_policy_fingerprint(policy),
+        },
+        path,
+    )
+
+
+def test_resume_discovers_old_chunks_and_new_per_sample_artifacts(tmp_path):
+    policy = eval_vllm.generation_policy(args(tmp_path))
+    save_artifact(tmp_path / "debug_eval_chunk_shard0_start0_end4.pt", policy, [0, 4])
+    save_artifact(tmp_path / "debug_eval_chunk_shard1_start1_end1.pt", policy, [1])
+
+    incompatible = dict(policy)
+    incompatible["max_response_len"] = 100
+    save_artifact(tmp_path / "debug_eval_chunk_shard2_start2_end2.pt", incompatible, [2])
+
+    completed = eval_vllm.discover_completed_samples(tmp_path, policy, set(range(5)))
+    assert set(completed) == {0, 1, 4}
+
+
+def test_resume_rejects_same_policy_duplicate_indices(tmp_path):
+    policy = eval_vllm.generation_policy(args(tmp_path))
+    save_artifact(tmp_path / "debug_eval_chunk_shard0_start0_end0.pt", policy, [0])
+    save_artifact(tmp_path / "debug_eval_chunk_shard1_start0_end4.pt", policy, [0, 4])
+
+    with pytest.raises(RuntimeError, match="Duplicate eval_index=0"):
+        eval_vllm.discover_completed_samples(tmp_path, policy, set(range(5)))
+
+
+def test_optimized_operational_config_is_not_semantic_policy(tmp_path):
+    eval_args = args(tmp_path)
+    runtime = eval_vllm.operational_config(eval_args, "0.24.0")
+
+    assert runtime["max_num_seqs"] == 24
+    assert runtime["max_num_batched_tokens"] == 16384
+    assert runtime["async_scheduling"] is True
+    assert runtime["speculative_config"] == {
+        "method": "ngram_gpu",
+        "num_speculative_tokens": 8,
+        "prompt_lookup_min": 5,
+        "prompt_lookup_max": 5,
+    }
+    assert "max_num_seqs" not in eval_vllm.generation_policy(eval_args)
 
 
 def test_scorer_sanitizes_terminal_control_tokens():

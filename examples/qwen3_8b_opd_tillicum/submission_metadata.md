@@ -184,6 +184,11 @@ Recorded: 2026-07-01 17:28 PDT
     `VLLM_EVAL_MAX_MODEL_LEN=32768`, GPU memory utilization `0.92`,
     `VLLM_EVAL_MAX_NUM_SEQS=16`, and
     `VLLM_EVAL_MAX_NUM_BATCHED_TOKENS=131072`.
+  - Post-submission optimization on 2026-07-14 superseded those original eval
+    settings with utilization `0.97`, 24 sequences, 16,384 batched tokens,
+    asynchronous continuous batching, and per-sample atomic resume. The running
+    SFT eval preserved completed indices `0-127`; pending OPD evals were replaced
+    without changing the training or report checkpoints in the dependency chain.
 - Dynamic caps:
   - OPD train cap: `min(31744, OPD_ROLLOUT_MAX_CONTEXT_LEN - prompt_tokens)`,
     with `OPD_ROLLOUT_MAX_CONTEXT_LEN=32766`.

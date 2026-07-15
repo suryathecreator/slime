@@ -53,6 +53,9 @@ echo "SFT loss mask type: ${SFT_LOSS_MASK_TYPE}"
 echo "SFT loss mask preflight: enabled=${SFT_LOSS_MASK_PREFLIGHT_ENABLED} require_think=${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK} samples=${SFT_LOSS_MASK_PREFLIGHT_SAMPLES}"
 echo "SFT LR: ${SFT_LR}"
 echo "SFT max tokens per GPU: ${SFT_MAX_TOKENS_PER_GPU}"
+echo "SFT log probs chunk size: ${SFT_LOG_PROBS_CHUNK_SIZE}"
+echo "SFT optimizer CPU offload: ${SFT_OPTIMIZER_CPU_OFFLOAD}"
+echo "SFT recompute loss function: ${SFT_RECOMPUTE_LOSS_FUNCTION}"
 
 checkpoint_start_pruner sft "${SFT_SAVE_DIR}" "${CHECKPOINT_PRUNE_INTERVAL_SECONDS}" "${CHECKPOINT_REPORT_DIR}"
 cleanup() {
@@ -192,6 +195,7 @@ PERF_ARGS=(
   --recompute-num-layers 1
   --use-dynamic-batch-size
   --max-tokens-per-gpu "${SFT_MAX_TOKENS_PER_GPU}"
+  --log-probs-chunk-size "${SFT_LOG_PROBS_CHUNK_SIZE}"
 )
 
 OPTIMIZER_ARGS=(
@@ -202,6 +206,18 @@ OPTIMIZER_ARGS=(
   --adam-beta1 0.9
   --adam-beta2 0.95
 )
+if [[ "${SFT_OPTIMIZER_CPU_OFFLOAD}" == "1" ]]; then
+  OPTIMIZER_ARGS+=(
+    --optimizer-cpu-offload
+    --overlap-cpu-optimizer-d2h-h2d
+    --use-precision-aware-optimizer
+  )
+fi
+
+MEMORY_ARGS=()
+if [[ "${SFT_RECOMPUTE_LOSS_FUNCTION}" == "1" ]]; then
+  MEMORY_ARGS+=(--recompute-loss-function)
+fi
 
 WANDB_ARGS=()
 if [[ "${WANDB_MODE}" != "disabled" ]]; then
@@ -266,6 +282,7 @@ SLIME_SGLANG_PATCH_SITE=0 ray job submit --address="http://127.0.0.1:8265" \
   "${DP_OPT_ARGS[@]}" \
   "${WANDB_ARGS[@]}" \
   "${PERF_ARGS[@]}" \
+  "${MEMORY_ARGS[@]}" \
   "${MISC_ARGS[@]}"
 '
 

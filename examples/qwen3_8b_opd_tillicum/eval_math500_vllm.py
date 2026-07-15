@@ -4,10 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
 import os
-from collections import defaultdict
 from numbers import Integral
 from pathlib import Path
 from typing import Any
@@ -32,6 +32,15 @@ def parse_args() -> argparse.Namespace:
     shard.add_argument("--max-num-seqs", type=int, required=True)
     shard.add_argument("--max-num-batched-tokens", type=int, required=True)
     shard.add_argument("--dtype", default="bfloat16")
+    shard.add_argument("--kv-cache-dtype", default="auto")
+    shard.add_argument("--safetensors-load-strategy", default="prefetch")
+    shard.add_argument("--enable-prefix-caching", action="store_true")
+    shard.add_argument("--enable-chunked-prefill", action="store_true")
+    shard.add_argument("--async-scheduling", action="store_true")
+    shard.add_argument("--speculative-method", default="none")
+    shard.add_argument("--num-speculative-tokens", type=int, default=0)
+    shard.add_argument("--prompt-lookup-min", type=int, default=5)
+    shard.add_argument("--prompt-lookup-max", type=int, default=5)
     shard.add_argument("--trust-remote-code", action="store_true")
     shard.add_argument("--hf-home", default=os.environ.get("HF_HOME"))
     shard.add_argument("--chunk-size", type=int, default=16)
@@ -136,9 +145,18 @@ def chunk_path(stage_dir: Path, shard_index: int, rows: list[dict[str, Any]]) ->
     return stage_dir / f"debug_eval_chunk_shard{shard_index}_start{first}_end{last}.pt"
 
 
-def load_valid_chunk(
+def sample_path(stage_dir: Path, shard_index: int, eval_index: int) -> Path:
+    return stage_dir / f"debug_eval_chunk_shard{shard_index}_start{eval_index}_end{eval_index}.pt"
+
+
+def artifact_paths(stage_dir: Path) -> list[Path]:
+    paths = set(stage_dir.glob("debug_eval_shard_*.pt"))
+    paths.update(stage_dir.glob("debug_eval_chunk_shard*_start*_end*.pt"))
+    return sorted(paths)
+
+
+def load_compatible_artifact(
     path: Path,
-    expected_indices: set[int],
     expected_policy: dict[str, Any],
 ) -> list[dict[str, Any]] | None:
     if not path.exists() or path.stat().st_size == 0:
@@ -148,20 +166,60 @@ def load_valid_chunk(
     try:
         payload = torch.load(path, map_location="cpu", weights_only=False)
     except Exception as exc:
-        print(f"Ignoring unreadable vLLM chunk {path}: {exc}")
+        print(f"Ignoring unreadable vLLM artifact {path}: {exc}")
         return None
     found_policy = payload.get("generation_policy")
     expected_fingerprint = generation_policy_fingerprint(expected_policy)
     found_fingerprint = payload.get("generation_policy_fingerprint")
     if found_policy != expected_policy or found_fingerprint != expected_fingerprint:
         print(
-            f"Ignoring incompatible vLLM chunk {path}: "
+            f"Ignoring incompatible vLLM artifact {path}: "
             f"expected_policy={expected_fingerprint} "
             f"found_policy={generation_policy_fingerprint(found_policy) if isinstance(found_policy, dict) else '<missing>'} "
             f"found_fingerprint={found_fingerprint or '<missing>'}"
         )
         return None
-    samples = payload.get("samples", [])
+    samples = payload.get("samples")
+    if not isinstance(samples, list) or not samples:
+        print(f"Ignoring empty vLLM artifact {path}")
+        return None
+    return samples
+
+
+def discover_completed_samples(
+    stage_dir: Path,
+    expected_policy: dict[str, Any],
+    allowed_indices: set[int],
+) -> dict[int, tuple[Path, dict[str, Any]]]:
+    completed: dict[int, tuple[Path, dict[str, Any]]] = {}
+    for path in artifact_paths(stage_dir):
+        samples = load_compatible_artifact(path, expected_policy)
+        if samples is None:
+            continue
+        artifact_indices: set[int] = set()
+        for sample in samples:
+            eval_index = int(sample["eval_index"])
+            if eval_index not in allowed_indices:
+                raise RuntimeError(f"Unexpected eval_index={eval_index} in {path}")
+            if eval_index in artifact_indices:
+                raise RuntimeError(f"Duplicate eval_index={eval_index} inside {path}")
+            artifact_indices.add(eval_index)
+            if eval_index in completed:
+                raise RuntimeError(
+                    f"Duplicate eval_index={eval_index} in {path}; already found in {completed[eval_index][0]}"
+                )
+            completed[eval_index] = (path, sample)
+    return completed
+
+
+def load_valid_chunk(
+    path: Path,
+    expected_indices: set[int],
+    expected_policy: dict[str, Any],
+) -> list[dict[str, Any]] | None:
+    samples = load_compatible_artifact(path, expected_policy)
+    if samples is None:
+        return None
     found_indices = {int(sample["eval_index"]) for sample in samples}
     if found_indices != expected_indices or len(samples) != len(expected_indices):
         print(
@@ -229,77 +287,178 @@ def prepare_chunk_rows(
     return prepared, zero_cap_samples
 
 
-def run_chunk(
-    llm: Any,
+def sample_from_output(
     tokenizer: Any,
-    rows: list[dict[str, Any]],
+    base: dict[str, Any],
+    cap: int,
+    output: Any,
+) -> dict[str, Any]:
+    completion = output.outputs[0]
+    token_ids = [int(token_id) for token_id in (getattr(completion, "token_ids", []) or [])]
+    finish_reason = str(getattr(completion, "finish_reason", ""))
+    stop_reason = getattr(completion, "stop_reason", None)
+    terminal_stop_token_id = (
+        int(stop_reason)
+        if isinstance(stop_reason, Integral) or (isinstance(stop_reason, str) and stop_reason.isdigit())
+        else None
+    )
+    token_ids_with_terminal = list(token_ids)
+    if terminal_stop_token_id is not None and (
+        not token_ids_with_terminal or token_ids_with_terminal[-1] != terminal_stop_token_id
+    ):
+        token_ids_with_terminal.append(terminal_stop_token_id)
+    response = tokenizer.decode(
+        token_ids_with_terminal,
+        skip_special_tokens=False,
+        clean_up_tokenization_spaces=False,
+    )
+    response_plain = tokenizer.decode(
+        token_ids,
+        skip_special_tokens=True,
+        clean_up_tokenization_spaces=False,
+    )
+    status = "truncated" if finish_reason == "length" or len(token_ids) >= cap else "completed"
+    return {
+        **base,
+        "generated_token_ids": token_ids,
+        "terminal_stop_token_id": terminal_stop_token_id,
+        "generated_token_ids_with_terminal": token_ids_with_terminal,
+        "response": response,
+        "response_plain": response_plain,
+        "vllm_response_text": tokenizer.decode(
+            token_ids,
+            skip_special_tokens=False,
+            clean_up_tokenization_spaces=False,
+        ),
+        "response_length": len(token_ids),
+        "status": status,
+        "finish_reason": finish_reason,
+        "stop_reason": stop_reason,
+    }
+
+
+def speculative_config(args: argparse.Namespace) -> dict[str, Any] | None:
+    if args.speculative_method.lower() in {"", "none", "off", "disabled"}:
+        return None
+    if args.num_speculative_tokens <= 0:
+        raise ValueError("Speculative decoding requires --num-speculative-tokens > 0")
+    return {
+        "method": args.speculative_method,
+        "num_speculative_tokens": args.num_speculative_tokens,
+        "prompt_lookup_min": args.prompt_lookup_min,
+        "prompt_lookup_max": args.prompt_lookup_max,
+    }
+
+
+def operational_config(args: argparse.Namespace, vllm_version: str) -> dict[str, Any]:
+    return {
+        "vllm_version": vllm_version,
+        "tensor_parallel_size": 1,
+        "gpu_memory_utilization": args.gpu_memory_utilization,
+        "max_num_seqs": args.max_num_seqs,
+        "max_num_batched_tokens": args.max_num_batched_tokens,
+        "kv_cache_dtype": args.kv_cache_dtype,
+        "enable_prefix_caching": args.enable_prefix_caching,
+        "enable_chunked_prefill": args.enable_chunked_prefill,
+        "async_scheduling": args.async_scheduling,
+        "safetensors_load_strategy": args.safetensors_load_strategy,
+        "speculative_config": speculative_config(args),
+        "skip_tokenizer_init": True,
+        "detokenize": False,
+        "output_kind": "final_only",
+        "persistence": "per_sample_atomic",
+    }
+
+
+async def generate_one(
+    engine: Any,
+    tokenizer: Any,
+    cap: int,
+    prompt_ids: list[int],
+    base: dict[str, Any],
     args: argparse.Namespace,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     from vllm import SamplingParams, TokensPrompt
+    from vllm.sampling_params import RequestOutputKind
 
-    prepared, zero_cap_samples = prepare_chunk_rows(tokenizer, rows, args)
-    samples = list(zero_cap_samples)
-    grouped: dict[int, list[tuple[list[int], dict[str, Any]]]] = defaultdict(list)
-    for cap, prompt_ids, base in prepared:
-        grouped[cap].append((prompt_ids, base))
+    sampling_params = SamplingParams(
+        temperature=0.0,
+        top_p=1.0,
+        max_tokens=cap,
+        stop_token_ids=args.stop_token_ids,
+        detokenize=False,
+        skip_special_tokens=not args.preserve_special_tokens,
+        spaces_between_special_tokens=False,
+        include_stop_str_in_output=True,
+        output_kind=RequestOutputKind.FINAL_ONLY,
+    )
+    output = None
+    request_id = f"shard-{args.shard_index}-eval-{base['eval_index']}"
+    async for candidate in engine.generate(
+        TokensPrompt(prompt_token_ids=prompt_ids),
+        sampling_params,
+        request_id=request_id,
+    ):
+        output = candidate
+    if output is None:
+        raise RuntimeError(f"vLLM returned no final output for {request_id}")
+    return sample_from_output(tokenizer, base, cap, output)
 
-    for cap, items in sorted(grouped.items()):
-        outputs = llm.generate(
-            [TokensPrompt(prompt_token_ids=prompt_ids) for prompt_ids, _ in items],
-            SamplingParams(
-                temperature=0.0,
-                top_p=1.0,
-                max_tokens=cap,
-                stop_token_ids=args.stop_token_ids,
-                skip_special_tokens=not args.preserve_special_tokens,
-                spaces_between_special_tokens=False,
-                include_stop_str_in_output=True,
-            ),
-            use_tqdm=True,
-        )
-        for output, (_, base) in zip(outputs, items, strict=True):
-            completion = output.outputs[0]
-            token_ids = [int(token_id) for token_id in (getattr(completion, "token_ids", []) or [])]
-            finish_reason = str(getattr(completion, "finish_reason", ""))
-            stop_reason = getattr(completion, "stop_reason", None)
-            terminal_stop_token_id = (
-                int(stop_reason)
-                if isinstance(stop_reason, Integral) or (isinstance(stop_reason, str) and stop_reason.isdigit())
-                else None
-            )
-            token_ids_with_terminal = list(token_ids)
-            if terminal_stop_token_id is not None and (
-                not token_ids_with_terminal or token_ids_with_terminal[-1] != terminal_stop_token_id
-            ):
-                token_ids_with_terminal.append(terminal_stop_token_id)
-            response = tokenizer.decode(
-                token_ids_with_terminal,
-                skip_special_tokens=False,
-                clean_up_tokenization_spaces=False,
-            )
-            response_plain = tokenizer.decode(
-                token_ids,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False,
-            )
-            status = "truncated" if finish_reason == "length" or len(token_ids) >= cap else "completed"
-            samples.append(
-                {
-                    **base,
-                    "generated_token_ids": token_ids,
-                    "terminal_stop_token_id": terminal_stop_token_id,
-                    "generated_token_ids_with_terminal": token_ids_with_terminal,
-                    "response": response,
-                    "response_plain": response_plain,
-                    "vllm_response_text": completion.text,
-                    "response_length": len(token_ids),
-                    "status": status,
-                    "finish_reason": finish_reason,
-                    "stop_reason": stop_reason,
-                }
-            )
-    samples.sort(key=lambda item: item["eval_index"])
-    return samples
+
+async def run_continuous_batch(
+    tokenizer: Any,
+    pending_rows: list[dict[str, Any]],
+    args: argparse.Namespace,
+    on_sample: Any,
+) -> None:
+    import vllm
+    from vllm.engine.arg_utils import AsyncEngineArgs
+    from vllm.v1.engine.async_llm import AsyncLLM
+
+    prepared, zero_cap_samples = prepare_chunk_rows(tokenizer, pending_rows, args)
+    for sample in zero_cap_samples:
+        on_sample(sample)
+    if not prepared:
+        return
+
+    engine_args = AsyncEngineArgs(
+        model=args.model,
+        tokenizer=args.model,
+        skip_tokenizer_init=True,
+        trust_remote_code=args.trust_remote_code,
+        tensor_parallel_size=1,
+        dtype=args.dtype,
+        kv_cache_dtype=args.kv_cache_dtype,
+        max_model_len=args.max_model_len,
+        gpu_memory_utilization=args.gpu_memory_utilization,
+        max_num_seqs=args.max_num_seqs,
+        max_num_batched_tokens=args.max_num_batched_tokens,
+        enable_prefix_caching=args.enable_prefix_caching,
+        enable_chunked_prefill=args.enable_chunked_prefill,
+        async_scheduling=args.async_scheduling,
+        safetensors_load_strategy=args.safetensors_load_strategy,
+        speculative_config=speculative_config(args),
+        disable_log_stats=False,
+        enable_log_requests=False,
+    )
+    print(
+        "VLLM_EVAL_OPERATIONAL_CONFIG "
+        + json.dumps(operational_config(args, vllm.__version__), sort_keys=True),
+        flush=True,
+    )
+    engine = AsyncLLM.from_engine_args(engine_args)
+    tasks = [
+        asyncio.create_task(generate_one(engine, tokenizer, cap, prompt_ids, base, args))
+        for cap, prompt_ids, base in prepared
+    ]
+    try:
+        for task in asyncio.as_completed(tasks):
+            on_sample(await task)
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        engine.shutdown()
 
 
 def run_shard(args: argparse.Namespace) -> None:
@@ -315,21 +474,26 @@ def run_shard(args: argparse.Namespace) -> None:
     print(f"VLLM_EVAL_GENERATION_POLICY fingerprint={policy_fingerprint} policy={json.dumps(policy, sort_keys=True)}")
 
     data_path = Path(args.data)
-    rows = [row for row in load_rows(data_path) if row["_eval_index"] % args.num_shards == args.shard_index]
+    all_rows = load_rows(data_path)
+    all_indices = {int(row["_eval_index"]) for row in all_rows}
+    rows = [row for row in all_rows if row["_eval_index"] % args.num_shards == args.shard_index]
     stage_dir = Path(args.out).parent
-    chunks = [rows[index : index + args.chunk_size] for index in range(0, len(rows), args.chunk_size)]
+    completed = discover_completed_samples(stage_dir, policy, all_indices)
+    if completed and not args.resume_completed:
+        raise RuntimeError(
+            f"Found {len(completed)} compatible completed samples in {stage_dir}; "
+            "use --resume-completed or an empty output directory"
+        )
+    pending_rows = [row for row in rows if int(row["_eval_index"]) not in completed]
+    shard_completed = len(rows) - len(pending_rows)
+    print(
+        f"VLLM_EVAL_RESUME shard={args.shard_index}/{args.num_shards} "
+        f"completed={shard_completed} pending={len(pending_rows)} global_completed={len(completed)}",
+        flush=True,
+    )
 
-    pending_chunks = []
-    for chunk in chunks:
-        path = chunk_path(stage_dir, args.shard_index, chunk)
-        expected_indices = {int(row["_eval_index"]) for row in chunk}
-        if args.resume_completed and load_valid_chunk(path, expected_indices, policy) is not None:
-            print(f"VLLM_EVAL_CHUNK_SKIP shard={args.shard_index} path={path} samples={len(expected_indices)}")
-            continue
-        pending_chunks.append((chunk, path, expected_indices))
-
-    if not pending_chunks:
-        print(f"VLLM_EVAL_SHARD_COMPLETE shard={args.shard_index} chunks={len(chunks)}")
+    if not pending_rows:
+        print(f"VLLM_EVAL_SHARD_COMPLETE shard={args.shard_index} samples={len(rows)}")
         return
 
     from transformers import AutoTokenizer
@@ -337,44 +501,34 @@ def run_shard(args: argparse.Namespace) -> None:
 
     if maybe_force_native_sampler():
         print("VLLM_EVAL_FORCE_NATIVE_SAMPLER=1: patched vLLM V1 sampler in eval parent")
-    from vllm import LLM
+    import vllm
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, cache_dir=args.hf_home, trust_remote_code=True)
     validate_qwen3_control_tokens(tokenizer, args)
-    llm = LLM(
-        model=args.model,
-        tokenizer=args.model,
-        trust_remote_code=args.trust_remote_code,
-        tensor_parallel_size=1,
-        dtype=args.dtype,
-        max_model_len=args.max_model_len,
-        gpu_memory_utilization=args.gpu_memory_utilization,
-        max_num_seqs=args.max_num_seqs,
-        max_num_batched_tokens=args.max_num_batched_tokens,
-    )
+    runtime = operational_config(args, vllm.__version__)
 
-    for chunk, path, expected_indices in pending_chunks:
-        samples = run_chunk(llm, tokenizer, chunk, args)
-        found_indices = {int(sample["eval_index"]) for sample in samples}
-        if found_indices != expected_indices:
-            raise RuntimeError(
-                f"Chunk index mismatch for {path}: expected {sorted(expected_indices)}, found {sorted(found_indices)}"
-            )
+    def persist_sample(sample: dict[str, Any]) -> None:
+        eval_index = int(sample["eval_index"])
+        path = sample_path(stage_dir, args.shard_index, eval_index)
         payload = {
-            "samples": samples,
+            "samples": [sample],
             "stage": args.stage,
             "shard_index": args.shard_index,
             "num_shards": args.num_shards,
-            "chunk_start_eval_index": min(expected_indices),
-            "chunk_end_eval_index": max(expected_indices),
+            "chunk_start_eval_index": eval_index,
+            "chunk_end_eval_index": eval_index,
             "generation_policy": policy,
             "generation_policy_fingerprint": policy_fingerprint,
+            "operational_config": runtime,
         }
         save_chunk_atomic(path, payload)
         print(
-            f"Wrote vLLM chunk shard={args.shard_index}/{args.num_shards} "
-            f"path={path} samples={len(samples)}"
+            f"VLLM_EVAL_SAMPLE_COMMIT shard={args.shard_index}/{args.num_shards} "
+            f"eval_index={eval_index} path={path}",
+            flush=True,
         )
+
+    asyncio.run(run_continuous_batch(tokenizer, pending_rows, args, persist_sample))
 
 
 def merge_shards(args: argparse.Namespace) -> None:

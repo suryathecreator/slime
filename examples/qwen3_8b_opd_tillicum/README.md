@@ -351,8 +351,15 @@ OPD-1k rows in the final trained-data manifest.
 Only four full MATH-500 evals run for this cleaned experiment: base, SFT-25k,
 OPD-1k, and OPD-5k. They use the Tillicum-local vLLM path with four independent
 1-GPU workers, greedy decoding, `VLLM_EVAL_MAX_MODEL_LEN=32768`,
-`VLLM_EVAL_GPU_MEMORY_UTILIZATION=0.92`, `VLLM_EVAL_MAX_NUM_SEQS=16`, and
-`VLLM_EVAL_MAX_NUM_BATCHED_TOKENS=131072`.
+`VLLM_EVAL_GPU_MEMORY_UTILIZATION=0.97`, `VLLM_EVAL_MAX_NUM_SEQS=24`, and
+`VLLM_EVAL_MAX_NUM_BATCHED_TOKENS=16384`. Each worker enqueues its entire
+unfinished shard into vLLM's asynchronous scheduler, keeps continuous-batching
+backlog, and atomically saves each completed sample. Resume scans compatible
+artifacts by global eval index, independent of prior chunk or shard boundaries.
+The production default retains BF16 KV cache, chunked prefill, Model Runner V2,
+CUDA graphs, and FlashAttention 3. GPU N-gram speculation remains available but
+is disabled by default because vLLM 0.24 requires a C compiler that is absent
+from the production container and otherwise falls back to Model Runner V1.
 
 Both training and eval use dynamic per-prompt generation caps. OPD training
 requests `min(31744, OPD_ROLLOUT_MAX_CONTEXT_LEN - prompt_tokens)` with

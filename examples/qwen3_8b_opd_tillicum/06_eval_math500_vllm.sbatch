@@ -6,10 +6,27 @@
 #SBATCH --gres=gpu:h200:4
 #SBATCH --mem=0
 #SBATCH --time=04:00:00
+#SBATCH --requeue
+#SBATCH --signal=B:USR1@600
 #SBATCH --mail-user=suryadv@cs.washington.edu
 #SBATCH --mail-type=END,FAIL
 
 set -euo pipefail
+
+requeue_before_timeout() {
+  trap - USR1
+  echo "Received USR1 at $(date); requeueing eval job ${SLURM_JOB_ID} with atomic sample resume."
+  local pid
+  for pid in $(jobs -pr); do
+    kill -TERM "${pid}" 2>/dev/null || true
+  done
+  if ! scontrol requeue "${SLURM_JOB_ID}"; then
+    echo "Failed to requeue eval job ${SLURM_JOB_ID}." >&2
+    exit 1
+  fi
+  exit 0
+}
+trap requeue_before_timeout USR1
 
 if [[ -n "${SLURM_SUBMIT_DIR:-}" && -f "${SLURM_SUBMIT_DIR}/examples/qwen3_8b_opd_tillicum/env.sh" ]]; then
   SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_opd_tillicum"
@@ -31,8 +48,11 @@ echo "Eval output: ${EVAL_OUTPUT_DIR}"
 echo "vLLM venv: ${VLLM_EVAL_VENV}"
 echo "vLLM target site: ${VLLM_EVAL_SITE}"
 echo "vLLM workers/seqs/batched tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
+echo "vLLM memory/KV/load: utilization=${VLLM_EVAL_GPU_MEMORY_UTILIZATION} kv_dtype=${VLLM_EVAL_KV_CACHE_DTYPE} safetensors=${VLLM_EVAL_SAFETENSORS_LOAD_STRATEGY}"
+echo "vLLM scheduler: async=${VLLM_EVAL_ASYNC_SCHEDULING} chunked_prefill=${VLLM_EVAL_ENABLE_CHUNKED_PREFILL} prefix_cache=${VLLM_EVAL_ENABLE_PREFIX_CACHING}"
+echo "vLLM speculative: method=${VLLM_EVAL_SPECULATIVE_METHOD} tokens=${VLLM_EVAL_NUM_SPECULATIVE_TOKENS} lookup=${VLLM_EVAL_PROMPT_LOOKUP_MIN}:${VLLM_EVAL_PROMPT_LOOKUP_MAX}"
 echo "vLLM force native sampler: ${VLLM_EVAL_FORCE_NATIVE_SAMPLER}"
-echo "vLLM chunk resume: chunk_size=${VLLM_EVAL_CHUNK_SIZE} resume_completed=${VLLM_EVAL_RESUME_COMPLETED}"
+echo "vLLM per-sample resume: legacy_chunk_size=${VLLM_EVAL_CHUNK_SIZE} resume_completed=${VLLM_EVAL_RESUME_COMPLETED}"
 echo "Eval max response/context: ${EVAL_MAX_RESPONSE_LEN}/${EVAL_MAX_CONTEXT_LEN}"
 echo "Qwen3 thinking enabled: ${QWEN3_ENABLE_THINKING}"
 echo "Qwen3 stop token ids: ${EVAL_STOP_TOKEN_IDS} (im_end=${QWEN3_IM_END_TOKEN_ID}, endoftext=${QWEN3_ENDOFTEXT_TOKEN_ID})"
@@ -127,12 +147,21 @@ while [[ "${shard}" -lt "${VLLM_EVAL_NUM_GPUS}" ]]; do
       --max-num-seqs "${VLLM_EVAL_MAX_NUM_SEQS}" \
       --max-num-batched-tokens "${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}" \
       --dtype "${VLLM_EVAL_DTYPE}" \
+      --kv-cache-dtype "${VLLM_EVAL_KV_CACHE_DTYPE}" \
+      --safetensors-load-strategy "${VLLM_EVAL_SAFETENSORS_LOAD_STRATEGY}" \
+      --speculative-method "${VLLM_EVAL_SPECULATIVE_METHOD}" \
+      --num-speculative-tokens "${VLLM_EVAL_NUM_SPECULATIVE_TOKENS}" \
+      --prompt-lookup-min "${VLLM_EVAL_PROMPT_LOOKUP_MIN}" \
+      --prompt-lookup-max "${VLLM_EVAL_PROMPT_LOOKUP_MAX}" \
       --chunk-size "${VLLM_EVAL_CHUNK_SIZE}" \
       --enable-thinking \
       --stop-token-ids ${EVAL_STOP_TOKEN_IDS} \
       --im-end-token-id "${QWEN3_IM_END_TOKEN_ID}" \
       --endoftext-token-id "${QWEN3_ENDOFTEXT_TOKEN_ID}" \
       --preserve-special-tokens \
+      '"$([[ "${VLLM_EVAL_ENABLE_PREFIX_CACHING}" == "1" ]] && printf "%s" "--enable-prefix-caching")"' \
+      '"$([[ "${VLLM_EVAL_ENABLE_CHUNKED_PREFILL}" == "1" ]] && printf "%s" "--enable-chunked-prefill")"' \
+      '"$([[ "${VLLM_EVAL_ASYNC_SCHEDULING}" == "1" ]] && printf "%s" "--async-scheduling")"' \
       '"$([[ "${VLLM_EVAL_RESUME_COMPLETED}" == "1" ]] && printf "%s" "--resume-completed")"' \
       '"$([[ "${VLLM_EVAL_TRUST_REMOTE_CODE}" == "1" ]] && printf "%s" "--trust-remote-code")"' \
       --hf-home "${HF_HOME}"

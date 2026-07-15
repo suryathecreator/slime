@@ -10,6 +10,7 @@ export OPENR1_WALLTIME_SFT="${OPENR1_WALLTIME_SFT:-24:00:00}"
 export OPENR1_WALLTIME_EVAL="${OPENR1_WALLTIME_EVAL:-24:00:00}"
 export OPENR1_WALLTIME_OPD="${OPENR1_WALLTIME_OPD:-24:00:00}"
 export OPENR1_WALLTIME_REPORT="${OPENR1_WALLTIME_REPORT:-06:00:00}"
+export OPENR1_RESUME_FROM_SFT_CHECKPOINT="${OPENR1_RESUME_FROM_SFT_CHECKPOINT:-0}"
 
 cd "${SLIME_REPO_ROOT}"
 mkdir -p "${SLURM_LOG_DIR}"
@@ -25,10 +26,29 @@ for required_path in \
     exit 1
   fi
 done
-if [[ -e "${OPENR1_SUCCESS_FILE}" || -e "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
+case "${OPENR1_RESUME_FROM_SFT_CHECKPOINT}" in
+  0|1) ;;
+  *)
+    echo "OPENR1_RESUME_FROM_SFT_CHECKPOINT must be 0 or 1, got ${OPENR1_RESUME_FROM_SFT_CHECKPOINT}" >&2
+    exit 1
+    ;;
+esac
+resume_sft_checkpoint_iteration=""
+if [[ "${OPENR1_RESUME_FROM_SFT_CHECKPOINT}" == "1" ]]; then
+  for required_resume_path in \
+    "${OPENR1_SUCCESS_FILE}" \
+    "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt"; do
+    if [[ ! -e "${required_resume_path}" ]]; then
+      echo "Missing required OpenR1 resume path: ${required_resume_path}" >&2
+      exit 1
+    fi
+  done
+  resume_sft_checkpoint_iteration="$(<"${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt")"
+elif [[ -e "${OPENR1_SUCCESS_FILE}" || -e "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
   echo "OpenR1 output already exists. Refusing an accidental overwrite/resubmission." >&2
   echo "  data marker: ${OPENR1_SUCCESS_FILE}" >&2
   echo "  SFT save: ${SFT_SAVE_DIR}" >&2
+  echo "Set OPENR1_RESUME_FROM_SFT_CHECKPOINT=1 to resume from the existing SFT optimizer checkpoint." >&2
   exit 1
 fi
 if (( OPD_SEQ_LENGTH % (2 * OPD_CONTEXT_PARALLEL_SIZE) != 0 )); then
@@ -42,25 +62,36 @@ submit_log="${SLURM_LOG_DIR}/submit_openr1_math220k_$(date +%Y%m%d_%H%M%S).txt"
 
 echo "Submitting ${OPENR1_EXPERIMENT_LABEL}"
 echo "Dataset: ${OPENR1_DATASET}/${OPENR1_CONFIG}@${OPENR1_REVISION} seed=${DATA_SEED}"
-echo "SFT: 50000 rows, batch 250, 200 updates, TP/CP/DP 2/1/2, LR ${SFT_LR}"
+echo "SFT: 50000 rows, batch 250, 200 updates, TP/CP/DP 2/1/2, LR ${SFT_LR}, max_tokens_per_gpu ${SFT_MAX_TOKENS_PER_GPU}, log_probs_chunk ${SFT_LOG_PROBS_CHUNK_SIZE}, optimizer_cpu_offload ${SFT_OPTIMIZER_CPU_OFFLOAD}, recompute_loss ${SFT_RECOMPUTE_LOSS_FUNCTION}"
+if [[ "${OPENR1_RESUME_FROM_SFT_CHECKPOINT}" == "1" ]]; then
+  echo "Resume: existing OpenR1 data and SFT checkpoint iteration ${resume_sft_checkpoint_iteration}"
+fi
 echo "OPD: 1024 then 4 x 1024 new prompts, actor/rollout/teacher 3/3/1, TP/CP 1/3"
+echo "vLLM eval: replicas=${VLLM_EVAL_NUM_GPUS} max_seqs=${VLLM_EVAL_MAX_NUM_SEQS} batch_tokens=${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS} gpu_memory=${VLLM_EVAL_GPU_MEMORY_UTILIZATION} kv=${VLLM_EVAL_KV_CACHE_DTYPE} speculative=${VLLM_EVAL_SPECULATIVE_METHOD}:${VLLM_EVAL_NUM_SPECULATIVE_TOKENS}"
 echo "Output data: ${OPENR1_DATA_DIR}"
 echo "Submission log: ${submit_log}"
 
-jid_data="$(
-  sbatch --parsable "${SBATCH_ONE[@]}" \
-    --time="${OPENR1_WALLTIME_DATA}" \
-    --cpus-per-task=8 \
-    --job-name=slime-qwen3-openr1-data \
-    --export=ALL \
-    examples/qwen3_8b_opd_tillicum/14_prepare_openr1_math220k.sbatch
-)"
+jid_data="existing"
+sft_dependency_args=()
+sft_job_name=slime-qwen3-openr1-sft50k-resume
+if [[ "${OPENR1_RESUME_FROM_SFT_CHECKPOINT}" != "1" ]]; then
+  jid_data="$(
+    sbatch --parsable "${SBATCH_ONE[@]}" \
+      --time="${OPENR1_WALLTIME_DATA}" \
+      --cpus-per-task=8 \
+      --job-name=slime-qwen3-openr1-data \
+      --export=ALL \
+      examples/qwen3_8b_opd_tillicum/14_prepare_openr1_math220k.sbatch
+  )"
+  sft_dependency_args=(--dependency=afterok:${jid_data})
+  sft_job_name=slime-qwen3-openr1-sft50k
+fi
 jid_sft="$(
   sbatch --parsable "${SBATCH_FOUR[@]}" \
-    --dependency=afterok:${jid_data} \
+    "${sft_dependency_args[@]}" \
     --time="${OPENR1_WALLTIME_SFT}" \
     --cpus-per-task=32 \
-    --job-name=slime-qwen3-openr1-sft50k \
+    --job-name="${sft_job_name}" \
     --export=ALL \
     examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
 )"
@@ -206,6 +237,10 @@ jid_report="$(
   echo "submit_time=$(date --iso-8601=seconds)"
   echo "implementation_commit=$(git rev-parse HEAD)"
   echo "data=${jid_data}"
+  echo "resume_from_sft_checkpoint=${OPENR1_RESUME_FROM_SFT_CHECKPOINT}"
+  if [[ "${OPENR1_RESUME_FROM_SFT_CHECKPOINT}" == "1" ]]; then
+    echo "resume_sft_checkpoint_iteration=${resume_sft_checkpoint_iteration}"
+  fi
   echo "sft_train=${jid_sft}"
   echo "sft_eval=${jid_sft_eval}"
   echo "opd_001024_train=${jid_opd1}"
@@ -219,6 +254,20 @@ jid_report="$(
   echo "dependency_policy=strict_serial_afterok"
   echo "max_gpu_per_job=4"
   echo "data_dir=${OPENR1_DATA_DIR}"
+  echo "sft_max_tokens_per_gpu=${SFT_MAX_TOKENS_PER_GPU}"
+  echo "sft_log_probs_chunk_size=${SFT_LOG_PROBS_CHUNK_SIZE}"
+  echo "sft_optimizer_cpu_offload=${SFT_OPTIMIZER_CPU_OFFLOAD}"
+  echo "sft_recompute_loss_function=${SFT_RECOMPUTE_LOSS_FUNCTION}"
+  echo "vllm_eval_install_spec=${VLLM_EVAL_INSTALL_SPEC}"
+  echo "vllm_eval_num_gpus=${VLLM_EVAL_NUM_GPUS}"
+  echo "vllm_eval_max_num_seqs=${VLLM_EVAL_MAX_NUM_SEQS}"
+  echo "vllm_eval_max_num_batched_tokens=${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
+  echo "vllm_eval_gpu_memory_utilization=${VLLM_EVAL_GPU_MEMORY_UTILIZATION}"
+  echo "vllm_eval_kv_cache_dtype=${VLLM_EVAL_KV_CACHE_DTYPE}"
+  echo "vllm_eval_async_scheduling=${VLLM_EVAL_ASYNC_SCHEDULING}"
+  echo "vllm_eval_chunked_prefill=${VLLM_EVAL_ENABLE_CHUNKED_PREFILL}"
+  echo "vllm_eval_prefix_caching=${VLLM_EVAL_ENABLE_PREFIX_CACHING}"
+  echo "vllm_eval_speculative=${VLLM_EVAL_SPECULATIVE_METHOD}:${VLLM_EVAL_NUM_SPECULATIVE_TOKENS}:${VLLM_EVAL_PROMPT_LOOKUP_MIN}:${VLLM_EVAL_PROMPT_LOOKUP_MAX}"
   echo "sft_save_dir=${SFT_SAVE_DIR}"
   echo "sft_hf_snapshot_dir=${SFT_HF_SNAPSHOT_DIR}"
   echo "opd1_save_dir=${OPENR1_OPD1_SAVE_DIR}"
