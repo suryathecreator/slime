@@ -9,7 +9,11 @@
 #SBATCH --mail-type=END,FAIL
 
 set -euo pipefail
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+if [[ -n "${SLURM_SUBMIT_DIR:-}" && -f "${SLURM_SUBMIT_DIR}/examples/qwen3_4b_opd_harp/env.sh" ]]; then
+  SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_4b_opd_harp"
+else
+  SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+fi
 source "${SCRIPT_DIR}/env.sh"
 : "${REPORT_MODE:?Set REPORT_MODE=base, opd1k, or final}"
 mkdir -p "${SLURM_LOG_DIR}"

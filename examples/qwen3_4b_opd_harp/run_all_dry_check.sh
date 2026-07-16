@@ -6,6 +6,10 @@ cd "${REPO_ROOT}"
 
 bash -n examples/qwen3_4b_opd_harp/*.sh examples/qwen3_4b_opd_harp/*.sbatch
 python3 -m py_compile examples/qwen3_4b_opd_harp/*.py
+for entrypoint in examples/qwen3_4b_opd_harp/*.sbatch; do
+  rg -q 'SLURM_SUBMIT_DIR.*examples/qwen3_4b_opd_harp/env\.sh' "${entrypoint}"
+  rg -q 'SCRIPT_DIR="\$\{SLURM_SUBMIT_DIR\}/examples/qwen3_4b_opd_harp"' "${entrypoint}"
+done
 if rg -n 'AsyncLLM|asyncio' examples/qwen3_4b_opd_harp/evaluate_harp_vllm.py; then
   echo "The HARP evaluator contains a prohibited async generation path." >&2
   exit 1
