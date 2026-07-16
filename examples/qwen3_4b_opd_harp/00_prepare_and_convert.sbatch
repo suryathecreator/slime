@@ -76,7 +76,7 @@ if not zig.is_file():
 
 cc = Path(os.environ["HARP_ZIG_CC"])
 cc.parent.mkdir(parents=True, exist_ok=True)
-cc.write_text(f'#!/usr/bin/bash\nexec "{zig}" cc "$@"\n', encoding="utf-8")
+cc.write_text(f"#!/usr/bin/bash\nexec \"{zig}\" cc \"$@\"\n", encoding="utf-8")
 cc.chmod(0o755)
 
 source = Path(os.environ["HARP_PYTHON_HEADER_SOURCE"])

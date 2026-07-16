@@ -32,6 +32,7 @@ rg -q 'ziglang==0.15.2' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'HARP_ZIG_CC=' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'HARP_ZIG_INCLUDE_ROOT=' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'ziglang": "0.15.2"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -Fq 'cc.write_text(f"#!/usr/bin/bash\nexec \"{zig}\" cc \"$@\"\n", encoding="utf-8")' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
 rg -Fq 'test -x "${HARP_ZIG_CC}"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
 rg -q '^  CC$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 rg -q '^  CPATH$' examples/qwen3_8b_opd_tillicum/container_exec.sh
