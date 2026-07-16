@@ -12,7 +12,9 @@ for prerequisite in \
   "${VLLM_EVAL_SITE}/vllm" \
   "${SOURCE_OPD_1K_JSONL}" \
   "${SOURCE_OPD_4K_JSONL}" \
-  "${HARP_EXISTING_SOURCE}"; do
+  "${HARP_EXISTING_SOURCE}" \
+  "${HARP_PYTHON_HEADER_SOURCE}/python3.12/Python.h" \
+  "${HARP_PYTHON_HEADER_SOURCE}/x86_64-linux-gnu/python3.12/pyconfig.h"; do
   if [[ ! -e "${prerequisite}" ]]; then
     echo "Missing submission prerequisite: ${prerequisite}" >&2
     exit 1

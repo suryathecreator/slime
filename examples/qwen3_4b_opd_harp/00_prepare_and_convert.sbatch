@@ -43,7 +43,7 @@ cd "${SLIME_REPO_ROOT}"
 mkdir -p "${HARP_EVAL_SITE}" "${MODEL_ROOT}" "${DATA_ROOT}" "${VLLM_CACHE_ROOT}"
 export PYTHONPATH="${HARP_EVAL_SITE}:${VLLM_EVAL_SITE}:${SLIME_REPO_ROOT}:${PYTHONPATH:-}"
 
-if ! python3 -c "import math_verify, antlr4, sympy" >/dev/null 2>&1; then
+if ! python3 -c "import math_verify, antlr4, sympy, ziglang" >/dev/null 2>&1; then
   python3 -m pip install --upgrade --target "${HARP_EVAL_SITE}" ${HARP_EVAL_INSTALL_SPECS}
 fi
 python3 - <<"PY"
@@ -55,12 +55,41 @@ expected = {
     "latex2sympy2-extended": "1.11.0",
     "antlr4-python3-runtime": "4.13.2",
     "sympy": "1.14.0",
+    "ziglang": "0.15.2",
 }
 for package, wanted in expected.items():
     found = metadata.version(package)
     print(package, found)
     if found != wanted:
         raise SystemExit(f"Dependency mismatch for {package}: expected {wanted}, found {found}")
+PY
+
+python3 - <<"PY"
+import os
+import shutil
+from pathlib import Path
+
+site = Path(os.environ["HARP_EVAL_SITE"])
+zig = site / "ziglang" / "zig"
+if not zig.is_file():
+    raise SystemExit(f"Missing Zig executable: {zig}")
+
+cc = Path(os.environ["HARP_ZIG_CC"])
+cc.parent.mkdir(parents=True, exist_ok=True)
+cc.write_text(f'#!/usr/bin/bash\nexec "{zig}" cc "$@"\n', encoding="utf-8")
+cc.chmod(0o755)
+
+source = Path(os.environ["HARP_PYTHON_HEADER_SOURCE"])
+destination = Path(os.environ["HARP_ZIG_INCLUDE_ROOT"])
+shutil.copytree(source / "python3.12", destination / "python3.12", dirs_exist_ok=True)
+multiarch = destination / "x86_64-linux-gnu" / "python3.12"
+multiarch.mkdir(parents=True, exist_ok=True)
+shutil.copy2(source / "x86_64-linux-gnu" / "python3.12" / "pyconfig.h", multiarch / "pyconfig.h")
+
+if not os.access(cc, os.X_OK):
+    raise SystemExit(f"Zig C compiler wrapper is not executable: {cc}")
+if not (destination / "python3.12" / "Python.h").is_file() or not (multiarch / "pyconfig.h").is_file():
+    raise SystemExit("Staged Python headers are incomplete")
 PY
 
 python3 examples/qwen3_4b_opd_harp/prepare_experiment.py \
@@ -102,6 +131,9 @@ fi
 test -f "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt"
 test -f "${HARP_PREP_METADATA}"
 test -f "${HARP_JSONL}"
+test -x "${HARP_ZIG_CC}"
+test -f "${HARP_ZIG_INCLUDE_ROOT}/python3.12/Python.h"
+test -f "${HARP_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h"
 '
 
 echo "Preparation complete at $(date)"

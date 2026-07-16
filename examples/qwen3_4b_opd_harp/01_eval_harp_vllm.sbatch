@@ -60,6 +60,11 @@ cd "${SLIME_REPO_ROOT}"
 export PYTHONPATH="${HARP_EVAL_SITE}:${VLLM_EVAL_SITE}:${HARP_EXAMPLE_DIR}:${SLIME_REPO_ROOT}:${PYTHONPATH:-}"
 export LD_LIBRARY_PATH="$(find "${VLLM_EVAL_SITE}" -path "*/nvidia/*/lib" -type d -printf "%p:" 2>/dev/null || true)${LD_LIBRARY_PATH:-}"
 export VLLM_CACHE_ROOT
+export CC="${HARP_ZIG_CC}"
+export CPATH="${HARP_ZIG_INCLUDE_ROOT}/python3.12:${HARP_ZIG_INCLUDE_ROOT}${CPATH:+:${CPATH}}"
+test -x "${CC}"
+test -f "${HARP_ZIG_INCLUDE_ROOT}/python3.12/Python.h"
+test -f "${HARP_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h"
 evaluator="examples/qwen3_4b_opd_harp/evaluate_harp_vllm.py"
 
 run_candidate() {
@@ -191,10 +196,9 @@ elif [[ "${EVAL_MODE}" == "eval" ]]; then
     local shard ready
     [[ "${eager}" == "1" ]] && eager_arg+=(--enforce-eager)
 
-    echo "Launching production HARP evaluation attempt=${attempt_name} max_num_seqs=${EVAL_MAX_NUM_SEQS} at $(date)"
+    echo "Launching production HARP evaluation attempt=${attempt_name} max_num_seqs=${EVAL_MAX_NUM_SEQS} epoch=${EPOCHSECONDS}"
     for shard in 0 1 2 3; do
       ready="${EVAL_STAGE_DIR}/ready_${SLURM_JOB_ID:-manual}_${attempt_name}_${shard}"
-      rm -f "${ready}"
       ready_files+=("${ready}")
       CUDA_VISIBLE_DEVICES="${shard}" python3 "${evaluator}" shard \
         --model "${EVAL_MODEL_DIR}" \
@@ -276,7 +280,7 @@ elif [[ "${EVAL_MODE}" == "eval" ]]; then
     run_eval_attempt eager 1
   fi
   echo "Production HARP evaluation selected_mode=${selected_mode} max_num_seqs=${EVAL_MAX_NUM_SEQS}"
-  python3 "${evaluator}" merge --stage-dir "${EVAL_STAGE_DIR}" --data "${HARP_JSONL}" --output-dir "$(dirname "${EVAL_STAGE_DIR}")"
+  python3 "${evaluator}" merge --stage-dir "${EVAL_STAGE_DIR}" --data "${HARP_JSONL}" --output-dir "${EVAL_STAGE_DIR%/*}"
 else
   echo "Unknown EVAL_MODE=${EVAL_MODE}" >&2
   exit 2

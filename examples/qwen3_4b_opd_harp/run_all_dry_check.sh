@@ -28,11 +28,21 @@ rg -q 'REPORT_MODE=base' examples/qwen3_4b_opd_harp/submit_chain.sh
 rg -q 'REPORT_MODE=opd1k' examples/qwen3_4b_opd_harp/submit_chain.sh
 rg -q 'VLLM_EVAL_4B_MAX_NUM_SEQS=20' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'VLLM_EVAL_32B_MAX_NUM_SEQS=6' examples/qwen3_4b_opd_harp/env.sh
+rg -q 'ziglang==0.15.2' examples/qwen3_4b_opd_harp/env.sh
+rg -q 'HARP_ZIG_CC=' examples/qwen3_4b_opd_harp/env.sh
+rg -q 'HARP_ZIG_INCLUDE_ROOT=' examples/qwen3_4b_opd_harp/env.sh
+rg -q 'ziglang": "0.15.2"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -Fq 'test -x "${HARP_ZIG_CC}"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -q '^  CC$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+rg -q '^  CPATH$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 rg -q 'OPD_CONTEXT_PARALLEL_SIZE=1' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'OPD_MAX_TOKENS_PER_GPU=8192' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'OPD_LOG_PROBS_CHUNK_SIZE=2048' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'run_eval_attempt cuda_graph 0' examples/qwen3_4b_opd_harp/01_eval_harp_vllm.sbatch
 rg -q 'run_eval_attempt eager 1' examples/qwen3_4b_opd_harp/01_eval_harp_vllm.sbatch
+rg -Fq 'epoch=${EPOCHSECONDS}' examples/qwen3_4b_opd_harp/01_eval_harp_vllm.sbatch
+! rg -Fq 'rm -f "${ready}"' examples/qwen3_4b_opd_harp/01_eval_harp_vllm.sbatch
+rg -Fq -- '--output-dir "${EVAL_STAGE_DIR%/*}"' examples/qwen3_4b_opd_harp/01_eval_harp_vllm.sbatch
 rg -q 'cudagraph_capture_sizes' examples/qwen3_4b_opd_harp/evaluate_harp_vllm.py
 rg -q 'CUDA graphs were requested, but vLLM disabled them' examples/qwen3_4b_opd_harp/evaluate_harp_vllm.py
 rg -q '^  EVAL_MAX_NUM_SEQS$' examples/qwen3_8b_opd_tillicum/container_exec.sh

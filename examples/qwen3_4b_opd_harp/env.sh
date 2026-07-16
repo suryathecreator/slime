@@ -56,7 +56,12 @@ export SPLIT_METADATA="${HARP_PREP_METADATA}"
 
 export VLLM_EVAL_SITE="${VLLM_EVAL_SITE:-/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/vllm_eval_site}"
 export HARP_EVAL_SITE="${SCRATCH_ROOT}/harp_eval_site"
-export HARP_EVAL_INSTALL_SPECS="math-verify==0.9.0 latex2sympy2-extended==1.11.0 antlr4-python3-runtime==4.13.2 sympy==1.14.0 pyparsing==3.3.2 tqdm==4.68.3"
+export HARP_EVAL_INSTALL_SPECS="math-verify==0.9.0 latex2sympy2-extended==1.11.0 antlr4-python3-runtime==4.13.2 sympy==1.14.0 pyparsing==3.3.2 tqdm==4.68.3 ziglang==0.15.2"
+export HARP_PYTHON_HEADER_SOURCE="/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/containers/slime_latest.sandbox.broken_20260627_043855/usr/include"
+export HARP_ZIG_INCLUDE_ROOT="${HARP_EVAL_SITE}/python_include"
+export HARP_ZIG_CC="${HARP_EVAL_SITE}/bin/zig-cc"
+export CC="${HARP_ZIG_CC}"
+export CPATH="${HARP_ZIG_INCLUDE_ROOT}/python3.12:${HARP_ZIG_INCLUDE_ROOT}${CPATH:+:${CPATH}}"
 export VLLM_EVAL_PYTHON=python3
 export VLLM_EVAL_NUM_GPUS=4
 export VLLM_EVAL_MAX_MODEL_LEN=32768
