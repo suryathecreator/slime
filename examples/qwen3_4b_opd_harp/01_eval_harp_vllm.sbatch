@@ -29,9 +29,17 @@ source "${SCRIPT_DIR}/env.sh"
 : "${EVAL_MODEL_DIR:?Set EVAL_MODEL_DIR}"
 : "${EVAL_TOKENIZER_DIR:?Set EVAL_TOKENIZER_DIR}"
 : "${EVAL_STAGE_DIR:?Set EVAL_STAGE_DIR}"
-: "${EVAL_TUNING_FILE:?Set EVAL_TUNING_FILE}"
+if [[ "${EVAL_MODE}" == "tune" ]]; then
+  : "${EVAL_TUNING_FILE:?Set EVAL_TUNING_FILE for tuning}"
+elif [[ "${EVAL_MODE}" == "eval" ]]; then
+  : "${EVAL_MAX_NUM_SEQS:?Set EVAL_MAX_NUM_SEQS for evaluation}"
+  : "${EVAL_PREFER_CUDA_GRAPH:?Set EVAL_PREFER_CUDA_GRAPH=0 or 1}"
+fi
 
-mkdir -p "${SLURM_LOG_DIR}" "${EVAL_STAGE_DIR}" "$(dirname "${EVAL_TUNING_FILE}")" "${VLLM_CACHE_ROOT}"
+mkdir -p "${SLURM_LOG_DIR}" "${EVAL_STAGE_DIR}" "${VLLM_CACHE_ROOT}"
+if [[ "${EVAL_MODE}" == "tune" ]]; then
+  mkdir -p "$(dirname "${EVAL_TUNING_FILE}")"
+fi
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
 fi
@@ -165,37 +173,105 @@ if [[ "${EVAL_MODE}" == "tune" ]]; then
   shopt -u nullglob
   python3 "${evaluator}" select-tuning "${candidate_args[@]}" --output "${EVAL_TUNING_FILE}"
 elif [[ "${EVAL_MODE}" == "eval" ]]; then
-  read -r max_num_seqs eager < <(python3 - "${EVAL_TUNING_FILE}" <<"PY"
-import json, sys
-config = json.load(open(sys.argv[1], encoding="utf-8"))["selected_engine_config"]
-print(config["max_num_seqs"], int(bool(config["enforce_eager"])))
-PY
-  )
-  eager_arg=()
-  [[ "${eager}" == "1" ]] && eager_arg+=(--enforce-eager)
-  pids=()
-  for shard in 0 1 2 3; do
-    CUDA_VISIBLE_DEVICES="${shard}" python3 "${evaluator}" shard \
-      --model "${EVAL_MODEL_DIR}" \
-      --tokenizer "${EVAL_TOKENIZER_DIR}" \
-      --data "${HARP_JSONL}" \
-      --output-dir "${EVAL_STAGE_DIR}" \
-      --shard-index "${shard}" \
-      --num-shards 4 \
-      --expected-samples "${EVAL_EXPECTED_SAMPLES}" \
-      --max-model-len "${VLLM_EVAL_MAX_MODEL_LEN}" \
-      --max-response-len "${VLLM_EVAL_MAX_RESPONSE_LEN}" \
-      --max-num-seqs "${max_num_seqs}" \
-      --max-num-batched-tokens "${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}" \
-      --gpu-memory-utilization "${VLLM_EVAL_GPU_MEMORY_UTILIZATION}" \
-      --resume \
-      "${eager_arg[@]}" \
-      >"${EVAL_STAGE_DIR}/shard_${shard}.log" 2>&1 &
-    pids+=("$!")
-  done
-  failed=0
-  for pid in "${pids[@]}"; do wait "${pid}" || failed=1; done
-  (( failed == 0 )) || exit 1
+  if [[ "${EVAL_PREFER_CUDA_GRAPH}" != "0" && "${EVAL_PREFER_CUDA_GRAPH}" != "1" ]]; then
+    echo "EVAL_PREFER_CUDA_GRAPH must be 0 or 1, found ${EVAL_PREFER_CUDA_GRAPH}" >&2
+    exit 2
+  fi
+
+  run_eval_attempt() {
+    local attempt_name="$1"
+    local eager="$2"
+    local eager_arg=()
+    local pids=()
+    local ready_files=()
+    local shard ready
+    [[ "${eager}" == "1" ]] && eager_arg+=(--enforce-eager)
+
+    echo "Launching production HARP evaluation attempt=${attempt_name} max_num_seqs=${EVAL_MAX_NUM_SEQS} at $(date)"
+    for shard in 0 1 2 3; do
+      ready="${EVAL_STAGE_DIR}/ready_${SLURM_JOB_ID:-manual}_${attempt_name}_${shard}"
+      rm -f "${ready}"
+      ready_files+=("${ready}")
+      CUDA_VISIBLE_DEVICES="${shard}" python3 "${evaluator}" shard \
+        --model "${EVAL_MODEL_DIR}" \
+        --tokenizer "${EVAL_TOKENIZER_DIR}" \
+        --data "${HARP_JSONL}" \
+        --output-dir "${EVAL_STAGE_DIR}" \
+        --shard-index "${shard}" \
+        --num-shards 4 \
+        --expected-samples "${EVAL_EXPECTED_SAMPLES}" \
+        --max-model-len "${VLLM_EVAL_MAX_MODEL_LEN}" \
+        --max-response-len "${VLLM_EVAL_MAX_RESPONSE_LEN}" \
+        --max-num-seqs "${EVAL_MAX_NUM_SEQS}" \
+        --max-num-batched-tokens "${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}" \
+        --gpu-memory-utilization "${VLLM_EVAL_GPU_MEMORY_UTILIZATION}" \
+        --ready-file "${ready}" \
+        --resume \
+        "${eager_arg[@]}" \
+        >"${EVAL_STAGE_DIR}/shard_${shard}_${attempt_name}.log" 2>&1 &
+      pids+=("$!")
+    done
+
+    local elapsed=0
+    while (( elapsed < VLLM_EVAL_ENGINE_READY_TIMEOUT_SECONDS )); do
+      local ready_count=0
+      local dead_unready=0
+      local index
+      for index in 0 1 2 3; do
+        [[ -s "${ready_files[${index}]}" ]] && ready_count=$((ready_count + 1))
+        if [[ ! -s "${ready_files[${index}]}" ]] && ! kill -0 "${pids[${index}]}" 2>/dev/null; then
+          dead_unready=$((dead_unready + 1))
+        fi
+      done
+      if (( ready_count == 4 )); then
+        echo "All production engines are ready for attempt=${attempt_name}; continuing the real evaluation."
+        break
+      fi
+      if (( dead_unready > 0 )); then
+        echo "Evaluation attempt=${attempt_name} lost a worker during engine initialization" >&2
+        for pid in "${pids[@]}"; do kill -TERM "${pid}" 2>/dev/null || true; done
+        wait || true
+        return 1
+      fi
+      sleep 1
+      elapsed=$((elapsed + 1))
+    done
+    if (( elapsed >= VLLM_EVAL_ENGINE_READY_TIMEOUT_SECONDS )); then
+      echo "Evaluation attempt=${attempt_name} exceeded the engine initialization timeout" >&2
+      for pid in "${pids[@]}"; do kill -TERM "${pid}" 2>/dev/null || true; done
+      wait || true
+      return 1
+    fi
+
+    local failed=0
+    for pid in "${pids[@]}"; do
+      if ! wait "${pid}"; then
+        failed=1
+      fi
+    done
+    if (( failed != 0 )); then
+      echo "Evaluation attempt=${attempt_name} failed after every engine reported ready" >&2
+      return 2
+    fi
+    return 0
+  }
+
+  selected_mode=eager
+  if [[ "${EVAL_PREFER_CUDA_GRAPH}" == "1" ]]; then
+    if run_eval_attempt cuda_graph 0; then
+      selected_mode=cuda_graph
+    else
+      graph_status=$?
+      if (( graph_status != 1 )); then
+        exit "${graph_status}"
+      fi
+      echo "CUDA-graph engine initialization failed; retrying the real evaluation in eager mode." >&2
+      run_eval_attempt eager 1
+    fi
+  else
+    run_eval_attempt eager 1
+  fi
+  echo "Production HARP evaluation selected_mode=${selected_mode} max_num_seqs=${EVAL_MAX_NUM_SEQS}"
   python3 "${evaluator}" merge --stage-dir "${EVAL_STAGE_DIR}" --data "${HARP_JSONL}" --output-dir "$(dirname "${EVAL_STAGE_DIR}")"
 else
   echo "Unknown EVAL_MODE=${EVAL_MODE}" >&2

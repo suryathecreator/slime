@@ -150,8 +150,16 @@ def test_offline_worker_builds_one_engine_and_generates_whole_125_row_shard(tmp_
         instances = 0
         generate_calls = []
 
-        def __init__(self, **_kwargs):
+        def __init__(self, **kwargs):
             FakeLLM.instances += 1
+            eager = kwargs["enforce_eager"]
+            compilation_config = types.SimpleNamespace(
+                cudagraph_mode="NONE" if eager else "PIECEWISE",
+                cudagraph_capture_sizes=[] if eager else [1, 2, 4, 8],
+            )
+            self.llm_engine = types.SimpleNamespace(
+                vllm_config=types.SimpleNamespace(compilation_config=compilation_config)
+            )
 
         def generate(self, prompts, sampling_params, use_tqdm):
             FakeLLM.generate_calls.append((len(prompts), len(sampling_params), use_tqdm))
@@ -204,3 +212,20 @@ def test_offline_worker_builds_one_engine_and_generates_whole_125_row_shard(tmp_
     metrics = json.loads((merged_dir / "metrics.json").read_text(encoding="utf-8"))
     assert metrics["num_eval_problems"] == 500
     assert metrics["correct_count"] == 500
+    assert metrics["engine_config"]["cudagraph_mode"] == "PIECEWISE"
+    assert metrics["engine_config"]["cudagraph_capture_sizes"] == [1, 2, 4, 8]
+
+
+def test_cuda_graph_request_requires_resolved_mode_and_capture_sizes():
+    compilation_config = types.SimpleNamespace(cudagraph_mode="PIECEWISE", cudagraph_capture_sizes=[1, 2, 4])
+    engine = types.SimpleNamespace(
+        llm_engine=types.SimpleNamespace(vllm_config=types.SimpleNamespace(compilation_config=compilation_config))
+    )
+    assert evaluator.resolved_cudagraph_config(engine, enforce_eager=False) == {
+        "cudagraph_mode": "PIECEWISE",
+        "cudagraph_capture_sizes": [1, 2, 4],
+    }
+    compilation_config.cudagraph_mode = "NONE"
+    compilation_config.cudagraph_capture_sizes = []
+    with pytest.raises(RuntimeError, match="vLLM disabled them"):
+        evaluator.resolved_cudagraph_config(engine, enforce_eager=False)

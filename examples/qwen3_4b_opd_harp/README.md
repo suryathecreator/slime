@@ -21,7 +21,7 @@ Problem:
 
 `evaluate_harp_vllm.py` uses direct synchronous offline `vllm.LLM`. Four processes each own one H200 and one tensor-parallel-1 engine. Each worker gives its entire deterministic 125-problem shard to one `llm.generate()` call, allowing vLLM to continuously batch internally without reloading the checkpoint or issuing one generation call per problem.
 
-The model-specific tuning job tests CUDA-graph `max_num_seqs` values 4 and 8 on the same 64 prompts, falls back to 2 if necessary, and only tests eager mode when every graph configuration fails. Selection uses aggregate generated tokens per four-worker makespan. Production uses bfloat16, a 32,768-token model limit, 31,744-token response cap, 0.92 GPU-memory utilization, prefix caching, chunked prefill, and 16,384 batched tokens.
+Production hard-codes `max_num_seqs=20` for Qwen3-4B and `max_num_seqs=6` for Qwen3-32B. Each real evaluation first attempts CUDA-graph engines. A worker reports ready only after vLLM resolves a non-`NONE` graph mode with nonempty capture sizes. If any worker fails before all four engines report ready, the same evaluation restarts once in eager mode; failures after engine readiness remain fatal. Production uses bfloat16, a 32,768-token model limit, 31,744-token response cap, 0.92 GPU-memory utilization, prefix caching, chunked prefill, and 16,384 batched tokens.
 
 EOS and `<|im_end|>` are resolved from each tokenizer and recorded in every manifest. Length-cap generations are retained and scored.
 
@@ -33,14 +33,14 @@ V2 isolates post-thinking text, performs balanced box extraction, supports trail
 
 ## OPD and resources
 
-Both OPD stages use three colocated student/rollout GPUs and one 32B-teacher GPU. A two-update smoke job compares the established CP3/2,048/512 configuration with CP1/4,096/1,024 and CP1/8,192/2,048, rejecting OOM, non-finite, incomplete, or invalid-checkpoint runs. The additional 4,096 prompts resume the complete optimizer, RNG, and training state from the 1,024 checkpoint.
+Both OPD stages use three colocated student/rollout GPUs and one 32B-teacher GPU. Production hard-codes context parallelism 1, 8,192 maximum tokens per GPU, and a 2,048-token log-probability chunk. The additional 4,096 prompts resume the complete optimizer, RNG, and training state from the 1,024 checkpoint.
 
 All jobs are connected by strict `afterok` dependencies and are serialized, so this sequence uses at most four GPUs at any time. The cluster requires every `gpu-h200` job to reserve a GPU, so each small report requests one GPU and completes before the next four-GPU stage starts.
 
 ```text
-setup → 4B tune → 4B base eval → 32B tune → 32B base eval
-                                            → base report → OPD tune → OPD-1K → eval
-                                                                                  → OPD-5.1K → eval → final report
+setup → 4B base eval → 32B base eval → base report
+                                            → OPD-1K → eval → 1K report
+                                                                      → OPD-5.1K → eval → final report
 ```
 
 Submit from the repository root with:

@@ -11,7 +11,7 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 source "${SCRIPT_DIR}/env.sh"
-: "${REPORT_MODE:?Set REPORT_MODE=base or final}"
+: "${REPORT_MODE:?Set REPORT_MODE=base, opd1k, or final}"
 mkdir -p "${SLURM_LOG_DIR}"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
@@ -30,6 +30,13 @@ if [[ "${REPORT_MODE}" == "base" ]]; then
     --entry "Qwen3-32B base=${EVAL_32B_BASE_DIR}" \
     --output-dir "${BASE_REPORT_DIR}" \
     --title "Qwen3 HARP V2 base comparison"
+elif [[ "${REPORT_MODE}" == "opd1k" ]]; then
+  python3 examples/qwen3_4b_opd_harp/report_harp.py \
+    --entry "Qwen3-4B base=${EVAL_4B_BASE_DIR}" \
+    --entry "Qwen3-32B base=${EVAL_32B_BASE_DIR}" \
+    --entry "Qwen3-4B OPD-1K=${EVAL_OPD1K_DIR}" \
+    --output-dir "${OPD1K_REPORT_DIR}" \
+    --title "Qwen3-4B OPD-1K HARP V2 results"
 elif [[ "${REPORT_MODE}" == "final" ]]; then
   python3 examples/qwen3_4b_opd_harp/report_harp.py \
     --entry "Qwen3-4B base=${EVAL_4B_BASE_DIR}" \

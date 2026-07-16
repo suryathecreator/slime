@@ -54,12 +54,17 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
     payload = {"title": args.title, "entries": entries}
     (output / "report.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
-    lines = [f"# {args.title}", "", "| Model/stage | Accuracy | Correct | Cap-hit rate | Cap-hit accuracy | Non-cap accuracy | Parse failures | Avg tokens |", "|---|---:|---:|---:|---:|---:|---:|---:|"]
+    lines = [f"# {args.title}", "", "| Model/stage | Engine | Accuracy | Correct | Cap-hit rate | Cap-hit accuracy | Non-cap accuracy | Parse failures | Avg tokens |", "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
     for entry in entries:
         metrics = entry["metrics"]
+        engine_config = metrics.get("engine_config", {})
+        resolved_graph_mode = engine_config.get("cudagraph_mode", "unknown")
+        engine_mode = "eager" if engine_config.get("enforce_eager") else f"CUDA graph ({resolved_graph_mode})"
+        engine = f"{engine_mode}, max-seqs={engine_config.get('max_num_seqs', 'n/a')}"
         lines.append(
-            "| {label} | {accuracy:.4f} | {correct}/{total} | {cap_rate:.4f} | {cap_accuracy:.4f} | {non_cap:.4f} | {parse_failures} | {avg:.1f} |".format(
+            "| {label} | {engine} | {accuracy:.4f} | {correct}/{total} | {cap_rate:.4f} | {cap_accuracy:.4f} | {non_cap:.4f} | {parse_failures} | {avg:.1f} |".format(
                 label=entry["label"],
+                engine=engine,
                 accuracy=metrics["accuracy"],
                 correct=metrics["correct_count"],
                 total=metrics["num_eval_problems"],

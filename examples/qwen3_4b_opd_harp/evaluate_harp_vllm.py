@@ -105,6 +105,26 @@ def shard_fingerprint(args: argparse.Namespace, data_sha256: str, model: str) ->
     return hashlib.sha256(json.dumps(policy, sort_keys=True).encode("utf-8")).hexdigest()
 
 
+def resolved_cudagraph_config(engine: Any, enforce_eager: bool) -> dict[str, Any]:
+    """Read vLLM's resolved config after engine startup and require real graph support."""
+    llm_engine = getattr(engine, "llm_engine", None)
+    vllm_config = getattr(llm_engine, "vllm_config", None)
+    compilation_config = getattr(vllm_config, "compilation_config", None)
+    if compilation_config is None:
+        if not enforce_eager:
+            raise RuntimeError("CUDA graphs were requested, but vLLM exposed no resolved compilation config")
+        return {"cudagraph_mode": "unavailable", "cudagraph_capture_sizes": []}
+
+    mode = str(getattr(compilation_config, "cudagraph_mode", "unknown"))
+    capture_sizes = [int(value) for value in (getattr(compilation_config, "cudagraph_capture_sizes", None) or [])]
+    if not enforce_eager and (mode.upper() == "NONE" or not capture_sizes):
+        raise RuntimeError(
+            "CUDA graphs were requested, but vLLM disabled them "
+            f"(cudagraph_mode={mode}, cudagraph_capture_sizes={capture_sizes})"
+        )
+    return {"cudagraph_mode": mode, "cudagraph_capture_sizes": capture_sizes}
+
+
 def run_shard(args: argparse.Namespace) -> None:
     data_path = Path(args.data)
     output_dir = Path(args.output_dir)
@@ -174,6 +194,7 @@ def run_shard(args: argparse.Namespace) -> None:
         enforce_eager=args.enforce_eager,
         seed=0,
     )
+    cudagraph_config = resolved_cudagraph_config(engine, args.enforce_eager)
     engine_ready = time.time()
     if args.ready_file:
         ready_path = Path(args.ready_file)
@@ -251,6 +272,7 @@ def run_shard(args: argparse.Namespace) -> None:
             "enable_prefix_caching": True,
             "enable_chunked_prefill": True,
             "enforce_eager": args.enforce_eager,
+            **cudagraph_config,
         },
         "stop_tokens": stop_metadata,
         "engine_load_seconds": engine_ready - engine_started,

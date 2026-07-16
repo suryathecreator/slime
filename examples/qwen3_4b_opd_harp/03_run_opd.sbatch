@@ -13,11 +13,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 source "${SCRIPT_DIR}/env.sh"
 : "${OPD_STAGE:?Set OPD_STAGE=1k or 5k}"
-if [[ ! -s "${OPD_TUNING_FILE}" ]]; then
-  echo "Missing OPD tuning selection: ${OPD_TUNING_FILE}" >&2
-  exit 1
-fi
-source "${OPD_TUNING_FILE}"
 cd "${SLIME_REPO_ROOT}"
 sha256sum -c "${SOURCE_MANIFEST}"
 
