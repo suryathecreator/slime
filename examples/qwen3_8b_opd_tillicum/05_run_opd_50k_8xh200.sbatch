@@ -32,7 +32,6 @@ for required_path in \
   "${STUDENT_HF_DIR}" \
   "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" \
   "${TEACHER_HF_DIR}" \
-  "${SFT_FINAL_HF_DIR}" \
   "${OPD_REF_LOAD_DIR}"; do
   if [[ ! -e "${required_path}" ]]; then
     echo "Missing required path: ${required_path}" >&2
@@ -76,7 +75,7 @@ echo "OPD reference load dir for logged KL: ${OPD_REF_LOAD_DIR}"
 echo "OPD allow opt-param scheduler mismatch: ${OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH}"
 echo "OPD skip rollout data-state load: ${OPD_SKIP_ROLLOUT_DATA_STATE_LOAD}"
 echo "OPD already-trained samples before this run: ${OPD_ALREADY_TRAINED_SAMPLES}"
-echo "SFT full checkpoint dir: ${SFT_FINAL_FULL_CKPT_DIR}"
+echo "Initial/reference policy checkpoint: ${OPD_INITIAL_LOAD_DIR} / ${OPD_REF_LOAD_DIR}"
 echo "OPD optimizer CPU offload: ${OPD_OPTIMIZER_CPU_OFFLOAD}"
 echo "OPD sanity guard: enabled=${OPD_SANITY_CHECK_ENABLED}, fail=${OPD_SANITY_FAIL_ON_COLLAPSE}, max rollout=${OPD_SANITY_MAX_ROLLOUT_ID}, max cap-hit=${OPD_SANITY_MAX_CAP_HIT_RATE}, max avg tokens=${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}, min final-answer=${OPD_SANITY_MIN_FINAL_ANSWER_RATE}"
 echo "OPD sanity reports: ${OPD_SANITY_REPORT_DIR}"
@@ -170,7 +169,7 @@ else
 fi
 echo "HAS_NVLINK=${HAS_NVLINK} (detected ${NVLINK_COUNT} NVLink references)"
 
-source scripts/models/qwen3-8B.sh
+source "${STUDENT_MODEL_ARGS_SCRIPT}"
 
 comma_range() {
   local n="$1"
@@ -196,7 +195,7 @@ validate_megatron_load_dir() {
   local latest_iter
   local iter_dir
 
-  if [[ "${load_dir}" == "${SFT_FINAL_HF_DIR}" ]] || [[ -f "${load_dir}/config.json" && ! -f "${load_dir}/.metadata" ]]; then
+  if [[ -f "${load_dir}/config.json" && ! -f "${load_dir}/.metadata" ]]; then
     echo "${label} load dir appears to be an HF snapshot, not a Megatron checkpoint: ${load_dir}" >&2
     exit 1
   fi
@@ -250,16 +249,16 @@ else
   case "${OPD_INITIAL_LOAD_MODE}" in
     megatron)
       OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
-      OPD_LOAD_KIND="sft_full_optim_initial"
+      OPD_LOAD_KIND="initial_full_optim"
       echo "Starting OPD from full Megatron optimizer checkpoint ${OPD_LOAD_DIR}"
       validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
       ;;
     hf)
       OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
-      OPD_LOAD_KIND="sft_hf_weights_initial"
+      OPD_LOAD_KIND="initial_hf_weights"
       CKPT_HF_CHECKPOINT="${OPD_LOAD_DIR}"
-      echo "Starting OPD from SFT HF weights snapshot ${OPD_LOAD_DIR}"
-      echo "Fresh OPD optimizer will be initialized because SFT full optimizer checkpoint TP layout is incompatible with this actor layout."
+      echo "Starting OPD from HF weights snapshot ${OPD_LOAD_DIR}"
+      echo "A fresh OPD optimizer will be initialized for this HF starting checkpoint."
       validate_hf_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
       ;;
     *)
@@ -365,7 +364,7 @@ fi
 
 WANDB_ARGS=()
 if [[ "${WANDB_MODE}" != "disabled" ]]; then
-  WANDB_ARGS+=(--wandb-project slime-tillicum --wandb-group "qwen3-8b-opd-${OPD_RUN_LABEL}")
+  WANDB_ARGS+=(--wandb-project slime-tillicum --wandb-group "${OPD_WANDB_GROUP_PREFIX}-opd-${OPD_RUN_LABEL}")
 fi
 
 SGLANG_ARGS=(
@@ -526,7 +525,9 @@ manifest = {
     "resume_from_full_optim_checkpoint": str(save_dir / f"iter_{final_rollout_id:07d}"),
     "initial_load_mode": os.environ.get("OPD_INITIAL_LOAD_MODE"),
     "initial_load_dir": os.environ.get("OPD_INITIAL_LOAD_DIR"),
+    "initial_full_checkpoint_dir": os.environ.get("SFT_FINAL_FULL_CKPT_DIR"),
     "sft_full_checkpoint_dir": os.environ.get("SFT_FINAL_FULL_CKPT_DIR"),
+    "prompt_contract_version": os.environ.get("OPD_PROMPT_CONTRACT_VERSION"),
     "resume_from_hf_snapshot": str(hf_dir),
     "rollout_dataset_state": str(dataset_state),
     "trained_rows": rows,

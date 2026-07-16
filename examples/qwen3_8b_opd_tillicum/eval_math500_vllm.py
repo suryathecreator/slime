@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import hashlib
 import json
 import os
@@ -360,68 +359,41 @@ def operational_config(args: argparse.Namespace, vllm_version: str) -> dict[str,
         "kv_cache_dtype": args.kv_cache_dtype,
         "enable_prefix_caching": args.enable_prefix_caching,
         "enable_chunked_prefill": args.enable_chunked_prefill,
-        "async_scheduling": args.async_scheduling,
+        "offline_llm": True,
+        "async_scheduling": False,
         "safetensors_load_strategy": args.safetensors_load_strategy,
-        "speculative_config": speculative_config(args),
+        "speculative_config": None,
         "skip_tokenizer_init": True,
         "detokenize": False,
         "output_kind": "final_only",
-        "persistence": "per_sample_atomic",
+        "persistence": "single_generate_call_then_per_sample_atomic",
     }
 
 
-async def generate_one(
-    engine: Any,
-    tokenizer: Any,
-    cap: int,
-    prompt_ids: list[int],
-    base: dict[str, Any],
-    args: argparse.Namespace,
-) -> dict[str, Any]:
-    from vllm import SamplingParams, TokensPrompt
-    from vllm.sampling_params import RequestOutputKind
-
-    sampling_params = SamplingParams(
-        temperature=0.0,
-        top_p=1.0,
-        max_tokens=cap,
-        stop_token_ids=args.stop_token_ids,
-        detokenize=False,
-        skip_special_tokens=not args.preserve_special_tokens,
-        spaces_between_special_tokens=False,
-        include_stop_str_in_output=True,
-        output_kind=RequestOutputKind.FINAL_ONLY,
-    )
-    output = None
-    request_id = f"shard-{args.shard_index}-eval-{base['eval_index']}"
-    async for candidate in engine.generate(
-        TokensPrompt(prompt_token_ids=prompt_ids),
-        sampling_params,
-        request_id=request_id,
-    ):
-        output = candidate
-    if output is None:
-        raise RuntimeError(f"vLLM returned no final output for {request_id}")
-    return sample_from_output(tokenizer, base, cap, output)
-
-
-async def run_continuous_batch(
+def run_offline_batch(
     tokenizer: Any,
     pending_rows: list[dict[str, Any]],
     args: argparse.Namespace,
     on_sample: Any,
 ) -> None:
+    """Load one offline engine and submit the entire shard in one call."""
     import vllm
-    from vllm.engine.arg_utils import AsyncEngineArgs
-    from vllm.v1.engine.async_llm import AsyncLLM
+    from vllm import LLM, SamplingParams, TokensPrompt
+    from vllm.sampling_params import RequestOutputKind
 
     prepared, zero_cap_samples = prepare_chunk_rows(tokenizer, pending_rows, args)
     for sample in zero_cap_samples:
         on_sample(sample)
     if not prepared:
         return
-
-    engine_args = AsyncEngineArgs(
+    if speculative_config(args) is not None:
+        raise ValueError("Offline evaluation does not permit speculative decoding")
+    print(
+        "VLLM_EVAL_OPERATIONAL_CONFIG "
+        + json.dumps(operational_config(args, vllm.__version__), sort_keys=True),
+        flush=True,
+    )
+    engine = LLM(
         model=args.model,
         tokenizer=args.model,
         skip_tokenizer_init=True,
@@ -435,29 +407,30 @@ async def run_continuous_batch(
         max_num_batched_tokens=args.max_num_batched_tokens,
         enable_prefix_caching=args.enable_prefix_caching,
         enable_chunked_prefill=args.enable_chunked_prefill,
-        async_scheduling=args.async_scheduling,
         safetensors_load_strategy=args.safetensors_load_strategy,
-        speculative_config=speculative_config(args),
         disable_log_stats=False,
-        enable_log_requests=False,
     )
-    print(
-        "VLLM_EVAL_OPERATIONAL_CONFIG "
-        + json.dumps(operational_config(args, vllm.__version__), sort_keys=True),
-        flush=True,
-    )
-    engine = AsyncLLM.from_engine_args(engine_args)
-    tasks = [
-        asyncio.create_task(generate_one(engine, tokenizer, cap, prompt_ids, base, args))
+    prompts = [TokensPrompt(prompt_token_ids=prompt_ids) for _, prompt_ids, _ in prepared]
+    sampling_params = [
+        SamplingParams(
+            temperature=0.0,
+            top_p=1.0,
+            max_tokens=cap,
+            stop_token_ids=args.stop_token_ids,
+            detokenize=False,
+            skip_special_tokens=not args.preserve_special_tokens,
+            spaces_between_special_tokens=False,
+            include_stop_str_in_output=True,
+            output_kind=RequestOutputKind.FINAL_ONLY,
+        )
         for cap, prompt_ids, base in prepared
     ]
-    try:
-        for task in asyncio.as_completed(tasks):
-            on_sample(await task)
-    finally:
-        for task in tasks:
-            if not task.done():
-                task.cancel()
+    outputs = engine.generate(prompts, sampling_params=sampling_params, use_tqdm=True)
+    if len(outputs) != len(prepared):
+        raise RuntimeError(f"vLLM returned {len(outputs)} outputs for {len(prepared)} prompts")
+    for (cap, _prompt_ids, base), output in zip(prepared, outputs, strict=True):
+        on_sample(sample_from_output(tokenizer, base, cap, output))
+    if hasattr(engine, "shutdown"):
         engine.shutdown()
 
 
@@ -528,7 +501,7 @@ def run_shard(args: argparse.Namespace) -> None:
             flush=True,
         )
 
-    asyncio.run(run_continuous_batch(tokenizer, pending_rows, args, persist_sample))
+    run_offline_batch(tokenizer, pending_rows, args, persist_sample)
 
 
 def merge_shards(args: argparse.Namespace) -> None:

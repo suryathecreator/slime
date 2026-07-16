@@ -160,13 +160,9 @@ def test_optimized_operational_config_is_not_semantic_policy(tmp_path):
 
     assert runtime["max_num_seqs"] == 24
     assert runtime["max_num_batched_tokens"] == 16384
-    assert runtime["async_scheduling"] is True
-    assert runtime["speculative_config"] == {
-        "method": "ngram_gpu",
-        "num_speculative_tokens": 8,
-        "prompt_lookup_min": 5,
-        "prompt_lookup_max": 5,
-    }
+    assert runtime["offline_llm"] is True
+    assert runtime["async_scheduling"] is False
+    assert runtime["speculative_config"] is None
     assert "max_num_seqs" not in eval_vllm.generation_policy(eval_args)
 
 

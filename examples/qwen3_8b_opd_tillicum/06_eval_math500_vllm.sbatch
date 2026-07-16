@@ -49,7 +49,7 @@ echo "vLLM venv: ${VLLM_EVAL_VENV}"
 echo "vLLM target site: ${VLLM_EVAL_SITE}"
 echo "vLLM workers/seqs/batched tokens: ${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}"
 echo "vLLM memory/KV/load: utilization=${VLLM_EVAL_GPU_MEMORY_UTILIZATION} kv_dtype=${VLLM_EVAL_KV_CACHE_DTYPE} safetensors=${VLLM_EVAL_SAFETENSORS_LOAD_STRATEGY}"
-echo "vLLM scheduler: async=${VLLM_EVAL_ASYNC_SCHEDULING} chunked_prefill=${VLLM_EVAL_ENABLE_CHUNKED_PREFILL} prefix_cache=${VLLM_EVAL_ENABLE_PREFIX_CACHING}"
+echo "vLLM scheduler: direct_offline=1 chunked_prefill=${VLLM_EVAL_ENABLE_CHUNKED_PREFILL} prefix_cache=${VLLM_EVAL_ENABLE_PREFIX_CACHING}"
 echo "vLLM speculative: method=${VLLM_EVAL_SPECULATIVE_METHOD} tokens=${VLLM_EVAL_NUM_SPECULATIVE_TOKENS} lookup=${VLLM_EVAL_PROMPT_LOOKUP_MIN}:${VLLM_EVAL_PROMPT_LOOKUP_MAX}"
 echo "vLLM force native sampler: ${VLLM_EVAL_FORCE_NATIVE_SAMPLER}"
 echo "vLLM per-sample resume: legacy_chunk_size=${VLLM_EVAL_CHUNK_SIZE} resume_completed=${VLLM_EVAL_RESUME_COMPLETED}"
@@ -161,7 +161,6 @@ while [[ "${shard}" -lt "${VLLM_EVAL_NUM_GPUS}" ]]; do
       --preserve-special-tokens \
       '"$([[ "${VLLM_EVAL_ENABLE_PREFIX_CACHING}" == "1" ]] && printf "%s" "--enable-prefix-caching")"' \
       '"$([[ "${VLLM_EVAL_ENABLE_CHUNKED_PREFILL}" == "1" ]] && printf "%s" "--enable-chunked-prefill")"' \
-      '"$([[ "${VLLM_EVAL_ASYNC_SCHEDULING}" == "1" ]] && printf "%s" "--async-scheduling")"' \
       '"$([[ "${VLLM_EVAL_RESUME_COMPLETED}" == "1" ]] && printf "%s" "--resume-completed")"' \
       '"$([[ "${VLLM_EVAL_TRUST_REMOTE_CODE}" == "1" ]] && printf "%s" "--trust-remote-code")"' \
       --hf-home "${HF_HOME}"
