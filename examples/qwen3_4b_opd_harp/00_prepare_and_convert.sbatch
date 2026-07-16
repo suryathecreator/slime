@@ -66,6 +66,7 @@ PY
 
 python3 - <<"PY"
 import os
+import shlex
 import shutil
 from pathlib import Path
 
@@ -76,7 +77,21 @@ if not zig.is_file():
 
 cc = Path(os.environ["HARP_ZIG_CC"])
 cc.parent.mkdir(parents=True, exist_ok=True)
-cc.write_text(f"#!/usr/bin/bash\nexec \"{zig}\" cc \"$@\"\n", encoding="utf-8")
+cc.write_text(
+    """#!/usr/bin/bash
+set -euo pipefail
+translated=()
+for argument in "$@"; do
+  case "${argument}" in
+    -l:libcuda.so.1) translated+=("-lcuda") ;;
+    *) translated+=("${argument}") ;;
+  esac
+done
+exec %s cc "${translated[@]}"
+"""
+    % shlex.quote(str(zig)),
+    encoding="utf-8",
+)
 cc.chmod(0o755)
 
 source = Path(os.environ["HARP_PYTHON_HEADER_SOURCE"])
@@ -91,6 +106,17 @@ if not os.access(cc, os.X_OK):
 if not (destination / "python3.12" / "Python.h").is_file() or not (multiarch / "pyconfig.h").is_file():
     raise SystemExit("Staged Python headers are incomplete")
 PY
+
+zig_probe_output="${TMPDIR}/harp_zig_libcuda_probe.so"
+"${HARP_ZIG_CC}" \
+  -x c /dev/null \
+  -O3 \
+  -shared \
+  -fPIC \
+  -o "${zig_probe_output}" \
+  -l:libcuda.so.1 \
+  -L/.singularity.d/libs
+test -s "${zig_probe_output}"
 
 python3 examples/qwen3_4b_opd_harp/prepare_experiment.py \
   --harp-source "${HARP_SOURCE_CACHE}" \

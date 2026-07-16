@@ -32,7 +32,12 @@ rg -q 'ziglang==0.15.2' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'HARP_ZIG_CC=' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'HARP_ZIG_INCLUDE_ROOT=' examples/qwen3_4b_opd_harp/env.sh
 rg -q 'ziglang": "0.15.2"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
-rg -Fq 'cc.write_text(f"#!/usr/bin/bash\nexec \"{zig}\" cc \"$@\"\n", encoding="utf-8")' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -Fq 'case "${argument}" in' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -Fq -- '-l:libcuda.so.1) translated+=("-lcuda") ;;' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -Fq 'exec %s cc "${translated[@]}"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -Fq 'zig_probe_output="${TMPDIR}/harp_zig_libcuda_probe.so"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -Fq -- '-L/.singularity.d/libs' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -Fq 'test -s "${zig_probe_output}"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
 rg -Fq 'test -x "${HARP_ZIG_CC}"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
 rg -q '^  CC$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 rg -q '^  CPATH$' examples/qwen3_8b_opd_tillicum/container_exec.sh
