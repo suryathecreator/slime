@@ -42,7 +42,6 @@ set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
 mkdir -p "${HARP_EVAL_SITE}" "${MODEL_ROOT}" "${DATA_ROOT}" "${VLLM_CACHE_ROOT}"
 export PYTHONPATH="${HARP_EVAL_SITE}:${VLLM_EVAL_SITE}:${SLIME_REPO_ROOT}:${PYTHONPATH:-}"
-export LD_LIBRARY_PATH="$(find "${VLLM_EVAL_SITE}" -path "*/nvidia/*/lib" -type d -printf "%p:" 2>/dev/null || true)${LD_LIBRARY_PATH:-}"
 
 if ! python3 -c "import math_verify, antlr4, sympy" >/dev/null 2>&1; then
   python3 -m pip install --upgrade --target "${HARP_EVAL_SITE}" ${HARP_EVAL_INSTALL_SPECS}
@@ -93,7 +92,7 @@ python3 examples/qwen3_8b_opd_tillicum/validate_qwen3_generation.py \
 if [[ ! -f "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" ]]; then
   source "${STUDENT_MODEL_ARGS_SCRIPT}"
   mkdir -p "${STUDENT_TORCH_DIST_DIR}"
-  PYTHONPATH="/root/Megatron-LM:${SLIME_REPO_ROOT}:${PYTHONPATH:-}" \
+  PYTHONPATH="/root/Megatron-LM:${SLIME_REPO_ROOT}" \
   torchrun --nproc_per_node=4 tools/convert_hf_to_torch_dist.py \
     "${MODEL_ARGS[@]}" \
     --hf-checkpoint "${STUDENT_HF_DIR}" \

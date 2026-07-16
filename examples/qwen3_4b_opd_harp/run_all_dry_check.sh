@@ -10,6 +10,11 @@ for entrypoint in examples/qwen3_4b_opd_harp/*.sbatch; do
   rg -q 'SLURM_SUBMIT_DIR.*examples/qwen3_4b_opd_harp/env\.sh' "${entrypoint}"
   rg -q 'SCRIPT_DIR="\$\{SLURM_SUBMIT_DIR\}/examples/qwen3_4b_opd_harp"' "${entrypoint}"
 done
+if rg -n 'export LD_LIBRARY_PATH=.*VLLM_EVAL_SITE' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch; then
+  echo "Model conversion setup globally overlays vLLM CUDA libraries." >&2
+  exit 1
+fi
+rg -Fq 'PYTHONPATH="/root/Megatron-LM:${SLIME_REPO_ROOT}"' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
 if rg -n 'AsyncLLM|asyncio' examples/qwen3_4b_opd_harp/evaluate_harp_vllm.py; then
   echo "The HARP evaluator contains a prohibited async generation path." >&2
   exit 1
