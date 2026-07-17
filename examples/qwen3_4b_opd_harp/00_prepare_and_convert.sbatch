@@ -87,7 +87,7 @@ for argument in "$@"; do
     *) translated+=("${argument}") ;;
   esac
 done
-exec %s cc "${translated[@]}"
+exec %s cc -target x86_64-linux-gnu "${translated[@]}"
 """
     % shlex.quote(str(zig)),
     encoding="utf-8",
@@ -108,8 +108,14 @@ if not (destination / "python3.12" / "Python.h").is_file() or not (multiarch / "
 PY
 
 zig_probe_output="${TMPDIR}/harp_zig_libcuda_probe.so"
-"${HARP_ZIG_CC}" \
-  -x c /dev/null \
+printf "%s\n" \
+  "#include <stdlib.h>" \
+  "extern int cuInit(unsigned int);" \
+  "void *harp_zig_probe(void) {" \
+  "  (void)cuInit(0);" \
+  "  return malloc(1);" \
+  "}" | "${HARP_ZIG_CC}" \
+  -x c - \
   -O3 \
   -shared \
   -fPIC \
@@ -117,6 +123,13 @@ zig_probe_output="${TMPDIR}/harp_zig_libcuda_probe.so"
   -l:libcuda.so.1 \
   -L/.singularity.d/libs
 test -s "${zig_probe_output}"
+python3 - "${zig_probe_output}" <<"PY"
+import ctypes
+import sys
+
+ctypes.CDLL(sys.argv[1])
+print(f"Loaded Zig CUDA/libc probe: {sys.argv[1]}")
+PY
 
 python3 examples/qwen3_4b_opd_harp/prepare_experiment.py \
   --harp-source "${HARP_SOURCE_CACHE}" \
