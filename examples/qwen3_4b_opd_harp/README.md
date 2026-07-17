@@ -37,6 +37,8 @@ Both OPD stages use three colocated student/rollout GPUs and one 32B-teacher GPU
 
 All jobs are connected by strict `afterok` dependencies and are serialized, so this sequence uses at most four GPUs at any time. The cluster requires every `gpu-h200` job to reserve a GPU, so each small report requests one GPU and completes before the next four-GPU stage starts.
 
+Host-memory requests are stage-specific and assume an empty experiment scratch directory: 64 GiB for setup and model conversion, 96 GiB for four-replica 4B evaluation, 384 GiB for four-replica 32B evaluation, 512 GiB for OPD or OPD tuning, and 16 GiB for reporting. The OPD request includes headroom above the roughly 439 GiB peak measured in comparable completed runs. These defaults can be overridden through the corresponding `SLURM_MEM_*` variables in `env.sh`.
+
 ```text
 setup → 4B base eval → 32B base eval → base report
                                             → OPD-1K → eval → 1K report

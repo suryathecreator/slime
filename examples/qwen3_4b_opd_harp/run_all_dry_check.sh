@@ -22,6 +22,21 @@ fi
 test "$(rg -c 'engine\.generate\(' examples/qwen3_4b_opd_harp/evaluate_harp_vllm.py)" = "1"
 rg -q 'engine\.generate\(\[item\["rendered_prompt"\] for item in prepared\]' examples/qwen3_4b_opd_harp/evaluate_harp_vllm.py
 rg -q 'STUDENT_HF_REPO="Qwen/Qwen3-4B"' examples/qwen3_4b_opd_harp/env.sh
+rg -Fq 'SLURM_MEM_SETUP="${SLURM_MEM_SETUP:-64G}"' examples/qwen3_4b_opd_harp/env.sh
+rg -Fq 'SLURM_MEM_EVAL_4B="${SLURM_MEM_EVAL_4B:-96G}"' examples/qwen3_4b_opd_harp/env.sh
+rg -Fq 'SLURM_MEM_EVAL_32B="${SLURM_MEM_EVAL_32B:-384G}"' examples/qwen3_4b_opd_harp/env.sh
+rg -Fq 'SLURM_MEM_OPD="${SLURM_MEM_OPD:-512G}"' examples/qwen3_4b_opd_harp/env.sh
+rg -Fq 'SLURM_MEM_REPORT="${SLURM_MEM_REPORT:-16G}"' examples/qwen3_4b_opd_harp/env.sh
+! rg -n '^#SBATCH --mem=0$' examples/qwen3_4b_opd_harp/*.sbatch
+rg -q '^#SBATCH --mem=64G$' examples/qwen3_4b_opd_harp/00_prepare_and_convert.sbatch
+rg -q '^#SBATCH --mem=384G$' examples/qwen3_4b_opd_harp/01_eval_harp_vllm.sbatch
+rg -q '^#SBATCH --mem=512G$' examples/qwen3_4b_opd_harp/02_tune_opd.sbatch examples/qwen3_4b_opd_harp/03_run_opd.sbatch
+rg -q '^#SBATCH --mem=16G$' examples/qwen3_4b_opd_harp/04_report_harp.sbatch
+rg -Fq -- '--mem="${SLURM_MEM_SETUP}"' examples/qwen3_4b_opd_harp/submit_chain.sh
+test "$(rg -Fc -- '--mem="${SLURM_MEM_EVAL_4B}"' examples/qwen3_4b_opd_harp/submit_chain.sh)" = "3"
+rg -Fq -- '--mem="${SLURM_MEM_EVAL_32B}"' examples/qwen3_4b_opd_harp/submit_chain.sh
+test "$(rg -Fc -- '--mem="${SLURM_MEM_OPD}"' examples/qwen3_4b_opd_harp/submit_chain.sh)" = "2"
+test "$(rg -Fc -- '--mem="${SLURM_MEM_REPORT}"' examples/qwen3_4b_opd_harp/submit_chain.sh)" = "3"
 rg -q 'OPD_STAGE=1k' examples/qwen3_4b_opd_harp/submit_chain.sh
 rg -q 'OPD_STAGE=5k' examples/qwen3_4b_opd_harp/submit_chain.sh
 rg -q 'REPORT_MODE=base' examples/qwen3_4b_opd_harp/submit_chain.sh

@@ -13,6 +13,13 @@ SLIME_REPO_ROOT="$(cd -- "${HARP_EXAMPLE_DIR}/../.." >/dev/null 2>&1 && pwd)"
 export ACCOUNT="${ACCOUNT:-raivn}"
 export PARTITION="${PARTITION:-gpu-h200}"
 export QOS="${QOS:-normal}"
+# Host-memory requests are sized for a cold start, including model conversion and
+# concurrent model loading. submit_chain.sh applies the stage-specific values.
+export SLURM_MEM_SETUP="${SLURM_MEM_SETUP:-64G}"
+export SLURM_MEM_EVAL_4B="${SLURM_MEM_EVAL_4B:-96G}"
+export SLURM_MEM_EVAL_32B="${SLURM_MEM_EVAL_32B:-384G}"
+export SLURM_MEM_OPD="${SLURM_MEM_OPD:-512G}"
+export SLURM_MEM_REPORT="${SLURM_MEM_REPORT:-16G}"
 export SCRATCH_ROOT="${HARP_SCRATCH_ROOT:-/gpfs/scrubbed/suryadv/slime-qwen3-4b-opd-harp-v2}"
 export DATA_ROOT="${SCRATCH_ROOT}/data"
 export MODEL_ROOT="${SCRATCH_ROOT}/models"

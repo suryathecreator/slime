@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --gres=gpu:h200:4
-#SBATCH --mem=0
+#SBATCH --mem=512G
 #SBATCH --time=24:00:00
 #SBATCH --mail-user=suryadv@cs.washington.edu
 #SBATCH --mail-type=END,FAIL
