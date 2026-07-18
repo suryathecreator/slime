@@ -1,0 +1,87 @@
+{
+  "accuracy_delta": 0.008000000000000007,
+  "correct_count_delta": 4,
+  "correctness_flips": [
+    {
+      "candidate": "-810",
+      "cap_hit": false,
+      "correct_answer": "$\\text{Mr. A loses }\\textdollar810$",
+      "decision_reason": "unit_omission_exact_rational_match",
+      "legacy_is_correct": false,
+      "problem_id": "AHSME_1953_30",
+      "rescored_is_correct": true
+    },
+    {
+      "candidate": "I, II, III",
+      "cap_hit": false,
+      "correct_answer": "$\\textbf{I, II} \\text{and} \\textbf{ III}$",
+      "decision_reason": "unordered_collection_exact_match",
+      "legacy_is_correct": false,
+      "problem_id": "AHSME_1973_35",
+      "rescored_is_correct": true
+    },
+    {
+      "candidate": "344",
+      "cap_hit": true,
+      "correct_answer": "$344$",
+      "decision_reason": "exact_rational_match",
+      "legacy_is_correct": false,
+      "problem_id": "AIME_1993_12",
+      "rescored_is_correct": true
+    },
+    {
+      "candidate": "60",
+      "cap_hit": false,
+      "correct_answer": "$\\textdollar60$",
+      "decision_reason": "unit_omission_exact_rational_match",
+      "legacy_is_correct": false,
+      "problem_id": "AMC_10A_2006_13",
+      "rescored_is_correct": true
+    },
+    {
+      "candidate": null,
+      "cap_hit": true,
+      "correct_answer": "$3.75$",
+      "decision_reason": "no_eligible_answer_event",
+      "legacy_is_correct": true,
+      "problem_id": "AMC_10B_2011_3",
+      "rescored_is_correct": false
+    },
+    {
+      "candidate": "11110",
+      "cap_hit": false,
+      "correct_answer": "$\\: 11{,}110$",
+      "decision_reason": "exact_rational_match",
+      "legacy_is_correct": false,
+      "problem_id": "AMC_12B_2021_Fall_1",
+      "rescored_is_correct": true
+    }
+  ],
+  "data_sha256": "30a43db8e669d7a6cc8fbb8a93a84018d5440b110632372467183d707a30c5ab",
+  "official_positive_typed_rejections": 0,
+  "report_job_id": "177946",
+  "same_generation_artifact": true,
+  "source_job_id": "177135",
+  "source_predictions_sha256": "fbd1cdfff57a414bd14093755e39f806d311a6ed41ba51901d9186b9e60e6b74",
+  "v2": {
+    "accuracy": 0.828,
+    "cap_hit_accuracy": 0.08333333333333333,
+    "cap_hit_count": 36,
+    "correct_count": 414,
+    "scorer_version": "harp_answer_v2"
+  },
+  "v2_metrics_sha256": "6f2a481ba2ae09c7fa0bb9d17516934319db88a334619e3cfbc7123a14194192",
+  "v3": {
+    "accuracy": 0.836,
+    "cap_hit_accuracy": 0.08333333333333333,
+    "cap_hit_count": 36,
+    "correct_count": 418,
+    "excluded_count": 0,
+    "predictions_sha256": "57d5b6666bf9ed6821136bf1d5bf791804b846f143b69e73fda52488ee56ddbc",
+    "publishable": true,
+    "review_count": 0,
+    "scorer_version": "harp_answer_v3",
+    "source_count": 500
+  },
+  "v3_metrics_sha256": "2aac88ef124621fce306f3fa91ff3b8d450cd9dbe77895fab7f541d7ea3ad231"
+}

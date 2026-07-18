@@ -41,6 +41,10 @@ The evaluator requires an explicit `--scorer-version` for scoring commands. V3 a
 
 The completed Qwen3-4B baseline generations from Slurm job `177135` score 414/500 (82.8%) under V2 and 418/500 (83.6%) under V3, with zero exclusions and zero reviews. Both scores use stored-generation SHA-256 `fbd1cdfff57a414bd14093755e39f806d311a6ed41ba51901d9186b9e60e6b74`.
 
+The committed [correction report](results/harp_v2_v3_correction.md) records
+the six flip-level decisions and immutable artifact hashes reproduced by Slurm
+report job `177946`.
+
 ## OPD and resources
 
 Both OPD stages use three colocated student/rollout GPUs and one 32B-teacher GPU. Production hard-codes context parallelism 1, 8,192 maximum tokens per GPU, and a 2,048-token log-probability chunk. The additional 4,096 prompts resume the complete optimizer, RNG, and training state from the 1,024 checkpoint.
