@@ -1,0 +1,102 @@
+{
+  "failed_attempts": [
+    {
+      "descendants_cancelled": [
+        "177961",
+        "177962",
+        "177963",
+        "177964",
+        "177965",
+        "177966",
+        "177967",
+        "177968"
+      ],
+      "eval_job": "177960",
+      "failure": "VLLM_EVAL_PREFER_CUDA_GRAPH was not forwarded into the container",
+      "fix_commit": "9e77928"
+    },
+    {
+      "descendants_cancelled": [
+        "177999",
+        "178000",
+        "178001",
+        "178002",
+        "178003",
+        "178004",
+        "178005",
+        "178006"
+      ],
+      "eval_job": "177998",
+      "failure": "scratch vLLM import could not load libcudart.so.13",
+      "fix_commit": "eb477a8"
+    },
+    {
+      "descendants_cancelled": [
+        "178012",
+        "178013",
+        "178014",
+        "178015",
+        "178016",
+        "178017",
+        "178018",
+        "178019"
+      ],
+      "eval_job": "178011",
+      "failure": "nested shell quoting corrupted the vLLM version preflight",
+      "fix_commit": "c269255"
+    },
+    {
+      "descendants_cancelled": [
+        "178024",
+        "178025",
+        "178026",
+        "178027",
+        "178028",
+        "178029",
+        "178030",
+        "178031"
+      ],
+      "eval_job": "178023",
+      "failure": "Triton could not find a C compiler in CUDA-graph or eager mode",
+      "fix_commit": "8d01f15"
+    }
+  ],
+  "healthy_submission": {
+    "implementation_commit": "8d01f1530bf2e847231ce44bfa40f7bc361435df",
+    "jobs": {
+      "base_report": "178035",
+      "final_report": "178041",
+      "opd_001024_eval": "178037",
+      "opd_001024_report": "178038",
+      "opd_001024_train": "178036",
+      "opd_005120_eval": "178040",
+      "opd_005120_train": "178039",
+      "qwen3_1.7b_base_eval": "178033",
+      "qwen3_8b_teacher_eval": "178034",
+      "setup": "178032"
+    },
+    "submit_time": "2026-07-17T21:43:15-07:00"
+  },
+  "protocol": {
+    "max_response_len": 31744,
+    "metric": "total_correct_divided_by_480_mc_pass_at_1",
+    "num_generations": 480,
+    "num_problems": 30,
+    "samples_per_problem": 16,
+    "sampling": {
+      "min_p": 0.0,
+      "temperature": 0.6,
+      "top_k": 20,
+      "top_p": 0.95
+    }
+  },
+  "verification": {
+    "active_eval_job": "178033",
+    "batch_size_per_shard": 120,
+    "cuda_graph_engines_ready": 4,
+    "gpu_count": 4,
+    "gpu_utilization_percent_each": 100,
+    "tests_passed": 53,
+    "vllm_version": "0.24.0"
+  }
+}
