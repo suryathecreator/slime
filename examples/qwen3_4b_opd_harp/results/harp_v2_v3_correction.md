@@ -4,6 +4,16 @@ Slurm report job `177946` rescored the stored outputs from evaluation job
 `177135`. Both rows below use the exact same 500 greedy generations; only
 answer extraction and verification changed.
 
+> **Subsequent-audit caveat:** these results use this repository's frozen V3
+> scorer and do not include later fixes discovered by the
+> `Axolotl-Masked-SFT` saved-generation audit of this same greedy Qwen3-4B base
+> evaluation and other ongoing HARP evaluations. Those fixes cover bounded
+> cap-trace events, intermediate-answer precedence, explicit versus generic
+> retractions, truncated multipart answers, safer quantity matching, and
+> additional typed answer forms. Expect a small amount of scorer noise; the
+> result is approximately correct. The frozen artifacts remain unchanged, and
+> no arbitrary last-number fallback is used.
+
 | Scorer | Correct | Accuracy | Cap hits | Cap-hit accuracy | Reviews |
 |---|---:|---:|---:|---:|---:|
 | `harp_answer_v2` | 414/500 | 82.800% | 36 | 8.333% | n/a |

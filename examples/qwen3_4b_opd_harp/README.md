@@ -45,6 +45,41 @@ The committed [correction report](results/harp_v2_v3_correction.md) records
 the six flip-level decisions and immutable artifact hashes reproduced by Slurm
 report job `177946`.
 
+### Subsequent saved-generation audit caveat
+
+The V3 implementation and scores in this repository predate additional scorer
+fixes discovered while auditing saved generations in `Axolotl-Masked-SFT`.
+That audit includes the same greedy Qwen3-4B baseline evaluated here as well as
+other HARP evaluations still running there. None of the following later fixes
+has been ported into this repository's scorer:
+
+- bounding answer-event matches in long, newline-free cap traces so that one
+  event cannot swallow later answer statements;
+- preventing weak intermediate conclusions or subproblem counts from
+  replacing an earlier explicit final answer;
+- distinguishing generic doubt such as “wait, no” from an explicit answer
+  retraction;
+- treating a cap-truncated multipart continuation such as “II and IV” after
+  “II” as incomplete rather than a distinct replacement answer;
+- rejecting unsafe quantity matches triggered by meta statements, negated
+  values, or symbolic expressions; and
+- supporting additional valid forms including single-box collections, labeled
+  directions, degrees and radians, Unicode radicals, ratios, and reordered
+  symbolic expressions.
+
+Accordingly, the committed HARP results should be treated as approximately
+correct with a small amount of scorer noise, not as fully incorporating the
+latest saved-generation audit. The intended cap policy remains: select the
+last complete explicit final answer; doubt alone does not erase it; a later
+distinct complete answer replaces it; and an explicit unreplaced rejection is
+incorrect. There is no arbitrary last-number fallback.
+
+The frozen generations, scorers, result files, and hashes are intentionally
+unchanged for reproducibility. If HARP is revisited, the later
+`Axolotl-Masked-SFT` scorer changes can be ported and applied to the stored
+generations without rerunning inference. The active experiment protocol has
+shifted to AIME 2026, so no new HARP rescore is scheduled here.
+
 ## OPD and resources
 
 Both OPD stages use three colocated student/rollout GPUs and one 32B-teacher GPU. Production hard-codes context parallelism 1, 8,192 maximum tokens per GPU, and a 2,048-token log-probability chunk. The additional 4,096 prompts resume the complete optimizer, RNG, and training state from the 1,024 checkpoint.
