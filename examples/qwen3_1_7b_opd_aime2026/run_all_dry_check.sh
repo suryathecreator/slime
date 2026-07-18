@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." >/dev/null 2>&1 && pwd)"
+cd "${REPO_ROOT}"
+
+bash -n examples/qwen3_1_7b_opd_aime2026/*.sh examples/qwen3_1_7b_opd_aime2026/*.sbatch
+python3 -m py_compile examples/qwen3_1_7b_opd_aime2026/*.py
+rg -q 'SCORER_VERSION = "aime_answer_v1"' examples/qwen3_1_7b_opd_aime2026/aime_answer_v1.py
+rg -q 'NUM_GENERATIONS = NUM_PROBLEMS \* SAMPLES_PER_PROBLEM' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+rg -q 'SAMPLES_PER_PROBLEM = 16' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+rg -q 'TEMPERATURE = 0.6' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+rg -q 'TOP_P = 0.95' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+rg -q 'TOP_K = 20' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+rg -q 'MIN_P = 0.0' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+rg -q 'BASE_SEED = 42' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+test "$(rg -c 'engine\.generate\(' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py)" = "1"
+rg -q 'engine\.generate\(\[item\["rendered_prompt"\] for item in prepared\]' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+if rg -n 'AsyncLLM|asyncio' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py; then
+  echo "The AIME evaluator contains a prohibited async generation path." >&2
+  exit 1
+fi
+rg -q 'STUDENT_HF_REPO="Qwen/Qwen3-1.7B"' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'TEACHER_HF_REPO="Qwen/Qwen3-8B"' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'AIME_DATASET_REPO="MathArena/aime_2026"' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'AIME_DATASET_REVISION="d2de22f3c656b4f56cf8981212186377d1e23bc3"' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'AIME_PARQUET_SHA256 = "d91db799651b4cc1f0734f52792a695c9cc60dac342524b3d8e5b2ff31c3e957"' examples/qwen3_1_7b_opd_aime2026/prepare_experiment.py
+rg -q 'AIME_NORMALIZED_SHA256 = "6e07e802a416526fe52559216e6e3f13f35db1c169443a39c7ae2790c8b5ca2b"' examples/qwen3_1_7b_opd_aime2026/prepare_experiment.py
+rg -q 'VLLM_EVAL_MAX_MODEL_LEN=32768' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'VLLM_EVAL_MAX_RESPONSE_LEN=31744' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'OPD_STAGE=1k' examples/qwen3_1_7b_opd_aime2026/submit_chain.sh
+rg -q 'OPD_STAGE=5k' examples/qwen3_1_7b_opd_aime2026/submit_chain.sh
+rg -q 'REPORT_MODE=base' examples/qwen3_1_7b_opd_aime2026/submit_chain.sh
+rg -q 'REPORT_MODE=opd1k' examples/qwen3_1_7b_opd_aime2026/submit_chain.sh
+test "$(rg -c -- '--dependency="afterok:' examples/qwen3_1_7b_opd_aime2026/submit_chain.sh)" = "9"
+for entrypoint in examples/qwen3_1_7b_opd_aime2026/*.sbatch; do
+  rg -q 'SLURM_SUBMIT_DIR.*examples/qwen3_1_7b_opd_aime2026/env\.sh' "${entrypoint}"
+done
+rg -q '^  AIME_EXAMPLE_DIR$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+rg -q '^  STUDENT_HF_REVISION$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+rg -q '^  TEACHER_HF_REVISION$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+echo "Qwen3-1.7B/Qwen3-8B AIME 2026 dry checks passed."
