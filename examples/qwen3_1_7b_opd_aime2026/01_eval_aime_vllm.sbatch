@@ -39,7 +39,13 @@ export SLIME_VLLM_PATCH_SITE=0
 set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
 export PYTHONPATH="${VLLM_EVAL_SITE}:${AIME_EXAMPLE_DIR}:${SLIME_REPO_ROOT}:${PYTHONPATH:-}"
+export LD_LIBRARY_PATH="$(find "${VLLM_EVAL_SITE}" -path "*/nvidia/*/lib" -type d -printf "%p:" 2>/dev/null || true)${LD_LIBRARY_PATH:-}"
 evaluator=examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+python3 - <<"PY"
+import importlib.metadata as metadata
+import vllm
+print(f"VLLM_IMPORT_PREFLIGHT_OK version={metadata.version('vllm')} module={vllm.__file__}", flush=True)
+PY
 
 run_attempt() {
   local attempt_name="$1"
