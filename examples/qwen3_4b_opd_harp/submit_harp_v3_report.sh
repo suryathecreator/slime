@@ -23,7 +23,11 @@ printf '%s\n' \
   examples/qwen3_8b_opd_tillicum/container_exec.sh \
   | xargs sha256sum >"${HARP_V3_SOURCE_MANIFEST}"
 
-jid=$(sbatch --parsable -A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres gpu:h200:1 --cpus-per-task=8 --mem="${SLURM_MEM_REPORT}" --dependency=afterok:177135 --time=02:00:00 --job-name=q3-harp-v3-report --export=ALL examples/qwen3_4b_opd_harp/05_report_harp_v3.sbatch)
+# Slurm may purge a completed source job before this report is submitted, in
+# which case an afterok dependency is rejected. The required merged artifacts
+# and hashes above are the completion gate, so this report can be submitted
+# directly once those checks pass.
+jid=$(sbatch --parsable -A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres gpu:h200:1 --cpus-per-task=8 --mem="${SLURM_MEM_REPORT}" --time=02:00:00 --job-name=q3-harp-v3-report --export=ALL examples/qwen3_4b_opd_harp/05_report_harp_v3.sbatch)
 submission_log="${SLURM_LOG_DIR}/submit_harp_v3_report_$(date +%Y%m%d_%H%M%S).txt"
 {
   echo "submit_time=$(date --iso-8601=seconds)"
