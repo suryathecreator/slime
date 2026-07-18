@@ -28,7 +28,7 @@ index `s` is `42 + 16*p + s`.
 Four H200 workers each receive 120 requests in one synchronous
 `llm.generate(list_of_prompts, sampling_params=list_of_params)` call. Each shard
 therefore has a continuously populated real request queue; `max_num_seqs` is
-20 for the 1.7B student and 12 for the 8B teacher. Prefix caching, chunked
+34 for the 1.7B student and 21 for the 8B teacher. Prefix caching, chunked
 prefill, and CUDA graphs are enabled, with eager fallback only if graph engine
 initialization fails.
 
