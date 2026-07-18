@@ -39,4 +39,20 @@ done
 rg -q '^  AIME_EXAMPLE_DIR$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 rg -q '^  STUDENT_HF_REVISION$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 rg -q '^  TEACHER_HF_REVISION$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+for forwarded in \
+  AIME_EXAMPLE_DIR \
+  AIME_JSONL \
+  EVAL_MODEL_DIR \
+  EVAL_TOKENIZER_DIR \
+  EVAL_STAGE_DIR \
+  EVAL_MAX_NUM_SEQS \
+  VLLM_EVAL_SITE \
+  VLLM_EVAL_MAX_MODEL_LEN \
+  VLLM_EVAL_MAX_RESPONSE_LEN \
+  VLLM_EVAL_MAX_NUM_BATCHED_TOKENS \
+  VLLM_EVAL_GPU_MEMORY_UTILIZATION \
+  VLLM_EVAL_ENGINE_READY_TIMEOUT_SECONDS \
+  VLLM_EVAL_PREFER_CUDA_GRAPH; do
+  rg -q "^  ${forwarded}$" examples/qwen3_8b_opd_tillicum/container_exec.sh
+done
 echo "Qwen3-1.7B/Qwen3-8B AIME 2026 dry checks passed."
