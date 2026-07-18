@@ -40,6 +40,11 @@ set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
 export PYTHONPATH="${VLLM_EVAL_SITE}:${AIME_EXAMPLE_DIR}:${SLIME_REPO_ROOT}:${PYTHONPATH:-}"
 export LD_LIBRARY_PATH="$(find "${VLLM_EVAL_SITE}" -path "*/nvidia/*/lib" -type d -printf "%p:" 2>/dev/null || true)${LD_LIBRARY_PATH:-}"
+export CC="${AIME_ZIG_CC}"
+export CPATH="${AIME_ZIG_INCLUDE_ROOT}/python3.12:${AIME_ZIG_INCLUDE_ROOT}${CPATH:+:${CPATH}}"
+test -x "${CC}"
+test -f "${AIME_ZIG_INCLUDE_ROOT}/python3.12/Python.h"
+test -f "${AIME_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h"
 evaluator=examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 python3 - <<"PY"
 import vllm

@@ -15,6 +15,8 @@ rg -q 'TOP_K = 20' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 rg -q 'MIN_P = 0.0' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 rg -q 'BASE_SEED = 42' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 rg -Fq 'export LD_LIBRARY_PATH="$(find "${VLLM_EVAL_SITE}" -path "*/nvidia/*/lib"' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
+rg -Fq 'export CC="${AIME_ZIG_CC}"' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
+rg -Fq 'export CPATH="${AIME_ZIG_INCLUDE_ROOT}/python3.12:${AIME_ZIG_INCLUDE_ROOT}' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
 rg -q 'VLLM_IMPORT_PREFLIGHT_OK' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
 python3 - <<'PY'
 from pathlib import Path
@@ -53,6 +55,8 @@ rg -q '^  TEACHER_HF_REVISION$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 for forwarded in \
   AIME_EXAMPLE_DIR \
   AIME_JSONL \
+  AIME_ZIG_CC \
+  AIME_ZIG_INCLUDE_ROOT \
   EVAL_MODEL_DIR \
   EVAL_TOKENIZER_DIR \
   EVAL_STAGE_DIR \

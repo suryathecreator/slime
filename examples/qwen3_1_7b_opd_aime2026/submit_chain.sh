@@ -9,6 +9,9 @@ mkdir -p "${SLURM_LOG_DIR}" "${OUTPUT_ROOT}"
 for prerequisite in \
   "${SLIME_SIF}" \
   "${VLLM_EVAL_SITE}/vllm" \
+  "${AIME_ZIG_CC}" \
+  "${AIME_ZIG_INCLUDE_ROOT}/python3.12/Python.h" \
+  "${AIME_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h" \
   "${SOURCE_OPD_1K_JSONL}" \
   "${SOURCE_OPD_4K_JSONL}"; do
   if [[ ! -e "${prerequisite}" ]]; then

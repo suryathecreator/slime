@@ -64,6 +64,8 @@ export CLEANED_OPD_4K_JSONL="${DATA_ROOT}/opd_next_004096_qwen3_aime_prompt.json
 export SPLIT_METADATA="${AIME_PREP_METADATA}"
 
 export VLLM_EVAL_SITE="${VLLM_EVAL_SITE:-/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/vllm_eval_site}"
+export AIME_ZIG_CC="${AIME_ZIG_CC:-/gpfs/scrubbed/suryadv/slime-qwen3-4b-opd-harp-v2/harp_eval_site/bin/zig-cc}"
+export AIME_ZIG_INCLUDE_ROOT="${AIME_ZIG_INCLUDE_ROOT:-/gpfs/scrubbed/suryadv/slime-qwen3-4b-opd-harp-v2/harp_eval_site/python_include}"
 export VLLM_EVAL_NUM_GPUS=4
 export VLLM_EVAL_MAX_MODEL_LEN=32768
 export VLLM_EVAL_MAX_RESPONSE_LEN=31744
