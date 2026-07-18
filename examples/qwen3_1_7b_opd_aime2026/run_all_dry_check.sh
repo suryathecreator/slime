@@ -16,6 +16,15 @@ rg -q 'MIN_P = 0.0' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 rg -q 'BASE_SEED = 42' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 rg -Fq 'export LD_LIBRARY_PATH="$(find "${VLLM_EVAL_SITE}" -path "*/nvidia/*/lib"' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
 rg -q 'VLLM_IMPORT_PREFLIGHT_OK' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
+python3 - <<'PY'
+from pathlib import Path
+
+path = Path("examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch")
+text = path.read_text(encoding="utf-8")
+payload = text.split('container_exec.sh" bash -lc \'\n', 1)[1].split("\n'\n", 1)[0]
+if "'" in payload:
+    raise SystemExit("AIME eval container payload contains a nested single quote")
+PY
 test "$(rg -c 'engine\.generate\(' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py)" = "1"
 rg -q 'engine\.generate\(\[item\["rendered_prompt"\] for item in prepared\]' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 if rg -n 'AsyncLLM|asyncio' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py; then
