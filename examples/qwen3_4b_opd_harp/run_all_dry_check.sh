@@ -6,6 +6,12 @@ cd "${REPO_ROOT}"
 
 bash -n examples/qwen3_4b_opd_harp/*.sh examples/qwen3_4b_opd_harp/*.sbatch
 python3 -m py_compile examples/qwen3_4b_opd_harp/*.py
+test "$(sha256sum examples/qwen3_4b_opd_harp/harp_answer_v2.py | awk '{print $1}')" = "76524e2e5a6659ccb354928ebc014b5c3fecf17bedff38c5e2610e0d659beae9"
+rg -q 'SCORER_VERSION = "harp_answer_v3"' examples/qwen3_4b_opd_harp/harp_answer_v3.py
+rg -q '"needs_review"' examples/qwen3_4b_opd_harp/harp_answer_v3.py
+rg -q -- '--scorer-version' examples/qwen3_4b_opd_harp/evaluate_harp_vllm.py
+rg -q -- '--exclusion-manifest' examples/qwen3_4b_opd_harp/evaluate_harp_vllm.py
+rg -q '"exclusions": \[\]' examples/qwen3_4b_opd_harp/harp_exclusions_v3.json
 for entrypoint in examples/qwen3_4b_opd_harp/*.sbatch; do
   rg -q 'SLURM_SUBMIT_DIR.*examples/qwen3_4b_opd_harp/env\.sh' "${entrypoint}"
   rg -q 'SCRIPT_DIR="\$\{SLURM_SUBMIT_DIR\}/examples/qwen3_4b_opd_harp"' "${entrypoint}"

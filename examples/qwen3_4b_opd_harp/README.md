@@ -1,4 +1,4 @@
-# Qwen3-4B OPD with HARP Evaluator V2
+# Qwen3-4B OPD with HARP Evaluators V2 and V3
 
 This directory is the isolated replacement for the earlier Qwen3-8B-Base/Math500 sequence. It starts from the post-trained `Qwen/Qwen3-4B`, evaluates it on a pinned HARP-500 split, runs OPD for 1,024 and then 4,096 additional prompts, and evaluates the cumulative 5,120-prompt checkpoint. The existing `Qwen/Qwen3-32B` teacher receives a base evaluation on the same ordered HARP rows.
 
@@ -30,6 +30,16 @@ EOS and `<|im_end|>` are resolved from each tokenizer and recorded in every mani
 The source archive and seed-42 subset are pinned by SHA-256 in `prepare_experiment.py`. The official HARP checker under `harp_official/` is byte-identical to the audited vendored source; all new behavior lives in `harp_answer_v2.py`.
 
 V2 isolates post-thinking text, performs balanced box extraction, supports trailing multi-box collections, applies deterministic marker fallbacks, bounds every symbolic attempt to ten seconds, and records complete per-answer audit data. Fresh merges require exactly one prediction for every benchmark ID in canonical order. Historical rescoring is available through the `rescore` subcommand and writes a separate `rescore_harp_answer_v2/` directory rather than editing source artifacts.
+
+## HARP V3 correction
+
+`harp_answer_v3.py` leaves V2 and the vendored official checker byte-frozen. Its grading API receives the generated text, gold answer, problem text and ID, cap-hit flag, and finish reason. Extraction records absolute answer-event spans plus selection, replacement, reaffirmation, and retraction actions. Natural stops use only the final post-thinking region; cap hits accept only balanced boxes or explicit answer markers.
+
+V3 uses typed comparison for scalar and symbolic math, percentages, quantities and units, intervals and inequalities, ratios, dimensions, collections, labels, directions, and empty-solution aliases. The official HARP checker is recorded as non-authoritative evidence. Failed or ambiguous typed parses become `needs_review`; an authoritative `metrics.json` is never written while an included review remains.
+
+The evaluator requires an explicit `--scorer-version` for scoring commands. V3 additionally requires `--exclusion-manifest`; the checked-in manifest is intentionally empty and pinned to the full 500-row source hash. Versioned rescoring writes a `rescore_harp_answer_v3/` overlay, clean-split hash, event provenance, verifier evidence, and cap-hit transition counts without modifying the original generations.
+
+The completed Qwen3-4B baseline generations from Slurm job `177135` score 414/500 (82.8%) under V2 and 418/500 (83.6%) under V3, with zero exclusions and zero reviews. Both scores use stored-generation SHA-256 `fbd1cdfff57a414bd14093755e39f806d311a6ed41ba51901d9186b9e60e6b74`.
 
 ## OPD and resources
 

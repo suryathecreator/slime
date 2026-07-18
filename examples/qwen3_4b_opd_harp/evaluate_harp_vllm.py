@@ -5,14 +5,49 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import time
 from pathlib import Path
 from typing import Any
 
-from harp_answer_v2 import SCORER_VERSION, metrics_from_predictions, score_answer
 from prompt_contract import PROMPT_CONTRACT_VERSION, prompt_messages
+
+
+SCORER_VERSIONS = ("harp_answer_v2", "harp_answer_v3")
+
+
+def scorer_module(version: str) -> Any:
+    if version not in SCORER_VERSIONS:
+        raise ValueError(f"Unsupported scorer version {version!r}; expected one of {SCORER_VERSIONS}")
+    module = importlib.import_module(version)
+    if str(module.SCORER_VERSION) != version:
+        raise ValueError(f"Scorer module/version mismatch: requested {version}, loaded {module.SCORER_VERSION}")
+    return module
+
+
+def score_with_version(
+    version: str,
+    *,
+    generated_text: str,
+    gold_answer: str,
+    problem_text: str,
+    problem_id: str,
+    cap_hit: bool,
+    finish_reason: str | None,
+) -> dict[str, Any]:
+    module = scorer_module(version)
+    if version == "harp_answer_v2":
+        return module.score_answer(generated_text, gold_answer)
+    return module.score_answer(
+        generated_text,
+        gold_answer,
+        problem_text,
+        problem_id,
+        cap_hit,
+        finish_reason,
+    )
 
 
 def sha256_file(path: Path) -> str:
@@ -83,9 +118,10 @@ def rendered_prompt(tokenizer: Any, problem: str) -> tuple[str, list[int]]:
 
 
 def shard_fingerprint(args: argparse.Namespace, data_sha256: str, model: str) -> str:
+    selected_scorer = str(getattr(args, "scorer_version", "harp_answer_v2"))
     policy = {
         "schema_version": 1,
-        "scorer_version": SCORER_VERSION,
+        "scorer_version": selected_scorer,
         "prompt_contract_version": PROMPT_CONTRACT_VERSION,
         "data_sha256": data_sha256,
         "model": str(Path(model).resolve()),
@@ -217,6 +253,8 @@ def run_shard(args: argparse.Namespace) -> None:
     if len(outputs) != len(prepared):
         raise RuntimeError(f"vLLM returned {len(outputs)} outputs for {len(prepared)} prompts")
 
+    selected_scorer = str(getattr(args, "scorer_version", "harp_answer_v2"))
+    scorer_module(selected_scorer)
     predictions: list[dict[str, Any]] = []
     for item, request_output in zip(prepared, outputs, strict=True):
         if len(request_output.outputs) != 1:
@@ -243,7 +281,17 @@ def run_shard(args: argparse.Namespace) -> None:
             "prompt_contract_version": PROMPT_CONTRACT_VERSION,
         }
         if not args.benchmark:
-            prediction.update(score_answer(generated_text, str(row["correct_answer"])))
+            prediction.update(
+                score_with_version(
+                    selected_scorer,
+                    generated_text=generated_text,
+                    gold_answer=str(row["correct_answer"]),
+                    problem_text=str(row["problem"]),
+                    problem_id=str(row["problem_id"]),
+                    cap_hit=cap_hit,
+                    finish_reason=finish_reason,
+                )
+            )
         predictions.append(prediction)
 
     write_jsonl_atomic(prediction_path, predictions)
@@ -251,7 +299,7 @@ def run_shard(args: argparse.Namespace) -> None:
         "status": "complete",
         "fingerprint": fingerprint,
         "schema_version": 1,
-        "scorer_version": SCORER_VERSION,
+        "scorer_version": selected_scorer,
         "prompt_contract_version": PROMPT_CONTRACT_VERSION,
         "data": str(data_path.resolve()),
         "data_sha256": data_hash,
@@ -305,8 +353,9 @@ def load_manifests(stage_dir: Path) -> list[dict[str, Any]]:
     fingerprints = {manifest["data_sha256"] for manifest in manifests}
     models = {manifest["model"] for manifest in manifests}
     configs = {json.dumps(manifest["engine_config"], sort_keys=True) for manifest in manifests}
-    if len(fingerprints) != 1 or len(models) != 1 or len(configs) != 1:
-        raise ValueError("Shard manifests disagree on dataset, model, or engine configuration")
+    scorers = {manifest.get("scorer_version") for manifest in manifests}
+    if len(fingerprints) != 1 or len(models) != 1 or len(configs) != 1 or len(scorers) != 1:
+        raise ValueError("Shard manifests disagree on dataset, model, scorer, or engine configuration")
     return manifests
 
 
@@ -370,6 +419,61 @@ def select_tuning(args: argparse.Namespace) -> None:
     )
 
 
+def load_exclusion_manifest(path_text: str | None, *, data_path: Path, required: bool) -> dict[str, Any]:
+    if path_text is None:
+        if required:
+            raise ValueError("HARP V3 requires an explicit --exclusion-manifest")
+        return {
+            "schema_version": 1,
+            "benchmark": "harp",
+            "source_sha256": sha256_file(data_path),
+            "exclusions": [],
+        }
+    path = Path(path_text)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if value.get("schema_version") != 1 or not isinstance(value.get("exclusions"), list):
+        raise ValueError(f"Invalid exclusion manifest schema: {path}")
+    source_hash = sha256_file(data_path)
+    if value.get("source_sha256") != source_hash:
+        raise ValueError(
+            f"Exclusion manifest/source mismatch: manifest={value.get('source_sha256')} source={source_hash}"
+        )
+    seen: set[str] = set()
+    for entry in value["exclusions"]:
+        if not isinstance(entry, dict):
+            raise ValueError("Every exclusion must be an object")
+        problem_id = str(entry.get("problem_id", ""))
+        if not problem_id or problem_id in seen:
+            raise ValueError(f"Missing or duplicate exclusion problem_id: {problem_id!r}")
+        if not str(entry.get("reason", "")).strip() or not str(entry.get("evidence", "")).strip():
+            raise ValueError(f"Exclusion {problem_id} requires nonempty reason and evidence")
+        seen.add(problem_id)
+    return {**value, "path": str(path.resolve()), "sha256": sha256_file(path)}
+
+
+def write_clean_split(
+    output_dir: Path,
+    data_rows: list[dict[str, Any]],
+    exclusion_manifest: dict[str, Any],
+) -> tuple[list[dict[str, Any]], set[str], Path]:
+    source_ids = {str(row["problem_id"]) for row in data_rows}
+    excluded_ids = {str(entry["problem_id"]) for entry in exclusion_manifest["exclusions"]}
+    unknown = excluded_ids - source_ids
+    if unknown:
+        raise ValueError(f"Exclusion manifest contains IDs absent from source: {sorted(unknown)}")
+    clean_rows = [row for row in data_rows if str(row["problem_id"]) not in excluded_ids]
+    clean_path = output_dir / "clean_split.jsonl"
+    write_jsonl_atomic(clean_path, clean_rows)
+    return clean_rows, excluded_ids, clean_path
+
+
+def scorer_metrics(version: str, predictions: list[dict[str, Any]], *, refuse_reviews: bool = True) -> dict[str, Any]:
+    module = scorer_module(version)
+    if version == "harp_answer_v3":
+        return module.metrics_from_predictions(predictions, refuse_reviews=refuse_reviews)
+    return module.metrics_from_predictions(predictions)
+
+
 def merge_production(args: argparse.Namespace) -> None:
     stage_dir = Path(args.stage_dir)
     data_rows = read_jsonl(Path(args.data))
@@ -393,23 +497,65 @@ def merge_production(args: argparse.Namespace) -> None:
         raise ValueError("Fresh V2 predictions do not exactly match HARP benchmark order")
     prediction_path = Path(args.output_dir) / "predictions.jsonl"
     write_jsonl_atomic(prediction_path, predictions)
-    metrics = {
-        **metrics_from_predictions(predictions),
+    selected_scorer = str(getattr(args, "scorer_version", manifests[0].get("scorer_version", "harp_answer_v2")))
+    if selected_scorer != manifests[0].get("scorer_version"):
+        raise ValueError(
+            f"Merge requested {selected_scorer}, but shard manifests use {manifests[0].get('scorer_version')}"
+        )
+    exclusion_manifest = load_exclusion_manifest(
+        getattr(args, "exclusion_manifest", None),
+        data_path=Path(args.data),
+        required=selected_scorer == "harp_answer_v3",
+    )
+    clean_rows, excluded_ids, clean_path = write_clean_split(Path(args.output_dir), data_rows, exclusion_manifest)
+    included_predictions = [row for row in predictions if str(row["problem_id"]) not in excluded_ids]
+    if [str(row["problem_id"]) for row in included_predictions] != [str(row["problem_id"]) for row in clean_rows]:
+        raise ValueError("Included prediction order does not match the clean split")
+    review_rows = [row for row in included_predictions if row.get("grade") == "needs_review"]
+    common_metrics = {
         **throughput_metrics(manifests),
         "data_sha256": sha256_file(Path(args.data)),
+        "source_count": len(data_rows),
+        "included_count": len(included_predictions),
+        "excluded_count": len(excluded_ids),
+        "review_count": len(review_rows),
+        "clean_split_sha256": sha256_file(clean_path),
+        "exclusion_manifest_sha256": exclusion_manifest.get("sha256"),
         "predictions_sha256": sha256_file(prediction_path),
         "model": manifests[0]["model"],
         "engine_config": manifests[0]["engine_config"],
         "stop_tokens": manifests[0]["stop_tokens"],
         "prompt_contract_version": PROMPT_CONTRACT_VERSION,
     }
+    if review_rows:
+        review_path = Path(args.output_dir) / "needs_review.jsonl"
+        write_jsonl_atomic(review_path, review_rows)
+        write_json_atomic(
+            Path(args.output_dir) / "metrics_blocked.json",
+            {
+                **scorer_metrics(selected_scorer, included_predictions, refuse_reviews=False),
+                **common_metrics,
+                "status": "blocked_needs_review",
+                "needs_review_sha256": sha256_file(review_path),
+            },
+        )
+        raise RuntimeError(f"Refusing to publish metrics with {len(review_rows)} included needs_review rows")
+    metrics = {**scorer_metrics(selected_scorer, included_predictions), **common_metrics, "status": "complete"}
     write_json_atomic(Path(args.output_dir) / "metrics.json", metrics)
 
 
 def rescore(args: argparse.Namespace) -> None:
-    data_rows = read_jsonl(Path(args.data))
+    data_path = Path(args.data)
+    data_rows = read_jsonl(data_path)
     source_path = Path(args.predictions)
     source_rows = read_jsonl(source_path)
+    selected_scorer = str(args.scorer_version)
+    scorer_module(selected_scorer)
+    exclusion_manifest = load_exclusion_manifest(
+        args.exclusion_manifest,
+        data_path=data_path,
+        required=selected_scorer == "harp_answer_v3",
+    )
     latest: dict[str, tuple[int, dict[str, Any]]] = {}
     duplicate_ids: set[str] = set()
     for occurrence, row in enumerate(source_rows):
@@ -428,6 +574,16 @@ def rescore(args: argparse.Namespace) -> None:
         generated_count = int(old.get("generated_token_count", 0))
         max_tokens = int(old.get("max_tokens", args.max_tokens))
         finish_reason = old.get("finish_reason")
+        cap_hit = bool(old.get("cap_hit")) or finish_reason == "length" or generated_count >= max_tokens
+        new_score = score_with_version(
+            selected_scorer,
+            generated_text=str(text),
+            gold_answer=str(benchmark_row["correct_answer"]),
+            problem_text=str(benchmark_row["problem"]),
+            problem_id=problem_id,
+            cap_hit=cap_hit,
+            finish_reason=str(finish_reason) if finish_reason is not None else None,
+        )
         row = {
             **old,
             "problem_id": problem_id,
@@ -437,31 +593,82 @@ def rescore(args: argparse.Namespace) -> None:
             "generated_token_count": generated_count,
             "max_tokens": max_tokens,
             "finish_reason": finish_reason,
-            "cap_hit": finish_reason == "length" or generated_count >= max_tokens,
-            **score_answer(str(text), str(benchmark_row["correct_answer"])),
+            "cap_hit": cap_hit,
+            **new_score,
         }
-        if "is_correct" in old and bool(old["is_correct"]) != bool(row["is_correct"]):
-            flips.append({"problem_id": problem_id, "legacy_is_correct": bool(old["is_correct"]), "v2_is_correct": bool(row["is_correct"])})
+        if "is_correct" in old and row.get("grade") != "needs_review" and bool(old["is_correct"]) != bool(row["is_correct"]):
+            flips.append(
+                {
+                    "problem_id": problem_id,
+                    "legacy_is_correct": bool(old["is_correct"]),
+                    "rescored_is_correct": bool(row["is_correct"]),
+                    "candidate": row.get("candidate"),
+                    "correct_answer": row.get("correct_answer"),
+                    "decision_reason": row.get("decision_reason"),
+                    "cap_hit": row.get("cap_hit"),
+                }
+            )
         rescored.append(row)
     if len(rescored) != len(data_rows):
         raise ValueError("Historical rescore coverage mismatch")
     output_dir = Path(args.output_dir)
-    if output_dir.name != "rescore_harp_answer_v2":
-        raise ValueError("Historical V2 overlays must use a rescore_harp_answer_v2/ sibling directory")
+    expected_name = f"rescore_{selected_scorer}"
+    if output_dir.name != expected_name:
+        raise ValueError(f"Historical overlays for {selected_scorer} must use a {expected_name}/ directory")
+    clean_rows, excluded_ids, clean_path = write_clean_split(output_dir, data_rows, exclusion_manifest)
+    for row in rescored:
+        row["excluded"] = str(row["problem_id"]) in excluded_ids
     prediction_path = output_dir / "predictions.jsonl"
     write_jsonl_atomic(prediction_path, rescored)
-    write_json_atomic(output_dir / "metrics.json", metrics_from_predictions(rescored))
+    included = [row for row in rescored if not row["excluded"]]
+    if [str(row["problem_id"]) for row in included] != [str(row["problem_id"]) for row in clean_rows]:
+        raise ValueError("Rescore included prediction order does not match clean split")
+    reviews = [row for row in included if row.get("grade") == "needs_review"]
+    common_metrics = {
+        "status": "blocked_needs_review" if reviews else "complete",
+        "data_sha256": sha256_file(data_path),
+        "source_count": len(data_rows),
+        "included_count": len(included),
+        "excluded_count": len(excluded_ids),
+        "review_count": len(reviews),
+        "clean_split_sha256": sha256_file(clean_path),
+        "exclusion_manifest_sha256": exclusion_manifest.get("sha256"),
+        "source_predictions_sha256": sha256_file(source_path),
+        "predictions_sha256": sha256_file(prediction_path),
+        "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+    }
+    if reviews:
+        review_path = output_dir / "needs_review.jsonl"
+        write_jsonl_atomic(review_path, reviews)
+        write_json_atomic(
+            output_dir / "metrics_blocked.json",
+            {
+                **scorer_metrics(selected_scorer, included, refuse_reviews=False),
+                **common_metrics,
+                "needs_review_sha256": sha256_file(review_path),
+            },
+        )
+    else:
+        write_json_atomic(output_dir / "metrics.json", {**scorer_metrics(selected_scorer, included), **common_metrics})
     write_json_atomic(
         output_dir / "rescore_audit.json",
         {
-            "scorer_version": SCORER_VERSION,
+            "scorer_version": selected_scorer,
             "source_predictions": str(source_path.resolve()),
             "source_predictions_sha256": sha256_file(source_path),
             "source_artifact_duplicate_ids_latest_retained": sorted(duplicate_ids),
-            "v2_predictions_sha256": sha256_file(prediction_path),
+            "rescored_predictions_sha256": sha256_file(prediction_path),
+            "source_count": len(data_rows),
+            "included_count": len(included),
+            "excluded_count": len(excluded_ids),
+            "review_count": len(reviews),
+            "clean_split_sha256": sha256_file(clean_path),
+            "exclusion_manifest": exclusion_manifest,
             "correctness_flips": flips,
         },
     )
+    if reviews:
+        raise RuntimeError(f"Refusing to publish metrics with {len(reviews)} included needs_review rows")
 
 
 def parse_args() -> argparse.Namespace:
@@ -470,6 +677,7 @@ def parse_args() -> argparse.Namespace:
     shard = subparsers.add_parser("shard")
     shard.add_argument("--model", required=True)
     shard.add_argument("--tokenizer")
+    shard.add_argument("--scorer-version", choices=SCORER_VERSIONS, required=True)
     shard.add_argument("--data", required=True)
     shard.add_argument("--output-dir", required=True)
     shard.add_argument("--shard-index", type=int, required=True)
@@ -497,10 +705,14 @@ def parse_args() -> argparse.Namespace:
     merge.add_argument("--stage-dir", required=True)
     merge.add_argument("--data", required=True)
     merge.add_argument("--output-dir", required=True)
+    merge.add_argument("--scorer-version", choices=SCORER_VERSIONS, required=True)
+    merge.add_argument("--exclusion-manifest")
     historical = subparsers.add_parser("rescore")
     historical.add_argument("--data", required=True)
     historical.add_argument("--predictions", required=True)
     historical.add_argument("--output-dir", required=True)
+    historical.add_argument("--scorer-version", choices=SCORER_VERSIONS, required=True)
+    historical.add_argument("--exclusion-manifest")
     historical.add_argument("--max-tokens", type=int, default=31744)
     return parser.parse_args()
 

@@ -101,6 +101,7 @@ run_candidate() {
     CUDA_VISIBLE_DEVICES="${shard}" python3 "${evaluator}" shard \
       --model "${EVAL_MODEL_DIR}" \
       --tokenizer "${EVAL_TOKENIZER_DIR}" \
+      --scorer-version "${HARP_SCORER_VERSION}" \
       --data "${HARP_JSONL}" \
       --output-dir "${candidate_dir}" \
       --shard-index "${shard}" \
@@ -203,6 +204,7 @@ elif [[ "${EVAL_MODE}" == "eval" ]]; then
       CUDA_VISIBLE_DEVICES="${shard}" python3 "${evaluator}" shard \
         --model "${EVAL_MODEL_DIR}" \
         --tokenizer "${EVAL_TOKENIZER_DIR}" \
+        --scorer-version "${HARP_SCORER_VERSION}" \
         --data "${HARP_JSONL}" \
         --output-dir "${EVAL_STAGE_DIR}" \
         --shard-index "${shard}" \
@@ -280,7 +282,16 @@ elif [[ "${EVAL_MODE}" == "eval" ]]; then
     run_eval_attempt eager 1
   fi
   echo "Production HARP evaluation selected_mode=${selected_mode} max_num_seqs=${EVAL_MAX_NUM_SEQS}"
-  python3 "${evaluator}" merge --stage-dir "${EVAL_STAGE_DIR}" --data "${HARP_JSONL}" --output-dir "${EVAL_STAGE_DIR%/*}"
+  merge_args=(
+    --stage-dir "${EVAL_STAGE_DIR}"
+    --data "${HARP_JSONL}"
+    --output-dir "${EVAL_STAGE_DIR%/*}"
+    --scorer-version "${HARP_SCORER_VERSION}"
+  )
+  if [[ "${HARP_SCORER_VERSION}" == "harp_answer_v3" ]]; then
+    merge_args+=(--exclusion-manifest "${HARP_EXCLUSION_MANIFEST}")
+  fi
+  python3 "${evaluator}" merge "${merge_args[@]}"
 else
   echo "Unknown EVAL_MODE=${EVAL_MODE}" >&2
   exit 2
