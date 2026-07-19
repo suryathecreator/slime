@@ -46,13 +46,17 @@ REMAINING_SOURCE_MANIFEST="${SCRATCH_ROOT}/source_manifest_remaining_2k.sha256"
 
 EVAL_TEACHER_SINGLE_DIR="${OUTPUT_ROOT}/aime2026_qwen3_8b_teacher_single"
 EVAL_TEACHER_SINGLE_V2_DIR="${EVAL_TEACHER_SINGLE_DIR}/rescored/aime_answer_v2"
-EVAL_OPD2K_SINGLE_DIR="${OUTPUT_ROOT}/aime2026_qwen3_1.7b_opd_002048_single"
-EVAL_OPD5120_SINGLE_DIR="${OUTPUT_ROOT}/aime2026_qwen3_1.7b_opd_005120_single"
-EVAL_OPD5120_MC16_DIR="${OUTPUT_ROOT}/aime2026_qwen3_1.7b_opd_005120_mc16"
-OPD2_SAVE_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_full_optim"
-OPD2_HF_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_hf"
-OPD2_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_rollouts"
-OPD2_SANITY_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_sanity"
+EVAL_OPD2K_SINGLE_DIR="${OUTPUT_ROOT}/aime2026_qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_single"
+EVAL_OPD5120_SINGLE_DIR="${OUTPUT_ROOT}/aime2026_qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_single"
+EVAL_OPD5120_MC16_DIR="${OUTPUT_ROOT}/aime2026_qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_mc16"
+OPD2_SAVE_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_full_optim"
+OPD2_HF_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_hf"
+OPD2_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_rollouts"
+OPD2_SANITY_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_sanity"
+OPD_CONT_SAVE_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_full_optim"
+OPD_CONT_HF_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_hf"
+OPD_CONT_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_rollouts"
+OPD_CONT_SANITY_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_sanity"
 
 mkdir -p "${SLURM_LOG_DIR}" "${OUTPUT_ROOT}" "${REMAINING_DATA_ROOT}"
 
@@ -100,6 +104,20 @@ python3 examples/qwen3_1_7b_opd_aime2026/prepare_remaining_2k_split.py \
   --output-2k "${REMAINING_OPD_2K_JSONL}" \
   --output-3k "${REMAINING_OPD_3K_JSONL}" \
   --metadata "${REMAINING_OPD_METADATA}" >/dev/null
+
+verify_sha256() {
+  local path="$1"
+  local expected="$2"
+  local actual
+  actual="$(sha256sum "${path}" | awk '{print $1}')"
+  if [[ "${actual}" != "${expected}" ]]; then
+    echo "SHA-256 mismatch for ${path}: ${actual} != ${expected}" >&2
+    exit 1
+  fi
+  echo "Verified ${path}: ${actual}"
+}
+verify_sha256 "${REMAINING_OPD_2K_JSONL}" "${OPD_REMAINING_2K_SHA256}"
+verify_sha256 "${REMAINING_OPD_3K_JSONL}" "${OPD_REMAINING_3K_SHA256}"
 
 require_fresh_directory() {
   local path="$1"
@@ -160,17 +178,17 @@ submit_job() {
 SBATCH_GPU4=(-A "${ACCOUNT}" -p "${PARTITION}" --qos "${QOS}" --gres gpu:h200:4 --cpus-per-task=32)
 submission_log="${SLURM_LOG_DIR}/submit_qwen3_1.7b_aime2026_remaining_2k_$(date +%Y%m%d_%H%M%S).txt"
 
-jid_opd2="$(submit_job DRY_OPD2K sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_OPD}" --time=24:00:00 --job-name=q3-17b-opd-2k --export="ALL,REMAINING_SOURCE_MANIFEST=${REMAINING_SOURCE_MANIFEST},OPD_STAGE=2k" examples/qwen3_1_7b_opd_aime2026/05_run_opd_remaining_2k.sbatch)"
-jid_eval2="$(submit_job DRY_EVAL2K sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_EVAL_STUDENT}" --dependency="afterok:${jid_opd2}" --time=24:00:00 --job-name=q3-17b-aime-opd2-once --export="ALL,REMAINING_SOURCE_MANIFEST=${REMAINING_SOURCE_MANIFEST},EVAL_MODEL_DIR=${OPD2_HF_DIR}/iter_0000015,EVAL_TOKENIZER_DIR=${STUDENT_HF_DIR},EVAL_STAGE_DIR=${EVAL_OPD2K_SINGLE_DIR}/shards,EVAL_MAX_NUM_SEQS=${VLLM_EVAL_STUDENT_MAX_NUM_SEQS}" examples/qwen3_1_7b_opd_aime2026/02_eval_aime_once_vllm.sbatch)"
-jid_opd5="$(submit_job DRY_OPD3072 sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_OPD}" --dependency="afterok:${jid_eval2}" --time=24:00:00 --job-name=q3-17b-opd-next3k --export="ALL,REMAINING_SOURCE_MANIFEST=${REMAINING_SOURCE_MANIFEST},OPD_STAGE=5k" examples/qwen3_1_7b_opd_aime2026/05_run_opd_remaining_2k.sbatch)"
-jid_eval5="$(submit_job DRY_EVAL5120 sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_EVAL_STUDENT}" --dependency="afterok:${jid_opd5}" --time=24:00:00 --job-name=q3-17b-aime-opd5-once --export="ALL,REMAINING_SOURCE_MANIFEST=${REMAINING_SOURCE_MANIFEST},EVAL_MODEL_DIR=${OPD_CONT_HF_DIR}/iter_0000039,EVAL_TOKENIZER_DIR=${STUDENT_HF_DIR},EVAL_STAGE_DIR=${EVAL_OPD5120_SINGLE_DIR}/shards,EVAL_MAX_NUM_SEQS=${VLLM_EVAL_STUDENT_MAX_NUM_SEQS}" examples/qwen3_1_7b_opd_aime2026/02_eval_aime_once_vllm.sbatch)"
-jid_mc5="$(submit_job DRY_MC5120 sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_EVAL_STUDENT}" --dependency="afterok:${jid_eval5}" --time=24:00:00 --job-name=q3-17b-aime-opd5-mc16 --export="ALL,EVAL_MODEL_DIR=${OPD_CONT_HF_DIR}/iter_0000039,EVAL_TOKENIZER_DIR=${STUDENT_HF_DIR},EVAL_STAGE_DIR=${EVAL_OPD5120_MC16_DIR}/shards,EVAL_MAX_NUM_SEQS=${VLLM_EVAL_STUDENT_MAX_NUM_SEQS}" examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch)"
+jid_opd2="$(submit_job DRY_OPD2K sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_OPD}" --time=24:00:00 --job-name=q3-17b-opd2-r16k --export="ALL,REMAINING_SOURCE_MANIFEST=${REMAINING_SOURCE_MANIFEST},OPD_STAGE=2k" examples/qwen3_1_7b_opd_aime2026/05_run_opd_remaining_2k.sbatch)"
+jid_eval2="$(submit_job DRY_EVAL2K sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_EVAL_STUDENT}" --dependency="afterok:${jid_opd2}" --time=24:00:00 --job-name=q3-17b-aime-opd2-r16k --export="ALL,REMAINING_SOURCE_MANIFEST=${REMAINING_SOURCE_MANIFEST},EVAL_MODEL_DIR=${OPD2_HF_DIR}/iter_0000015,EVAL_TOKENIZER_DIR=${STUDENT_HF_DIR},EVAL_STAGE_DIR=${EVAL_OPD2K_SINGLE_DIR}/shards,EVAL_MAX_NUM_SEQS=${VLLM_EVAL_STUDENT_MAX_NUM_SEQS}" examples/qwen3_1_7b_opd_aime2026/02_eval_aime_once_vllm.sbatch)"
+jid_opd5="$(submit_job DRY_OPD3072 sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_OPD}" --dependency="afterok:${jid_eval2}" --time=24:00:00 --job-name=q3-17b-opd3-r16k --export="ALL,REMAINING_SOURCE_MANIFEST=${REMAINING_SOURCE_MANIFEST},OPD_STAGE=5k" examples/qwen3_1_7b_opd_aime2026/05_run_opd_remaining_2k.sbatch)"
+jid_eval5="$(submit_job DRY_EVAL5120 sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_EVAL_STUDENT}" --dependency="afterok:${jid_opd5}" --time=24:00:00 --job-name=q3-17b-aime-opd5-r16k --export="ALL,REMAINING_SOURCE_MANIFEST=${REMAINING_SOURCE_MANIFEST},EVAL_MODEL_DIR=${OPD_CONT_HF_DIR}/iter_0000039,EVAL_TOKENIZER_DIR=${STUDENT_HF_DIR},EVAL_STAGE_DIR=${EVAL_OPD5120_SINGLE_DIR}/shards,EVAL_MAX_NUM_SEQS=${VLLM_EVAL_STUDENT_MAX_NUM_SEQS}" examples/qwen3_1_7b_opd_aime2026/02_eval_aime_once_vllm.sbatch)"
+jid_mc5="$(submit_job DRY_MC5120 sbatch --parsable "${SBATCH_GPU4[@]}" --mem="${SLURM_MEM_EVAL_STUDENT}" --dependency="afterok:${jid_eval5}" --time=24:00:00 --job-name=q3-17b-aime-opd5mc-r16k --export="ALL,EVAL_MODEL_DIR=${OPD_CONT_HF_DIR}/iter_0000039,EVAL_TOKENIZER_DIR=${STUDENT_HF_DIR},EVAL_STAGE_DIR=${EVAL_OPD5120_MC16_DIR}/shards,EVAL_MAX_NUM_SEQS=${VLLM_EVAL_STUDENT_MAX_NUM_SEQS}" examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch)"
 
 metadata="$({
   echo "experiment=qwen3_1.7b_student_qwen3_8b_teacher_aime2026_opd_2048_plus_3072"
   echo "submit_time=$(date --iso-8601=seconds)"
   echo "implementation_commit=$(git rev-parse HEAD)"
-  echo "replaces_jobs=179070,179071,179072,179073,179074"
+  echo "replaces_jobs=179552,179553,179554"
   echo "completed_teacher_single_eval=${completed_teacher_job}"
   echo "completed_teacher_single_eval_state=${teacher_state}_${teacher_exit}"
   echo "root_dependency_policy=completed_teacher_verified_in_sacct_then_opd_submitted_without_dependency"
@@ -184,6 +202,12 @@ metadata="$({
   echo "scorer_version=aime_answer_v2"
   echo "opd_actor_gpus=${OPD_ACTOR_GPUS}"
   echo "opd_rollout_gpus=${OPD_ROLLOUT_GPUS}"
+  echo "opd_rollout_max_response_len=${OPD_MAX_RESPONSE_LEN}"
+  echo "opd_teacher_chunked_prefill_size=${OPD_TEACHER_CHUNKED_PREFILL_SIZE}"
+  echo "opd_teacher_max_prefill_tokens=${OPD_TEACHER_MAX_PREFILL_TOKENS}"
+  echo "opd_teacher_mem_fraction=${OPD_TEACHER_MEM_FRACTION}"
+  echo "eval_max_model_len=${VLLM_EVAL_MAX_MODEL_LEN}"
+  echo "eval_max_response_len=${VLLM_EVAL_MAX_RESPONSE_LEN}"
   echo "student_model=${STUDENT_HF_REPO}@${STUDENT_HF_REVISION}"
   echo "teacher_model=${TEACHER_HF_REPO}@${TEACHER_HF_REVISION}"
   echo "dataset=${AIME_DATASET_REPO}@${AIME_DATASET_REVISION}"
@@ -194,6 +218,9 @@ metadata="$({
   echo "opd_first_rows=2048"
   echo "opd_continuation_rows=3072"
   echo "opd_total_unique_rows=5120"
+  echo "opd_first_prompt_sha256=${OPD_REMAINING_2K_SHA256}"
+  echo "opd_continuation_prompt_sha256=${OPD_REMAINING_3K_SHA256}"
+  echo "opd_rerun_tag=${OPD_RERUN_TAG}"
   echo "opd_repartition_metadata=${REMAINING_OPD_METADATA}"
   echo "teacher_single_output=${EVAL_TEACHER_SINGLE_DIR}"
   echo "opd_002048_single_output=${EVAL_OPD2K_SINGLE_DIR}"

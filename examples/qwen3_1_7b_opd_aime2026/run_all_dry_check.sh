@@ -60,6 +60,11 @@ rg -q 'AIME_PARQUET_SHA256 = "d91db799651b4cc1f0734f52792a695c9cc60dac342524b3d8
 rg -q 'AIME_NORMALIZED_SHA256 = "6e07e802a416526fe52559216e6e3f13f35db1c169443a39c7ae2790c8b5ca2b"' examples/qwen3_1_7b_opd_aime2026/prepare_experiment.py
 rg -q 'VLLM_EVAL_MAX_MODEL_LEN=32768' examples/qwen3_1_7b_opd_aime2026/env.sh
 rg -q 'VLLM_EVAL_MAX_RESPONSE_LEN=31744' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'OPD_MAX_RESPONSE_LEN=16384' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'OPD_TEACHER_CHUNKED_PREFILL_SIZE=8192' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'OPD_TEACHER_MAX_PREFILL_TOKENS=16384' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -Fq -- '--chunked-prefill-size "${OPD_TEACHER_CHUNKED_PREFILL_SIZE}"' examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch
+rg -Fq -- '--max-prefill-tokens "${OPD_TEACHER_MAX_PREFILL_TOKENS}"' examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch
 rg -q 'VLLM_EVAL_STUDENT_MAX_NUM_SEQS=34' examples/qwen3_1_7b_opd_aime2026/env.sh
 rg -q 'VLLM_EVAL_TEACHER_MAX_NUM_SEQS=21' examples/qwen3_1_7b_opd_aime2026/env.sh
 rg -q 'OPD_STAGE=1k' examples/qwen3_1_7b_opd_aime2026/submit_chain.sh
@@ -98,8 +103,17 @@ done
 rg -q -- '--completed-teacher-job' examples/qwen3_1_7b_opd_aime2026/submit_remaining_2k_chain.sh
 test "$(rg -c -- '--dependency="afterok:' examples/qwen3_1_7b_opd_aime2026/submit_remaining_2k_chain.sh)" = "4"
 rg -q 'max_concurrent_gpu_count=4' examples/qwen3_1_7b_opd_aime2026/submit_remaining_2k_chain.sh
+rg -Fq 'qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_full_optim' examples/qwen3_1_7b_opd_aime2026/submit_remaining_2k_chain.sh
+rg -Fq 'opd_first_prompt_sha256=${OPD_REMAINING_2K_SHA256}' examples/qwen3_1_7b_opd_aime2026/submit_remaining_2k_chain.sh
+rg -q '^  OPD_TEACHER_CHUNKED_PREFILL_SIZE$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+rg -q '^  OPD_TEACHER_MAX_PREFILL_TOKENS$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 (
   source examples/qwen3_1_7b_opd_aime2026/env.sh
+  test "${OPD_MAX_RESPONSE_LEN}" = 16384
+  test "${VLLM_EVAL_MAX_RESPONSE_LEN}" = 31744
+  test "${VLLM_EVAL_MAX_MODEL_LEN}" = 32768
+  test "${OPD_TEACHER_CHUNKED_PREFILL_SIZE}" = 8192
+  test "${OPD_TEACHER_MAX_PREFILL_TOKENS}" = 16384
   model_parallel_size=$((OPD_TENSOR_MODEL_PARALLEL_SIZE * OPD_CONTEXT_PARALLEL_SIZE))
   test $((OPD_ACTOR_GPUS / model_parallel_size)) = 2
   test $((OPD_GLOBAL_BATCH_SIZE % (OPD_ACTOR_GPUS / model_parallel_size))) = 0

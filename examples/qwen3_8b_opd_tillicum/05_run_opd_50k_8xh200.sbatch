@@ -65,6 +65,8 @@ echo "OPD SGLang rl-on-policy target: ${OPD_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF=${SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
+echo "Teacher chunked/max prefill tokens: ${OPD_TEACHER_CHUNKED_PREFILL_SIZE}/${OPD_TEACHER_MAX_PREFILL_TOKENS}"
+echo "Teacher memory fraction: ${OPD_TEACHER_MEM_FRACTION}"
 echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
 echo "Save dir: ${OPD_SAVE_DIR}"
 echo "HF eval snapshots: ${OPD_HF_SNAPSHOT_DIR}"
@@ -124,7 +126,8 @@ TEACHER_SGLANG_ARGS=(
   --host 0.0.0.0 \
   --port "${TEACHER_PORT}" \
   --tp 1 \
-  --chunked-prefill-size 4096 \
+  --chunked-prefill-size "${OPD_TEACHER_CHUNKED_PREFILL_SIZE}" \
+  --max-prefill-tokens "${OPD_TEACHER_MAX_PREFILL_TOKENS}" \
   --mem-fraction-static "${OPD_TEACHER_MEM_FRACTION}"
 )
 if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then

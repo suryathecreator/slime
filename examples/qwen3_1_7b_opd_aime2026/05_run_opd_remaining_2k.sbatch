@@ -32,14 +32,19 @@ REMAINING_DATA_ROOT="${DATA_ROOT}/remaining_2k_chain"
 REMAINING_OPD_2K_JSONL="${REMAINING_DATA_ROOT}/opd_002048_qwen3_aime_prompt.jsonl"
 REMAINING_OPD_3K_JSONL="${REMAINING_DATA_ROOT}/opd_next_003072_qwen3_aime_prompt.jsonl"
 REMAINING_OPD_METADATA="${REMAINING_DATA_ROOT}/repartition_metadata.json"
-OPD2_SAVE_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_full_optim"
-OPD2_HF_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_hf"
-OPD2_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_rollouts"
-OPD2_SANITY_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_sanity"
+OPD2_SAVE_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_full_optim"
+OPD2_HF_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_hf"
+OPD2_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_rollouts"
+OPD2_SANITY_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_002048_${OPD_RERUN_TAG}_sanity"
+OPD_CONT_SAVE_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_full_optim"
+OPD_CONT_HF_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_hf"
+OPD_CONT_ROLLOUT_LOG_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_rollouts"
+OPD_CONT_SANITY_DIR="${OUTPUT_ROOT}/qwen3_1.7b_opd_005120_${OPD_RERUN_TAG}_sanity"
+export OPD_CONT_SAVE_DIR OPD_CONT_HF_DIR OPD_CONT_ROLLOUT_LOG_DIR OPD_CONT_SANITY_DIR
 export SPLIT_METADATA="${REMAINING_OPD_METADATA}"
 
 if [[ "${OPD_STAGE}" == "2k" ]]; then
-  export OPD_RUN_LABEL=qwen3_1.7b_aime2026_opd_002048
+  export OPD_RUN_LABEL=qwen3_1.7b_aime2026_opd_002048_r16k
   export OPD_JSONL="${REMAINING_OPD_2K_JSONL}" OPD_POOL_SIZE=2048 OPD_SIZE=2048 OPD_TRAIN_SIZE=2048
   export OPD_NUM_ROLLOUT=16 OPD_FINAL_ROLLOUT_ID=15 OPD_EFFECTIVE_TRAIN_SAMPLES=2048 OPD_MILESTONE_ROLLOUT_IDS=15 OPD_SAVE_INTERVAL=8
   export OPD_SAVE_DIR="${OPD2_SAVE_DIR}" OPD_HF_SNAPSHOT_DIR="${OPD2_HF_DIR}"
@@ -53,8 +58,9 @@ if [[ "${OPD_STAGE}" == "2k" ]]; then
   export OPD_SANITY_MAX_ROLLOUT_ID=15
   expected_rows=2048
   expected_first_offset=0
+  expected_sha256="${OPD_REMAINING_2K_SHA256}"
 elif [[ "${OPD_STAGE}" == "5k" ]]; then
-  export OPD_RUN_LABEL=qwen3_1.7b_aime2026_opd_005120
+  export OPD_RUN_LABEL=qwen3_1.7b_aime2026_opd_005120_r16k
   export OPD_JSONL="${REMAINING_OPD_3K_JSONL}" OPD_POOL_SIZE=3072 OPD_SIZE=3072 OPD_TRAIN_SIZE=5120
   export OPD_NUM_ROLLOUT=40 OPD_FINAL_ROLLOUT_ID=39 OPD_EFFECTIVE_TRAIN_SAMPLES=5120 OPD_MILESTONE_ROLLOUT_IDS=39 OPD_SAVE_INTERVAL=8
   export OPD_SAVE_DIR="${OPD_CONT_SAVE_DIR}" OPD_HF_SNAPSHOT_DIR="${OPD_CONT_HF_DIR}"
@@ -64,7 +70,7 @@ elif [[ "${OPD_STAGE}" == "5k" ]]; then
   export OPD_INITIAL_LOAD_MODE=megatron OPD_INITIAL_LOAD_DIR="${OPD2_SAVE_DIR}" OPD_REF_LOAD_DIR="${STUDENT_HF_DIR}"
   export OPD_SKIP_ROLLOUT_DATA_STATE_LOAD=1 OPD_ALREADY_TRAINED_SAMPLES=2048 OPD_START_ROLLOUT_ID=16
   export OPD_MANIFEST_FROM_ROLLOUT_LOGS=1 OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH=1
-  export OPD_PREVIOUS_RUN_LABEL=qwen3_1.7b_aime2026_opd_002048
+  export OPD_PREVIOUS_RUN_LABEL=qwen3_1.7b_aime2026_opd_002048_r16k
   export OPD_PREVIOUS_SAVE_DIR="${OPD2_SAVE_DIR}" OPD_PREVIOUS_HF_SNAPSHOT_DIR="${OPD2_HF_DIR}"
   export OPD_PREVIOUS_ROLLOUT_LOG_DIR="${OPD2_ROLLOUT_LOG_DIR}" OPD_PREVIOUS_TRAINED_MANIFEST="${OPD2_SAVE_DIR}/opd_trained_manifest.json"
   export OPD_CONTINUATION_METADATA="${REMAINING_OPD_METADATA}"
@@ -72,6 +78,7 @@ elif [[ "${OPD_STAGE}" == "5k" ]]; then
   export OPD_SANITY_MAX_ROLLOUT_ID=39
   expected_rows=3072
   expected_first_offset=2048
+  expected_sha256="${OPD_REMAINING_3K_SHA256}"
 else
   echo "Unknown OPD_STAGE=${OPD_STAGE}" >&2
   exit 2
@@ -98,13 +105,19 @@ if (( OPD_EFFECTIVE_TRAIN_SAMPLES != OPD_NUM_ROLLOUT * OPD_ROLLOUT_BATCH_SIZE ))
 fi
 echo "Validated OPD geometry: actor=${OPD_ACTOR_GPUS} rollout=${OPD_ROLLOUT_GPUS} dp=${data_parallel_size} global_batch=${OPD_GLOBAL_BATCH_SIZE}"
 
-python3 - "${OPD_JSONL}" "${expected_rows}" "${expected_first_offset}" <<'PY'
-import json, sys
+python3 - "${OPD_JSONL}" "${expected_rows}" "${expected_first_offset}" "${expected_sha256}" <<'PY'
+import hashlib, json, sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
 expected_rows = int(sys.argv[2])
 expected_first = int(sys.argv[3])
+expected_sha256 = sys.argv[4]
+actual_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+if actual_sha256 != expected_sha256:
+    raise SystemExit(
+        f"OPD prompt SHA-256 mismatch for {path}: {actual_sha256} != {expected_sha256}"
+    )
 prefix = "Please reason step by step, and put your final answer within \\boxed{}.\n\nProblem:\n"
 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
 if len(rows) != expected_rows:
@@ -116,7 +129,10 @@ if any(not str(row.get("prompt", "")).startswith(prefix) for row in rows):
     raise SystemExit("OPD data does not use the canonical AIME prompt")
 if any((row.get("metadata") or {}).get("prompt_contract_version") != "qwen3_aime2026_boxed_v1" for row in rows):
     raise SystemExit("OPD prompt contract version is missing or incorrect")
-print(f"Validated {len(rows)} OPD rows from selected_offset {offsets[0]} through {offsets[-1]}")
+print(
+    f"Validated {len(rows)} OPD rows from selected_offset {offsets[0]} through "
+    f"{offsets[-1]} with SHA-256 {actual_sha256}"
+)
 PY
 
 bash "${SLIME_REPO_ROOT}/examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch"
