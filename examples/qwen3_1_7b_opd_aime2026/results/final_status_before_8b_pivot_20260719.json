@@ -1,0 +1,86 @@
+{
+  "snapshot_time": "2026-07-19T15:51:54-07:00",
+  "repository_commit": "b3e90a5a1c8f3298ff5f0623db6290c4d69ff1fe",
+  "completed_results": {
+    "qwen3_1_7b_base_aime_mc16": {
+      "correct": 184,
+      "generations": 480,
+      "score": 0.38333333333333336,
+      "cap_hits": 50,
+      "mean_generated_tokens": 17417.741666666665
+    },
+    "qwen3_8b_teacher_aime_single": {
+      "correct": 21,
+      "generations": 30,
+      "score": 0.7,
+      "cap_hits": 1,
+      "mean_generated_tokens": 15410.733333333334
+    },
+    "qwen3_1_7b_opd_002048_r16k_single": {
+      "correct": 11,
+      "generations": 30,
+      "score": 0.36666666666666664,
+      "cap_hits": 7,
+      "mean_generated_tokens": 20985.433333333334,
+      "metrics_sha256": "042c506377051b1fcaba3b3c06e918bb011c74fc408a6aef8e216ba2f10a163d",
+      "predictions_sha256": "330002986d5714283413dc4f0b1d56e8825553a92ae970559b4647a353bd8f56"
+    },
+    "qwen3_1_7b_opd_005120_r16k_single": {
+      "correct": 9,
+      "generations": 30,
+      "score": 0.3,
+      "cap_hits": 6,
+      "mean_generated_tokens": 21199.3,
+      "metrics_sha256": "dffe35ed411c4e6463437e8553048aaeac5afd3f82b68c1198e2c68cc4a8d849",
+      "predictions_sha256": "0aed41d4a480b51cb1adcdf58625cee52d601e7f5d350b5f6e251a5c3a44f342"
+    },
+    "qwen3_8b_math500_base": {
+      "correct": 319,
+      "generations": 500,
+      "score": 0.638
+    },
+    "qwen3_8b_math500_sft_024832": {
+      "correct": 375,
+      "generations": 500,
+      "score": 0.75,
+      "cap_hits": 288,
+      "mean_generated_tokens": 18574.302
+    },
+    "qwen3_8b_math500_sft_opd_001024": {
+      "correct": 362,
+      "generations": 500,
+      "score": 0.724,
+      "cap_hits": 416,
+      "mean_generated_tokens": 26567.282
+    }
+  },
+  "job_chain": [
+    {"job_id": 179845, "stage": "opd_002048_r16k", "state": "COMPLETED", "elapsed": "01:38:33", "exit_code": "0:0"},
+    {"job_id": 179846, "stage": "opd_002048_single_eval", "state": "COMPLETED", "elapsed": "01:43:30", "exit_code": "0:0"},
+    {"job_id": 179847, "stage": "opd_005120_r16k", "state": "COMPLETED", "elapsed": "04:30:51", "exit_code": "0:0"},
+    {"job_id": 179848, "stage": "opd_005120_single_eval", "state": "COMPLETED", "elapsed": "01:33:13", "exit_code": "0:0"},
+    {"job_id": 179849, "stage": "opd_005120_mc16_eval", "state": "RUNNING", "elapsed": "06:08:40", "exit_code": "0:0"}
+  ],
+  "partial_eval": {
+    "job_id": 179849,
+    "allocation": {"gpus": 4, "gpu_type": "h200", "node": "g004"},
+    "output_dir": "/gpfs/scrubbed/suryadv/slime-qwen3-1.7b-opd-aime2026/outputs/aime2026_qwen3_1.7b_opd_005120_r16k_mc16",
+    "checkpoint_dir": "/gpfs/scrubbed/suryadv/slime-qwen3-1.7b-opd-aime2026/outputs/qwen3_1.7b_opd_005120_r16k_hf/iter_0000039",
+    "shard_completed_prompts": [51, 49, 49, 52],
+    "completed_prompts_total": 201,
+    "target_generations": 480,
+    "partial_directory_size": "33M",
+    "hf_checkpoint_size": "12G",
+    "full_checkpoint_size": "23G",
+    "point_in_time_hashes": {
+      "slurm_log": "49ee46fe416e2b4091824967ab9432939909d4339a009655f4daa70b023c33af",
+      "shard_0_log": "f7e65c9c79bc72396ddc2419fe03645ac23ac24131fd569c8a4f88e329a83aaf",
+      "shard_1_log": "ceccff06eb5844ef95620e2a417a6ee672244cbd93f9624900637c2ae277a53d",
+      "shard_2_log": "5e414592f1e170335d9e9ee807e736320ac83e31b4d99f79523aa42b25f6da4f",
+      "shard_3_log": "360797cd0d485e9513f32bb8699c5b2e46c03beb4c49427beb8bf5100f854b71"
+    },
+    "raw_partial_generations_materialized": false,
+    "preservation_policy": "Preserve the output directory, readiness markers, and worker logs without overwrite or deletion."
+  },
+  "conclusion": "The 16K cutoff bounded rollout compute but did not restore termination or useful AIME behavior; the 1.7B result remains a scaled analogue and is retained as provenance for the full 8B-to-32B reproduction."
+}
