@@ -1,100 +1,45 @@
 #!/usr/bin/env python3
-"""Four-shard, 16-sample direct-vLLM evaluation for AIME 2026."""
+"""Four-shard, one-sample-per-problem direct-vLLM evaluation for AIME 2026."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-import os
 import time
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from aime_answer_v2 import SCORER_VERSION, metrics_from_predictions, score_answer
-from prompt_contract import PROMPT_CONTRACT_VERSION, prompt_messages
+from evaluate_aime_vllm import (
+    json_safe,
+    load_tokenizer,
+    qwen_stop_metadata,
+    read_jsonl,
+    rendered_prompt,
+    resolved_cudagraph_config,
+    sha256_file,
+    write_json_atomic,
+    write_jsonl_atomic,
+)
+from prompt_contract import PROMPT_CONTRACT_VERSION
 
 
 NUM_PROBLEMS = 30
-SAMPLES_PER_PROBLEM = 16
-NUM_GENERATIONS = NUM_PROBLEMS * SAMPLES_PER_PROBLEM
 NUM_SHARDS = 4
-REQUESTS_PER_SHARD = NUM_GENERATIONS // NUM_SHARDS
 BASE_SEED = 42
+MC_SEED_STRIDE = 16
 TEMPERATURE = 0.6
 TOP_P = 0.95
 TOP_K = 20
 MIN_P = 0.0
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as handle:
-        return [json.loads(line) for line in handle if line.strip()]
-
-
-def write_json_atomic(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.tmp.{os.getpid()}")
-    temporary.write_text(json.dumps(value, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
-    temporary.replace(path)
-
-
-def write_jsonl_atomic(path: Path, rows: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.tmp.{os.getpid()}")
-    with temporary.open("w", encoding="utf-8") as handle:
-        for row in rows:
-            handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
-    temporary.replace(path)
-
-
-def load_tokenizer(model: str) -> Any:
-    from transformers import AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained(model, trust_remote_code=True, use_fast=True)
-    if tokenizer.pad_token_id is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    return tokenizer
-
-
-def qwen_stop_metadata(tokenizer: Any) -> dict[str, Any]:
-    eos = tokenizer.eos_token_id
-    eos_ids = [int(value) for value in eos] if isinstance(eos, (list, tuple)) else [int(eos)] if eos is not None else []
-    im_end = tokenizer.convert_tokens_to_ids("<|im_end|>")
-    endoftext = tokenizer.convert_tokens_to_ids("<|endoftext|>")
-    if im_end is None or im_end == tokenizer.unk_token_id:
-        raise ValueError("Tokenizer has no valid <|im_end|> token")
-    return {
-        "eos_token_ids": eos_ids,
-        "im_end_token_id": int(im_end),
-        "endoftext_token_id": int(endoftext) if endoftext is not None else None,
-        "stop_token_ids": sorted(set(eos_ids + [int(im_end)])),
-    }
-
-
-def rendered_prompt(tokenizer: Any, problem: str) -> tuple[str, list[int]]:
-    text = tokenizer.apply_chat_template(
-        prompt_messages(problem),
-        tokenize=False,
-        add_generation_prompt=True,
-        enable_thinking=True,
-    )
-    return text, list(tokenizer.encode(text, add_special_tokens=False))
-
-
-def request_seed(problem_position: int, sample_index: int) -> int:
-    if not 0 <= problem_position < NUM_PROBLEMS or not 0 <= sample_index < SAMPLES_PER_PROBLEM:
-        raise ValueError("Invalid AIME request coordinate")
-    return BASE_SEED + problem_position * SAMPLES_PER_PROBLEM + sample_index
+def request_seed(problem_position: int) -> int:
+    if not 0 <= problem_position < NUM_PROBLEMS:
+        raise ValueError(f"Invalid AIME problem position: {problem_position}")
+    return BASE_SEED + MC_SEED_STRIDE * problem_position
 
 
 def request_grid(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -102,35 +47,16 @@ def request_grid(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         raise ValueError(f"Expected {NUM_PROBLEMS} AIME problems, found {len(rows)}")
     if [int(row["problem_idx"]) for row in rows] != list(range(1, NUM_PROBLEMS + 1)):
         raise ValueError("AIME problems are not in canonical problem_idx order")
-    requests: list[dict[str, Any]] = []
-    for problem_position, row in enumerate(rows):
-        for sample_index in range(SAMPLES_PER_PROBLEM):
-            flat_index = problem_position * SAMPLES_PER_PROBLEM + sample_index
-            requests.append(
-                {
-                    "flat_index": flat_index,
-                    "problem_position": problem_position,
-                    "sample_index": sample_index,
-                    "seed": request_seed(problem_position, sample_index),
-                    "row": row,
-                }
-            )
-    return requests
-
-
-def resolved_cudagraph_config(engine: Any, enforce_eager: bool) -> dict[str, Any]:
-    llm_engine = getattr(engine, "llm_engine", None)
-    vllm_config = getattr(llm_engine, "vllm_config", None)
-    compilation = getattr(vllm_config, "compilation_config", None)
-    if compilation is None:
-        if not enforce_eager:
-            raise RuntimeError("CUDA graphs requested, but vLLM exposed no compilation config")
-        return {"cudagraph_mode": "unavailable", "cudagraph_capture_sizes": []}
-    mode = str(getattr(compilation, "cudagraph_mode", "unknown"))
-    sizes = [int(value) for value in (getattr(compilation, "cudagraph_capture_sizes", None) or [])]
-    if not enforce_eager and (mode.upper() == "NONE" or not sizes):
-        raise RuntimeError(f"CUDA graphs requested but disabled: mode={mode}, capture_sizes={sizes}")
-    return {"cudagraph_mode": mode, "cudagraph_capture_sizes": sizes}
+    return [
+        {
+            "flat_index": problem_position,
+            "problem_position": problem_position,
+            "sample_index": 0,
+            "seed": request_seed(problem_position),
+            "row": row,
+        }
+        for problem_position, row in enumerate(rows)
+    ]
 
 
 def sampling_policy() -> dict[str, Any]:
@@ -140,10 +66,10 @@ def sampling_policy() -> dict[str, Any]:
         "top_k": TOP_K,
         "min_p": MIN_P,
         "n": 1,
-        "samples_per_problem": SAMPLES_PER_PROBLEM,
+        "samples_per_problem": 1,
         "seed_base": BASE_SEED,
-        "seed_formula": "42 + problem_position_zero_based * 16 + sample_index_zero_based",
-        "metric": "16-sample Monte Carlo estimate of single-sample accuracy",
+        "seed_formula": "42 + 16 * problem_position_zero_based",
+        "metric": "one deterministic sampled completion per AIME problem",
     }
 
 
@@ -168,19 +94,15 @@ def shard_fingerprint(args: argparse.Namespace, data_hash: str) -> str:
     return hashlib.sha256(json.dumps(policy, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-def json_safe(value: Any) -> Any:
-    return value if value is None or isinstance(value, (str, int, float, bool)) else str(value)
-
-
 def run_shard(args: argparse.Namespace) -> None:
     if args.num_shards != NUM_SHARDS or not 0 <= args.shard_index < NUM_SHARDS:
-        raise ValueError("Production AIME evaluation requires shard indices 0..3 of four shards")
+        raise ValueError("Production one-sample AIME evaluation requires shard indices 0..3 of four shards")
     data_path = Path(args.data)
     rows = read_jsonl(data_path)
-    all_requests = request_grid(rows)
-    requests = [item for item in all_requests if item["flat_index"] % NUM_SHARDS == args.shard_index]
-    if len(requests) != REQUESTS_PER_SHARD:
-        raise ValueError(f"Shard {args.shard_index} has {len(requests)} requests, expected {REQUESTS_PER_SHARD}")
+    requests = [item for item in request_grid(rows) if item["flat_index"] % args.num_shards == args.shard_index]
+    expected_count = len(range(args.shard_index, NUM_PROBLEMS, NUM_SHARDS))
+    if len(requests) != expected_count:
+        raise ValueError(f"Shard {args.shard_index} has {len(requests)} requests, expected {expected_count}")
 
     output_dir = Path(args.output_dir)
     data_hash = sha256_file(data_path)
@@ -189,7 +111,11 @@ def run_shard(args: argparse.Namespace) -> None:
     manifest_path = output_dir / f"shard_{args.shard_index:02d}_manifest.json"
     if args.resume and prediction_path.is_file() and manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if manifest.get("status") == "complete" and manifest.get("fingerprint") == fingerprint and manifest.get("prediction_sha256") == sha256_file(prediction_path):
+        if (
+            manifest.get("status") == "complete"
+            and manifest.get("fingerprint") == fingerprint
+            and manifest.get("prediction_sha256") == sha256_file(prediction_path)
+        ):
             if args.ready_file:
                 ready = Path(args.ready_file)
                 ready.parent.mkdir(parents=True, exist_ok=True)
@@ -200,18 +126,21 @@ def run_shard(args: argparse.Namespace) -> None:
     tokenizer_path = args.tokenizer or args.model
     tokenizer = load_tokenizer(tokenizer_path)
     stop_metadata = qwen_stop_metadata(tokenizer)
-    prompt_cache: dict[str, tuple[str, list[int]]] = {}
     prepared: list[dict[str, Any]] = []
     for request in requests:
         row = request["row"]
-        problem_id = str(row["problem_id"])
-        if problem_id not in prompt_cache:
-            prompt_cache[problem_id] = rendered_prompt(tokenizer, str(row["problem"]))
-        prompt, prompt_ids = prompt_cache[problem_id]
+        prompt, prompt_ids = rendered_prompt(tokenizer, str(row["problem"]))
         max_tokens = min(args.max_response_len, args.max_model_len - len(prompt_ids))
         if max_tokens <= 0:
-            raise ValueError(f"AIME prompt {problem_id} leaves no generation capacity")
-        prepared.append({**request, "rendered_prompt": prompt, "prompt_token_count": len(prompt_ids), "max_tokens": max_tokens})
+            raise ValueError(f"AIME prompt {row['problem_id']} leaves no generation capacity")
+        prepared.append(
+            {
+                **request,
+                "rendered_prompt": prompt,
+                "prompt_token_count": len(prompt_ids),
+                "max_tokens": max_tokens,
+            }
+        )
 
     from vllm import LLM, SamplingParams
 
@@ -272,7 +201,7 @@ def run_shard(args: argparse.Namespace) -> None:
         prediction = {
             "problem_id": str(row["problem_id"]),
             "problem_idx": int(row["problem_idx"]),
-            "sample_index": int(item["sample_index"]),
+            "sample_index": 0,
             "flat_index": int(item["flat_index"]),
             "seed": int(item["seed"]),
             "problem": row["problem"],
@@ -353,7 +282,15 @@ def load_manifests(stage_dir: Path) -> list[dict[str, Any]]:
         if manifest.get("prediction_sha256") != sha256_file(prediction_path):
             raise ValueError(f"Prediction hash mismatch for shard {shard_index}")
         manifests.append(manifest)
-    for key in ("data_sha256", "model", "tokenizer", "scorer_version", "prompt_contract_version", "sampling_config", "engine_config"):
+    for key in (
+        "data_sha256",
+        "model",
+        "tokenizer",
+        "scorer_version",
+        "prompt_contract_version",
+        "sampling_config",
+        "engine_config",
+    ):
         if len({json.dumps(manifest.get(key), sort_keys=True) for manifest in manifests}) != 1:
             raise ValueError(f"Shard manifests disagree on {key}")
     return manifests
@@ -367,49 +304,56 @@ def merge(args: argparse.Namespace) -> None:
     manifests = load_manifests(stage_dir)
     if manifests[0]["data_sha256"] != sha256_file(data_path):
         raise ValueError("Merge dataset does not match shard manifests")
+
     predictions: list[dict[str, Any]] = []
     for shard_index in range(NUM_SHARDS):
         predictions.extend(read_jsonl(stage_dir / f"shard_{shard_index:02d}_predictions.jsonl"))
     predictions.sort(key=lambda row: int(row["flat_index"]))
-    if len(predictions) != NUM_GENERATIONS or [int(row["flat_index"]) for row in predictions] != list(range(NUM_GENERATIONS)):
-        raise ValueError("AIME merge does not cover each of the 480 canonical requests exactly once")
+    if len(predictions) != NUM_PROBLEMS or [int(row["flat_index"]) for row in predictions] != list(range(NUM_PROBLEMS)):
+        raise ValueError("AIME merge does not cover each of the 30 canonical one-sample requests exactly once")
     for row in predictions:
-        expected_seed = request_seed(int(row["problem_idx"]) - 1, int(row["sample_index"]))
-        if int(row["seed"]) != expected_seed:
-            raise ValueError(f"Seed mismatch for {row['problem_id']} sample {row['sample_index']}")
+        expected_seed = request_seed(int(row["problem_idx"]) - 1)
+        if int(row["seed"]) != expected_seed or int(row["sample_index"]) != 0:
+            raise ValueError(f"Seed/sample mismatch for {row['problem_id']}")
 
     output_dir = Path(args.output_dir)
     prediction_path = output_dir / "predictions.jsonl"
     write_jsonl_atomic(prediction_path, predictions)
-    base_metrics = metrics_from_predictions(predictions)
-    per_problem: list[dict[str, Any]] = []
-    for data_row in data_rows:
-        problem_rows = [row for row in predictions if row["problem_id"] == data_row["problem_id"]]
-        if len(problem_rows) != SAMPLES_PER_PROBLEM or sorted(int(row["sample_index"]) for row in problem_rows) != list(range(SAMPLES_PER_PROBLEM)):
-            raise ValueError(f"Incomplete sample grid for {data_row['problem_id']}")
-        correct = sum(bool(row["is_correct"]) for row in problem_rows)
-        per_problem.append(
-            {
-                "problem_id": data_row["problem_id"],
-                "problem_idx": int(data_row["problem_idx"]),
-                "correct_count": correct,
-                "num_samples": SAMPLES_PER_PROBLEM,
-                "pass_at_1_mc": correct / SAMPLES_PER_PROBLEM,
-            }
-        )
+    reproduced = metrics_from_predictions(predictions)
     generated = sum(int(manifest["generated_token_count"]) for manifest in manifests)
     start = min(float(manifest["generation_start_epoch"]) for manifest in manifests)
     end = max(float(manifest["generation_end_epoch"]) for manifest in manifests)
     makespan = end - start
+    per_problem = [
+        {
+            "problem_id": row["problem_id"],
+            "problem_idx": int(row["problem_idx"]),
+            "seed": int(row["seed"]),
+            "is_correct": bool(row["is_correct"]),
+        }
+        for row in predictions
+    ]
     metrics = {
         "status": "complete",
         "benchmark": "MathArena/aime_2026",
         "num_problems": NUM_PROBLEMS,
-        "samples_per_problem": SAMPLES_PER_PROBLEM,
-        "num_generations": NUM_GENERATIONS,
-        "metric_name": "pass_at_1_mc_16",
-        "metric_semantics": "Mean per-problem fraction correct across 16 independent samples; equivalently total correct / 480. This is not pass@16 or majority-vote accuracy.",
-        **base_metrics,
+        "samples_per_problem": 1,
+        "num_generations": NUM_PROBLEMS,
+        "metric_name": "sampled_pass_at_1_single",
+        "metric_semantics": "One temperature-0.6 sampled completion per problem using MC sample-zero seeds.",
+        "total_correct": int(reproduced["total_correct"]),
+        "sampled_pass_at_1": int(reproduced["total_correct"]) / NUM_PROBLEMS,
+        "cap_hit_count": int(reproduced["cap_hit_count"]),
+        "cap_hit_rate": float(reproduced["cap_hit_rate"]),
+        "cap_hit_accuracy": float(reproduced["cap_hit_accuracy"]),
+        "parse_failure_count": int(reproduced["parse_failure_count"]),
+        "extraction_method_counts": reproduced["extraction_method_counts"],
+        "decision_reason_counts": reproduced["decision_reason_counts"],
+        "region_policy_counts": reproduced["region_policy_counts"],
+        "selection_action_counts": reproduced["selection_action_counts"],
+        "replacement_count": int(reproduced["replacement_count"]),
+        "reaffirmation_count": int(reproduced["reaffirmation_count"]),
+        "retraction_count": int(reproduced["retraction_count"]),
         "per_problem": per_problem,
         "sampling_config": sampling_policy(),
         "scorer_version": SCORER_VERSION,
@@ -422,12 +366,10 @@ def merge(args: argparse.Namespace) -> None:
         "aggregate_generated_tokens": generated,
         "four_worker_generation_makespan_seconds": makespan,
         "aggregate_generated_tokens_per_second": generated / makespan if makespan else 0.0,
-        "average_generated_length": generated / NUM_GENERATIONS,
+        "average_generated_length": generated / NUM_PROBLEMS,
         "engine_load_seconds_by_shard": [manifest["engine_load_seconds"] for manifest in manifests],
         "finish_reason_counts": dict(sorted(Counter(str(row.get("finish_reason")) for row in predictions).items())),
     }
-    if abs(float(metrics["pass_at_1_mc"]) - sum(row["pass_at_1_mc"] for row in per_problem) / NUM_PROBLEMS) > 1e-12:
-        raise AssertionError("Aggregate and mean per-problem pass@1 estimates disagree")
     write_json_atomic(output_dir / "metrics.json", metrics)
 
 

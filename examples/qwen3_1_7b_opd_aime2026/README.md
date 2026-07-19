@@ -39,14 +39,21 @@ accuracy, not pass@16 and not majority-vote accuracy.
 
 ## Scoring
 
-`aime_answer_v1.py` is numerical-only. Natural stops use the final post-think
-region. The scorer prefers the chronologically last balanced box or explicit
-answer marker. If neither exists, it accepts a final integer only when it is a
-standalone answer-like line or conclusion, rejecting equation operands and
-incidental intermediate numbers. Cap hits scan the unfinished trace with the
-same strong-event preference and conservative terminal-number heuristic. Every
-answer event, span, candidate, selection method, parsed integer, and decision is
-stored with the generation.
+`aime_answer_v2.py` is the production scorer; v1 remains frozen for provenance.
+Whenever `</think>` exists, v2 considers only the text after the final closing
+tag, including for length-capped generations. Otherwise it processes the whole
+response chronologically. Explicit retractions invalidate the current answer
+until a later replacement appears. Integer arithmetic and consistent equality
+chains are evaluated exactly with a deliberately small grammar; variables,
+roots, powers, and general symbolic equivalence are rejected. Every answer
+event, retraction/replacement action, span, candidate, parsed integer, and
+decision is stored with the generation.
+
+Existing generations are rescored into versioned sibling directories without
+overwriting v1 artifacts. The scorer audit reports v1 and v2 side by side. For
+the completed artifacts, the Qwen3-1.7B base score changes from 183/480
+(38.125%, v1) to 184/480 (38.3333%, v2), while the Qwen3-8B one-sample teacher
+score remains 21/30 (70%) under both scorers.
 
 ## Chain
 
@@ -68,6 +75,15 @@ at once. Submit from the repository root with:
 
 ```bash
 bash examples/qwen3_1_7b_opd_aime2026/submit_chain.sh
+```
+
+The remaining 2,048+3,072 continuation also stays strictly serial and never
+uses more than four GPUs at once. It reuses a completed teacher evaluation and
+starts directly at OPD with:
+
+```bash
+bash examples/qwen3_1_7b_opd_aime2026/submit_remaining_2k_chain.sh \
+  --completed-teacher-job 178745
 ```
 
 Artifacts are rooted at

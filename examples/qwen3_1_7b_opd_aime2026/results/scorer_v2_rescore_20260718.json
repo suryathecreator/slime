@@ -1,0 +1,55 @@
+{
+  "audit_date": "2026-07-18",
+  "scorer_change": {
+    "from": "aime_answer_v1",
+    "to": "aime_answer_v2"
+  },
+  "base_480": {
+    "v1": {
+      "correct": 183,
+      "score": 0.38125,
+      "predictions_sha256": "87c35e234b1eea9c9f7792736f653f29dc78ec311d501fa0d73fbbc57a034ab7",
+      "metrics_sha256": "e7b0c6790c0fc6fae9e49375b404fef7ef7fa11c1fa341b67a1c19031d8d9376"
+    },
+    "v2": {
+      "correct": 184,
+      "score": 0.38333333333333336,
+      "predictions_sha256": "526c7c1917eb8f814dcc2b824f67c8547075beec5a9f3b30c230177a88009d9b",
+      "metrics_sha256": "1bd06320be301614a81a8a2aa71150e2df96f5b32cd729d3f0412c0fbab4b9a2",
+      "diff_sha256": "60cd82a1481cdaa195dd7256060f895829b47b93a40fe14d3634e1d329258895"
+    },
+    "changed_rows": 84,
+    "grade_flips": [
+      {
+        "problem_id": "aime_2026_21",
+        "sample_index": 2,
+        "flat_index": 322,
+        "candidate": "41 + 9 = 50",
+        "v1": "incorrect_integer_parse_failure",
+        "v2": "correct_exact_integer_match"
+      }
+    ],
+    "capped_post_think_rows": 6,
+    "capped_post_think_grade_changes": 0
+  },
+  "teacher_single_30": {
+    "v1": {
+      "correct": 21,
+      "score": 0.7,
+      "predictions_sha256": "400ca96007f318fab53f8f6dfc10cb222ade54981f45bf323784479a770b75ac",
+      "metrics_sha256": "5b28e27b747969dff753d695b957abff9b54ed3e635d7640529696017eb082fe"
+    },
+    "v2": {
+      "correct": 21,
+      "score": 0.7,
+      "predictions_sha256": "151fc11108d4d2963b6b253dbd2015d4c2b4bca6c8419fbce76bb069daf3e856",
+      "metrics_sha256": "18a59a7d19cc77e7a2cfd67e8d2c5e361c1bc7af9c6dac82a89a062ae357546c",
+      "diff_sha256": "4e6a90f40eeda86f1caf31bc0b2b927f55fb4f1cdd08a179390b7a71d79b6659"
+    },
+    "changed_rows": 2,
+    "grade_flips": []
+  },
+  "determinism": {
+    "second_rescore_was_byte_identical": true
+  }
+}

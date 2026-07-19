@@ -7,6 +7,17 @@ cd "${REPO_ROOT}"
 bash -n examples/qwen3_1_7b_opd_aime2026/*.sh examples/qwen3_1_7b_opd_aime2026/*.sbatch
 python3 -m py_compile examples/qwen3_1_7b_opd_aime2026/*.py
 rg -q 'SCORER_VERSION = "aime_answer_v1"' examples/qwen3_1_7b_opd_aime2026/aime_answer_v1.py
+rg -q 'SCORER_VERSION = "aime_answer_v2"' examples/qwen3_1_7b_opd_aime2026/aime_answer_v2.py
+rg -q '^from aime_answer_v2 import' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
+rg -q '^from aime_answer_v2 import' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_once_vllm.py
+rg -q '^from aime_answer_v2 import' examples/qwen3_1_7b_opd_aime2026/report_aime.py
+if rg -n '^from aime_answer_v1 import' \
+  examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py \
+  examples/qwen3_1_7b_opd_aime2026/evaluate_aime_once_vllm.py \
+  examples/qwen3_1_7b_opd_aime2026/report_aime.py; then
+  echo "A production AIME entrypoint still imports scorer v1." >&2
+  exit 1
+fi
 rg -q 'NUM_GENERATIONS = NUM_PROBLEMS \* SAMPLES_PER_PROBLEM' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 rg -q 'SAMPLES_PER_PROBLEM = 16' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 rg -q 'TEMPERATURE = 0.6' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
@@ -17,6 +28,14 @@ rg -q 'BASE_SEED = 42' examples/qwen3_1_7b_opd_aime2026/evaluate_aime_vllm.py
 rg -Fq 'export LD_LIBRARY_PATH="$(find "${VLLM_EVAL_SITE}" -path "*/nvidia/*/lib"' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
 rg -Fq 'export CC="${AIME_ZIG_CC}"' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
 rg -Fq 'export CPATH="${AIME_ZIG_INCLUDE_ROOT}/python3.12:${AIME_ZIG_INCLUDE_ROOT}' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
+rg -Fq 'export CC="${AIME_ZIG_CC}"' examples/qwen3_1_7b_opd_aime2026/05_run_opd_remaining_2k.sbatch
+rg -Fq 'export CPATH="${AIME_ZIG_INCLUDE_ROOT}/python3.12:${AIME_ZIG_INCLUDE_ROOT}' examples/qwen3_1_7b_opd_aime2026/05_run_opd_remaining_2k.sbatch
+rg -Fq 'test -x "${CC}"' examples/qwen3_1_7b_opd_aime2026/05_run_opd_remaining_2k.sbatch
+rg -q 'OPD_ACTOR_GPUS=2' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'OPD_ROLLOUT_GPUS=3' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'OPD_GLOBAL_BATCH_SIZE=128' examples/qwen3_1_7b_opd_aime2026/env.sh
+rg -q 'OPD_GLOBAL_BATCH_SIZE % data_parallel_size' examples/qwen3_1_7b_opd_aime2026/05_run_opd_remaining_2k.sbatch
+rg -q 'samples_per_rollout % OPD_GLOBAL_BATCH_SIZE' examples/qwen3_1_7b_opd_aime2026/05_run_opd_remaining_2k.sbatch
 rg -q 'VLLM_IMPORT_PREFLIGHT_OK' examples/qwen3_1_7b_opd_aime2026/01_eval_aime_vllm.sbatch
 python3 - <<'PY'
 from pathlib import Path
@@ -54,6 +73,10 @@ done
 rg -q '^  AIME_EXAMPLE_DIR$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 rg -q '^  STUDENT_HF_REVISION$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 rg -q '^  TEACHER_HF_REVISION$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+rg -q '^  CC$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+rg -q '^  CPATH$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+rg -q '^  SLURM_JOB_ID$' examples/qwen3_8b_opd_tillicum/container_exec.sh
+rg -q '^  SLURM_JOB_NAME$' examples/qwen3_8b_opd_tillicum/container_exec.sh
 for forwarded in \
   AIME_EXAMPLE_DIR \
   AIME_JSONL \
@@ -72,4 +95,16 @@ for forwarded in \
   VLLM_EVAL_PREFER_CUDA_GRAPH; do
   rg -q "^  ${forwarded}$" examples/qwen3_8b_opd_tillicum/container_exec.sh
 done
+rg -q -- '--completed-teacher-job' examples/qwen3_1_7b_opd_aime2026/submit_remaining_2k_chain.sh
+test "$(rg -c -- '--dependency="afterok:' examples/qwen3_1_7b_opd_aime2026/submit_remaining_2k_chain.sh)" = "4"
+rg -q 'max_concurrent_gpu_count=4' examples/qwen3_1_7b_opd_aime2026/submit_remaining_2k_chain.sh
+(
+  source examples/qwen3_1_7b_opd_aime2026/env.sh
+  model_parallel_size=$((OPD_TENSOR_MODEL_PARALLEL_SIZE * OPD_CONTEXT_PARALLEL_SIZE))
+  test $((OPD_ACTOR_GPUS / model_parallel_size)) = 2
+  test $((OPD_GLOBAL_BATCH_SIZE % (OPD_ACTOR_GPUS / model_parallel_size))) = 0
+  test $(((OPD_ROLLOUT_BATCH_SIZE * OPD_N_SAMPLES_PER_PROMPT) % OPD_GLOBAL_BATCH_SIZE)) = 0
+  test $((16 * OPD_ROLLOUT_BATCH_SIZE)) = 2048
+  test $((40 * OPD_ROLLOUT_BATCH_SIZE)) = 5120
+)
 echo "Qwen3-1.7B/Qwen3-8B AIME 2026 dry checks passed."

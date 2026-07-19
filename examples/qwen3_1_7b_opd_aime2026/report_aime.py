@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from aime_answer_v1 import metrics_from_predictions
+from aime_answer_v2 import SCORER_VERSION, metrics_from_predictions
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -29,6 +29,12 @@ def load_entry(specification: str) -> dict[str, Any]:
     directory = Path(directory_text)
     metrics = json.loads((directory / "metrics.json").read_text(encoding="utf-8"))
     predictions = read_jsonl(directory / "predictions.jsonl")
+    if metrics.get("scorer_version") != SCORER_VERSION:
+        raise ValueError(
+            f"{label} uses scorer {metrics.get('scorer_version')!r}; expected {SCORER_VERSION!r}"
+        )
+    if any(row.get("scorer_version") != SCORER_VERSION for row in predictions):
+        raise ValueError(f"{label} predictions contain a scorer version other than {SCORER_VERSION}")
     reproduced = metrics_from_predictions(predictions)
     for key in ("num_generations", "total_correct", "pass_at_1_mc", "cap_hit_count", "cap_hit_rate", "cap_hit_accuracy", "parse_failure_count", "extraction_method_counts", "decision_reason_counts"):
         if metrics.get(key) != reproduced.get(key):

@@ -23,19 +23,7 @@ fi
 
 cd "${SLIME_REPO_ROOT}"
 echo "Preparing Qwen3-1.7B/Qwen3-8B AIME 2026 experiment on $(hostname) at $(date)"
-{
-  find examples/qwen3_1_7b_opd_aime2026 -type f ! -path '*/__pycache__/*' -print
-  printf '%s\n' \
-    examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch \
-    examples/qwen3_8b_opd_tillicum/checkpoint_utils.sh \
-    examples/qwen3_8b_opd_tillicum/container_exec.sh \
-    examples/qwen3_8b_opd_tillicum/env.sh \
-    examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py \
-    examples/qwen3_8b_opd_tillicum/summarize_opd_sanity.py \
-    examples/qwen3_8b_opd_tillicum/validate_qwen3_generation.py \
-    examples/qwen3_8b_opd_tillicum/write_opd_trained_manifest.py \
-    scripts/models/qwen3-1.7B.sh
-} | sort -u | xargs sha256sum >"${SOURCE_MANIFEST}"
+bash examples/qwen3_1_7b_opd_aime2026/write_source_manifest.sh "${SOURCE_MANIFEST}"
 export SLIME_SGLANG_PATCH_SITE=0
 export SLIME_VLLM_PATCH_SITE=0
 
