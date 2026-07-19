@@ -1,6 +1,7 @@
 {
   "submit_time": "2026-07-19T00:16:58-07:00",
   "verification_time": "2026-07-19T00:18:14-07:00",
+  "first_update_verification_time": "2026-07-19T00:30:53-07:00",
   "implementation_commit": "4dc07112dd0c0a0aaf38cebb07cb14d4a04ab267",
   "completed_teacher_job": {
     "job_id": 178745,
@@ -68,7 +69,29 @@
     "dry_run_job_count": 5,
     "dry_run_afterok_dependency_count": 4,
     "scontrol_verified": true,
-    "root_startup_settings_verified": true
+    "root_startup_settings_verified": true,
+    "first_actor_update_completed": true,
+    "teacher_scoring_overlap_observed": true,
+    "fatal_cuda_oom_observed": false
+  },
+  "first_rollout_live_check": {
+    "rollout_id": 0,
+    "samples": 128,
+    "average_response_tokens": 8682.921875,
+    "max_response_tokens": 16384,
+    "cap_hit_rate": 0.1171875,
+    "completed_rate": 0.8828125,
+    "final_answer_rate": 0.921875,
+    "rollout_seconds": 276.47884821891785,
+    "teacher_scoring_completed": true,
+    "teacher_two_sequence_prefill_observed": true,
+    "actor_update_seconds": 42.47679901123047,
+    "actor_train_tokens_per_second": 26510.613469302934,
+    "train_loss": 0.1678287386894226,
+    "gradient_norm": 2.0205220903691394,
+    "next_rollout_started": true,
+    "pytorch_oom_exception": false,
+    "note": "Torch memory-saver emitted recoverable CUDA allocation retry warnings; training completed and advanced."
   },
   "artifacts": {
     "submission_metadata_sha256": "5d8255ee9fb560c3db3fd4049d20c78bbe52dd64d697bfae251597c1a9382b77",
