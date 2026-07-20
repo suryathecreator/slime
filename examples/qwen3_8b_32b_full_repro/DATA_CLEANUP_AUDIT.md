@@ -19,18 +19,19 @@ An entry passes think validation only when the assistant response contains one
 ordered `<think>...</think>` pair, nonempty thinking, nonempty content after the
 close, and no obvious unclosed truncation. Invalid entries are never repaired.
 
-Lingua 2.2.0 classifies the complete human prompt and assistant response
-separately after whitespace normalization and masking large LaTeX/code spans.
-Both must be confidently English. Raw predictions and confidence values are
-recorded for every row; low-confidence rows remain an auditable rejection
-bucket.
+The filter ignores prompt language completely. It rejects a row when the raw,
+concatenated assistant response contains any Unicode general-category Letter
+from the Han, Hiragana, Katakana, Hangul, or Bopomofo ranges. It does not mask
+code or LaTeX, and it does not reject CJK punctuation, symbols, emoji, Greek,
+Cyrillic, or non-English Latin text. The first matching character, position,
+code point, and Unicode name are recorded for every rejected row.
 
 The independent issue #1493 reference counts and ±5% gates are:
 
 | Category | Reference | Allowed range |
 |---|---:|---:|
 | incomplete think | 749,380 | 711,911–786,849 |
-| non-English/mixed | 397,642 | 377,760–417,524 |
+| assistant contains CJK (legacy non-English/mixed reference reused literally) | 397,642 | 377,760–417,524 |
 | retained | 332,843 | 316,201–349,485 |
 
 After this pre-deduplication gate passes, accepted raw rows are shuffled with
@@ -40,7 +41,8 @@ become the OPD reserve. Only source-row-ID disjointness is enforced. The first
 1,472 reserve rows form the headline OPD prompt file.
 
 The generated JSON audit records source revision, raw count, independent
-rejections, overlap matrix, accepted/rejected deterministic samples, language
-classifications, overlength exclusions, row-ID hashes, output hashes, and exact
-selection order. The committed audit is a template until the job completes;
-large row-level classifications remain in scratch.
+rejections, overlap matrix, accepted/rejected deterministic samples, CJK match
+metadata, the runtime Unicode database version, overlength exclusions, row-ID
+hashes, output hashes, and exact selection order. The committed audit is a
+template until the job completes; large row-level classifications remain in
+scratch.

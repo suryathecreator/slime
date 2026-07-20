@@ -25,13 +25,12 @@ for path in \
   "${STUDENT_HF_DIR}/config.json" \
   "${TEACHER_HF_DIR}/config.json" \
   "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" \
-  "${STRICT_LANGUAGE_SITE}/lingua" \
   "${MATH_VERIFY_SITE}/math_verify" \
   "${VLLM_EVAL_SITE}/vllm"; do
   [[ -e "${path}" ]] || { echo "Missing pinned prerequisite: ${path}" >&2; exit 1; }
 done
 
-PYTHONPATH="${STRICT_LANGUAGE_SITE}:${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
+PYTHONPATH="${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
   "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/capture_environment.py"
 
 VLLM_TARGET_LIBS="$(find "${VLLM_EVAL_SITE}" -path '*/nvidia/*/lib' -type d -printf '%p:' 2>/dev/null || true)"
@@ -40,7 +39,7 @@ PYTHONPATH="${VLLM_EVAL_SITE}:${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
 SLIME_VLLM_PATCH_SITE=0 SLIME_SGLANG_PATCH_SITE=0 \
   "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/capture_eval_environment.py"
 
-PYTHONPATH="${STRICT_LANGUAGE_SITE}:${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
+PYTHONPATH="${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
   "${SCRIPT_DIR}/container_exec.sh" python3 -m pytest -q \
     "${SCRIPT_DIR}/tests"
 

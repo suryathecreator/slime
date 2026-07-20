@@ -18,4 +18,4 @@ boxed-answer instruction is added only to the rendered user prompt.
 All GPU Slurm jobs request exactly four H200s. OPD health metrics are preserved
 as nonfatal diagnostics and do not abort the faithful run. Infrastructure
 failures, nonfinite training, token-alignment errors, corrupt checkpoints, and
-the pre-SFT data count gate remain fatal.
+the pre-SFT data validation gate remain fatal.

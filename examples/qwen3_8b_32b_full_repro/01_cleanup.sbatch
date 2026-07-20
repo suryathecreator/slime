@@ -32,8 +32,7 @@ requeue_cleanup() {
   exit 0
 }
 trap requeue_cleanup USR1
-PYTHONPATH="${STRICT_LANGUAGE_SITE}:${PYTHONPATH:-}" \
-  "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/clean_openthoughts3.py" --workers 32 &
+"${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/clean_openthoughts3.py" --workers 32 &
 cleanup_pid="$!"
 wait "${cleanup_pid}"
 cleanup_pid=""

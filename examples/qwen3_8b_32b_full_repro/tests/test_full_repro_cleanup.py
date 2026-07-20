@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import collections
 import random
 
 from examples.qwen3_8b_32b_full_repro.clean_openthoughts3 import (
     PROMPT_INSTRUCTION,
     RANGES,
+    build_validation_gate,
+    first_cjk_letter,
     message_source_field,
     normalize_messages,
     prompt_with_instruction,
@@ -91,16 +94,86 @@ def test_raw_row_shuffle_is_seeded_without_grouping_or_deduplication() -> None:
 def test_issue_count_ranges_are_frozen() -> None:
     assert RANGES == {
         "incomplete_think": (711_911, 786_849),
-        "non_english": (377_760, 417_524),
+        "assistant_contains_cjk": (377_760, 417_524),
         "retained": (316_201, 349_485),
     }
 
 
-def test_raw_chat_terminal_would_be_rejected_without_repair(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "examples.qwen3_8b_32b_full_repro.clean_openthoughts3.classify_language",
-        lambda _text: {"accepted": True, "reason": "english"},
+def test_cjk_detector_covers_configured_scripts_and_supplementary_forms() -> None:
+    for character in ("中", "\U00020000", "あ", "ア", "ｱ", "한", "ㄅ"):
+        match = first_cjk_letter(f"before {character} after")
+        assert match is not None, character
+        assert match["character"] == character
+        assert match["codepoint"].startswith("U+")
+        assert match["name"]
+
+
+def test_cjk_detector_ignores_non_cjk_letters_punctuation_symbols_and_escapes() -> None:
+    for text in ("English", "café", "Ελληνικά", "Русский", "🙂", "Ａ", "。", r"\u4e2d"):
+        assert first_cjk_letter(text) is None, text
+
+
+def test_cjk_in_prompt_is_ignored_but_cjk_anywhere_in_assistant_is_rejected() -> None:
+    prompt_only = evaluate_task(
+        (
+            1,
+            {
+                "conversations": [
+                    {"from": "human", "value": "中文问题"},
+                    {"from": "gpt", "value": "<think>work</think>answer"},
+                ]
+            },
+        )
     )
+    assert prompt_only["retained"]
+    assert not prompt_only["assistant_contains_cjk"]
+
+    for response in (
+        "<think>中文推理</think>answer",
+        "<think>work</think>中文答案",
+        "<think>work</think>```text\n中文注释\n```",
+    ):
+        result = evaluate_task(
+            (
+                2,
+                {
+                    "conversations": [
+                        {"from": "human", "value": "question"},
+                        {"from": "gpt", "value": response},
+                    ]
+                },
+            )
+        )
+        assert result["assistant_contains_cjk"]
+        assert result["assistant_cjk_match"] is not None
+        assert not result["retained"]
+
+
+def test_validation_gate_uses_literal_reference_ranges_and_invariants() -> None:
+    passing = collections.Counter(
+        source_rows=1_200_000,
+        incomplete_think=749_380,
+        assistant_contains_cjk=397_642,
+        retained=332_843,
+    )
+    gate = build_validation_gate(passing, full_run=True, minimum_eligible_rows=300_000)
+    assert gate["passed"]
+    assert gate["minimum_eligible_rows"] == {"value": 332_843, "required": 300_000, "passed": True}
+
+    for name, (lower, upper) in RANGES.items():
+        for boundary in (lower, upper):
+            counts = passing.copy()
+            counts[name] = boundary
+            assert build_validation_gate(counts, True, 300_000)["passed"], (name, boundary)
+        for outside in (lower - 1, upper + 1):
+            counts = passing.copy()
+            counts[name] = outside
+            assert not build_validation_gate(counts, True, 300_000)["passed"], (name, outside)
+
+    assert not build_validation_gate(passing, full_run=False, minimum_eligible_rows=300_000)["passed"]
+
+
+def test_raw_chat_terminal_would_be_rejected_without_repair() -> None:
     result = evaluate_task(
         (
             7,

@@ -52,9 +52,21 @@ def main() -> None:
     require(evaluation["max_new_tokens"] == 16384, "evaluation cap mismatch")
     require(evaluation["automatic_checkpoints"] == ["qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct"], "evaluation checkpoint policy mismatch")
     require(evaluation["dataset_policy"].startswith("load read-only"), "MATH-500 must be read-only")
-    require(contract["cleanup"]["prompt_grouping"] is False, "prompt grouping must stay disabled")
-    require(contract["cleanup"]["prompt_deduplication"] is False, "prompt deduplication must stay disabled")
-    require(contract["cleanup"]["math500_cross_contamination_check"] is False, "MATH-500 cross-contamination check must stay disabled")
+    cleanup = contract["cleanup"]
+    require(cleanup["version"] == "ot3_assistant_cjk_v1", "cleanup version mismatch")
+    require(
+        cleanup["assistant_character_filter"]
+        == "reject any Han, Hiragana, Katakana, Hangul, or Bopomofo Unicode letter in assistant responses only",
+        "assistant-only CJK filter mismatch",
+    )
+    require(cleanup["unicode_category"] == "Letter", "CJK filter must exclude punctuation and symbols")
+    require(cleanup["legacy_non_english_reference_reused_for_assistant_cjk"] is True, "legacy assistant-CJK gate mapping must remain explicit")
+    require(cleanup["relative_count_epsilon"] == 0.05, "cleanup reference tolerance must remain 5%")
+    require(cleanup["minimum_eligible_rows"] == 300_000, "cleanup must retain at least 300K eligible rows")
+    require(cleanup["prompt_grouping"] is False, "prompt grouping must stay disabled")
+    require(cleanup["prompt_deduplication"] is False, "prompt deduplication must stay disabled")
+    require(cleanup["math500_cross_contamination_check"] is False, "MATH-500 cross-contamination check must stay disabled")
+    require(contract["failure_gates"]["cleanup_validation_gate"] == "fatal", "cleanup validation gate must stay fatal")
     require(contract["failure_gates"]["opd_behavior_metrics"] == "nonfatal_diagnostic", "OPD behavior metrics must be nonfatal")
     if os.environ.get("FULL_REPRO_DIR"):
         require(os.environ.get("EVAL_PROMPT") == evaluation["prompt_instruction"], "runtime prompt differs from eval contract")

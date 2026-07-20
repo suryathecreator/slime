@@ -7,7 +7,7 @@ The serial chain is:
 
 ```text
 OpenThoughts3 raw rows
-  -> cleanup audit and count gate
+  -> cleanup audit and validation gate
   -> seed-1234 raw-row shuffle (200K SFT, next 100K OPD reserve)
   -> base and teacher MATH-500 evaluations
   -> 200K one-epoch SFT

@@ -10,6 +10,7 @@ import os
 import platform
 import subprocess
 import tempfile
+import unicodedata
 from pathlib import Path
 
 
@@ -99,10 +100,11 @@ def main() -> None:
         "branch": git("branch", "--show-current"),
         "megatron_lm_commit": contract["megatron_lm_commit"],
         "python": platform.python_version(),
+        "unicode_database": unicodedata.unidata_version,
         "platform": platform.platform(),
         "packages": {
             name: package(name)
-            for name in ("torch", "transformers", "ray", "sglang", "flash-attn", "math-verify", "lingua-language-detector")
+            for name in ("torch", "transformers", "ray", "sglang", "flash-attn", "math-verify")
         },
         "cuda": torch.version.cuda,
         # Do not eagerly initialize cuDNN: this Qwen/FlashAttention path does

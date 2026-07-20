@@ -35,7 +35,6 @@ export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export SLIME_SIF="${LEGACY_CACHE_ROOT}/containers/slime_latest.sandbox"
 export VLLM_EVAL_SITE="${LEGACY_CACHE_ROOT}/vllm_eval_site"
-export STRICT_LANGUAGE_SITE="${LEGACY_CACHE_ROOT}/strict_language_site"
 export MATH_VERIFY_SITE="/gpfs/scrubbed/suryadv/slime-qwen3-4b-opd-harp-v2/harp_eval_site"
 
 export STUDENT_HF_REPO="Qwen/Qwen3-8B-Base"

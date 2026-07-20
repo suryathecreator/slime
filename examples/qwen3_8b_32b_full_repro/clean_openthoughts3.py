@@ -7,32 +7,57 @@ import argparse
 import collections
 import gzip
 import hashlib
-import importlib.metadata
 import json
 import multiprocessing as mp
 import os
 import random
 import re
 import tempfile
+import unicodedata
 from pathlib import Path
 from typing import Any, Iterable
 
 
 REFERENCE = {
     "incomplete_think": 749_380,
-    "non_english": 397_642,
+    "assistant_contains_cjk": 397_642,
     "retained": 332_843,
 }
 RANGES = {
     "incomplete_think": (711_911, 786_849),
-    "non_english": (377_760, 417_524),
+    "assistant_contains_cjk": (377_760, 417_524),
     "retained": (316_201, 349_485),
 }
 PROMPT_INSTRUCTION = r"Please reason step by step, and put your final answer within \boxed{}."
-LANGUAGE_CONFIDENCE_THRESHOLD = 0.50
-_CODE_BLOCK = re.compile(r"```.*?```", re.S)
-_LATEX_BLOCK = re.compile(r"\$\$.*?\$\$|\\\[.*?\\\]|\\begin\{[^{}]+\}.*?\\end\{[^{}]+\}", re.S)
 _OBVIOUS_TRUNCATION = re.compile(r"(?is)(?:\.{3,}|\b(?:to be continued|continued)\s*)$")
+
+# Candidate blocks for Han, Hiragana, Katakana, Hangul, and Bopomofo letters.
+# The general-category check below excludes punctuation, symbols, and unassigned
+# code points inside these blocks.  The supplementary ranges include CJK
+# extensions through Unicode 17; older Python UCDs safely classify newer,
+# unknown code points as unassigned.
+_CJK_CANDIDATE = re.compile(
+    "["
+    "\u1100-\u11ff"
+    "\u3005-\u303b"
+    "\u3040-\u30ff"
+    "\u3100-\u318f"
+    "\u31a0-\u31bf"
+    "\u31f0-\u31ff"
+    "\u3400-\u4dbf"
+    "\u4e00-\u9fff"
+    "\ua960-\ua97f"
+    "\uac00-\ud7ff"
+    "\uf900-\ufaff"
+    "\uff66-\uff9f"
+    "\uffa0-\uffdc"
+    "\U0001aff0-\U0001afff"
+    "\U0001b000-\U0001b16f"
+    "\U00020000-\U0002ee5f"
+    "\U0002f800-\U0002fa1f"
+    "\U00030000-\U0003347f"
+    "]"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -170,46 +195,19 @@ def validate_think(response: str) -> tuple[bool, list[str]]:
     return not reasons, sorted(set(reasons))
 
 
-def language_text(text: str) -> str:
-    text = _CODE_BLOCK.sub(" ", text)
-    text = _LATEX_BLOCK.sub(" ", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
-_DETECTOR: Any | None = None
-
-
-def init_worker() -> None:
-    global _DETECTOR
-    from lingua import LanguageDetectorBuilder
-
-    _DETECTOR = LanguageDetectorBuilder.from_all_languages().with_low_accuracy_mode().build()
-
-
-def classify_language(text: str) -> dict[str, Any]:
-    if _DETECTOR is None:
-        raise RuntimeError("language detector is not initialized")
-    normalized = language_text(text)
-    letters = sum(ch.isalpha() for ch in normalized)
-    if letters == 0:
-        return {"language": None, "confidence": 0.0, "letters": 0, "accepted": False, "reason": "no_letters"}
-    values = list(_DETECTOR.compute_language_confidence_values(normalized))
-    top = values[0] if values else None
-    name = getattr(getattr(top, "language", None), "name", None)
-    confidence = float(getattr(top, "value", 0.0))
-    accepted = name == "ENGLISH" and confidence >= LANGUAGE_CONFIDENCE_THRESHOLD
-    return {
-        "language": name,
-        "confidence": confidence,
-        "letters": letters,
-        "accepted": accepted,
-        "reason": "english" if accepted else ("low_confidence" if name == "ENGLISH" else "non_english"),
-        "top3": [
-            {"language": getattr(value.language, "name", str(value.language)), "confidence": float(value.value)}
-            for value in values[:3]
-        ],
-        "normalized_sha256": hashlib.sha256(normalized.encode()).hexdigest(),
-    }
+def first_cjk_letter(text: str) -> dict[str, Any] | None:
+    """Return audit metadata for the first CJK-script Unicode letter."""
+    for match in _CJK_CANDIDATE.finditer(text):
+        character = match.group(0)
+        if not unicodedata.category(character).startswith("L"):
+            continue
+        return {
+            "index": match.start(),
+            "character": character,
+            "codepoint": f"U+{ord(character):04X}",
+            "name": unicodedata.name(character, "UNNAMED"),
+        }
+    return None
 
 
 def evaluate_task(task: tuple[int, dict[str, Any]]) -> dict[str, Any]:
@@ -219,10 +217,9 @@ def evaluate_task(task: tuple[int, dict[str, Any]]) -> dict[str, Any]:
     raw_chat_control_tokens = [token for token in ("<|im_start|>", "<|im_end|>", "<|endoftext|>") if token in response]
     malformed = not prompt.strip() or not response.strip() or bool(raw_chat_control_tokens)
     think_ok, think_reasons = validate_think(response)
-    prompt_language = classify_language(prompt)
-    response_language = classify_language(response)
-    english = bool(prompt_language["accepted"] and response_language["accepted"])
-    accepted = not malformed and think_ok and english
+    assistant_cjk_match = first_cjk_letter(response)
+    assistant_contains_cjk = assistant_cjk_match is not None
+    accepted = not malformed and think_ok and not assistant_contains_cjk
     record = None
     if accepted:
         record = {
@@ -241,9 +238,8 @@ def evaluate_task(task: tuple[int, dict[str, Any]]) -> dict[str, Any]:
         "raw_chat_control_tokens": raw_chat_control_tokens,
         "incomplete_think": not think_ok,
         "think_reasons": think_reasons,
-        "non_english": not english,
-        "prompt_language": prompt_language,
-        "response_language": response_language,
+        "assistant_contains_cjk": assistant_contains_cjk,
+        "assistant_cjk_match": assistant_cjk_match,
         "retained": accepted,
         "record": record,
     }
@@ -273,19 +269,18 @@ def process_shard(dataset: Any, start: int, end: int, work_dir: Path, pool: Any,
     samples: dict[str, list[dict[str, Any]]] = {"accepted": [], "rejected": []}
     for result in results:
         incomplete = bool(result["incomplete_think"])
-        non_english = bool(result["non_english"])
+        assistant_contains_cjk = bool(result["assistant_contains_cjk"])
         retained = bool(result["retained"])
         counts.update(
             source_rows=1,
             malformed=int(result["malformed"]),
             incomplete_think=int(incomplete),
-            non_english=int(non_english),
+            assistant_contains_cjk=int(assistant_contains_cjk),
             retained=int(retained),
         )
-        overlap[f"incomplete_{int(incomplete)}__non_english_{int(non_english)}"] += 1
+        overlap[f"incomplete_{int(incomplete)}__assistant_cjk_{int(assistant_contains_cjk)}"] += 1
         reasons.update(result["think_reasons"])
-        reasons.update([f"prompt_language:{result['prompt_language']['reason']}"])
-        reasons.update([f"response_language:{result['response_language']['reason']}"])
+        reasons.update([f"assistant_cjk:{'present' if assistant_contains_cjk else 'absent'}"])
         reasons.update([f"raw_chat_control:{token}" for token in result["raw_chat_control_tokens"]])
         classification = {key: value for key, value in result.items() if key != "record"}
         classifications.append(classification)
@@ -450,22 +445,47 @@ def selection_rows(args: argparse.Namespace, work_dir: Path) -> tuple[list[dict[
 
 def markdown_audit(audit: dict[str, Any]) -> str:
     counts = audit["counts"]
-    gate = audit["count_gate"]
+    gate = audit["validation_gate"]
     return f"""# OpenThoughts3 cleanup audit
 
 - Dataset: `{audit['dataset']}@{audit['revision']}`
 - Raw rows: {counts['source_rows']:,}
 - Incomplete think: {counts['incomplete_think']:,} (gate {gate['incomplete_think']['range']})
-- Non-English: {counts['non_english']:,} (gate {gate['non_english']['range']})
+- Assistant responses containing CJK: {counts['assistant_contains_cjk']:,} (legacy non-English gate {gate['assistant_contains_cjk']['range']})
 - Retained: {counts['retained']:,} (gate {gate['retained']['range']})
 - Gate passed: `{gate['passed']}`
-- Detector: Lingua {audit['detector']['version']}, whole prompt/assistant separately, confidence >= {LANGUAGE_CONFIDENCE_THRESHOLD}
+- Filter: any Han, Hiragana, Katakana, Hangul, or Bopomofo Unicode letter in the assistant response only
+- Unicode database: {audit['filter']['unicode_version']}
 - Split: seeded raw-row shuffle; 200,000 SFT then 100,000 OPD; source-row-ID overlap only
 - Prompt grouping/deduplication: disabled
 - MATH-500 cross-contamination check: disabled
 
-See the JSON audit and compressed per-row classifications for full overlap and confidence details.
+See the JSON audit and compressed per-row classifications for full overlap and CJK-match details.
 """
+
+
+def build_validation_gate(counts: collections.Counter[str], full_run: bool, minimum_eligible_rows: int) -> dict[str, Any]:
+    gate: dict[str, Any] = {
+        name: {
+            "value": counts[name],
+            "reference": REFERENCE[name],
+            "range": list(RANGES[name]),
+            "passed": RANGES[name][0] <= counts[name] <= RANGES[name][1],
+        }
+        for name in REFERENCE
+    }
+    gate["full_revision"] = full_run
+    gate["minimum_eligible_rows"] = {
+        "value": counts["retained"],
+        "required": minimum_eligible_rows,
+        "passed": counts["retained"] >= minimum_eligible_rows,
+    }
+    gate["passed"] = (
+        full_run
+        and gate["minimum_eligible_rows"]["passed"]
+        and all(gate[name]["passed"] for name in REFERENCE)
+    )
+    return gate
 
 
 def main() -> None:
@@ -479,35 +499,37 @@ def main() -> None:
     if args.max_source_rows is not None:
         source_rows = min(source_rows, args.max_source_rows)
     context = mp.get_context("spawn")
-    with context.Pool(args.workers, initializer=init_worker) as pool:
+    with context.Pool(args.workers) as pool:
         for start in range(0, source_rows, args.shard_size):
             process_shard(dataset, start, min(source_rows, start + args.shard_size), work_dir, pool, args.audit_samples)
     counts, overlap, reasons, samples = aggregate(work_dir)
     full_run = args.max_source_rows is None and counts["source_rows"] == len(dataset) == 1_200_000
-    count_gate = {
-        name: {"value": counts[name], "reference": REFERENCE[name], "range": list(RANGES[name]), "passed": RANGES[name][0] <= counts[name] <= RANGES[name][1]}
-        for name in REFERENCE
-    }
-    count_gate["full_revision"] = full_run
-    count_gate["passed"] = full_run and all(count_gate[name]["passed"] for name in REFERENCE)
+    validation_gate = build_validation_gate(counts, full_run, args.sft_size + args.opd_size)
     audit: dict[str, Any] = {
-        "schema_version": 1,
-        "cleanup_version": "ot3_simple_en_v1",
+        "schema_version": 2,
+        "cleanup_version": "ot3_assistant_cjk_v1",
         "dataset": args.dataset,
         "revision": args.revision,
         "split": args.split,
         "counts": dict(counts),
         "overlap_matrix": dict(overlap),
         "reason_counts": dict(reasons.most_common()),
-        "count_gate": count_gate,
-        "detector": {"package": "lingua-language-detector", "version": importlib.metadata.version("lingua-language-detector"), "mode": "all_languages_low_accuracy_whole_text", "confidence_threshold": LANGUAGE_CONFIDENCE_THRESHOLD},
+        "validation_gate": validation_gate,
+        "filter": {
+            "type": "unicode_cjk_letter_presence",
+            "scope": "assistant_response_only",
+            "scripts": ["Han", "Hiragana", "Katakana", "Hangul", "Bopomofo"],
+            "unicode_version": unicodedata.unidata_version,
+            "match_policy": "any Unicode general-category Letter in the configured CJK ranges; punctuation and symbols excluded",
+            "legacy_reference_mapping": "assistant_contains_cjk reuses the issue #1493 non-English/mixed reference count and +/-5% range",
+        },
         "audit_samples": {key: value[: args.audit_samples] for key, value in samples.items()},
         "per_row_classifications": str(work_dir / "classifications"),
         "source_artifacts": cached_source_artifacts(args.cache_dir, args.revision),
     }
     atomic_text(Path(args.audit_json), json.dumps(audit, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
     atomic_text(Path(args.audit_md), markdown_audit(audit))
-    if not count_gate["passed"]:
+    if not validation_gate["passed"]:
         print(
             json.dumps(
                 {
@@ -516,19 +538,19 @@ def main() -> None:
                     "raw_rows": len(dataset),
                     "counts": counts,
                     "overlap": overlap,
-                    "gate": count_gate,
+                    "gate": validation_gate,
                     "likely_differences_to_review": [
                         "dataset field schema",
                         "dataset revision",
                         "think-tag rule",
-                        "Lingua whole-text classifications and threshold",
+                        "assistant-only CJK heuristic versus the legacy non-English reference semantics",
                     ],
                 },
                 indent=2,
             ),
             flush=True,
         )
-        raise SystemExit("OpenThoughts3 cleanup count gate failed closed; SFT/OPD selection was not created")
+        raise SystemExit("OpenThoughts3 cleanup validation gate failed closed; SFT/OPD selection was not created")
     sft, opd, split_info = selection_rows(args, work_dir)
     atomic_jsonl(Path(args.sft_out), sft)
     atomic_jsonl(Path(args.opd_reserve_out), opd)
@@ -546,7 +568,7 @@ def main() -> None:
         }
     )
     atomic_text(Path(args.split_metadata), json.dumps({"cleanup_audit": audit, "selection": split_info}, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
-    print(json.dumps({"count_gate": count_gate, "selection": split_info}, indent=2), flush=True)
+    print(json.dumps({"validation_gate": validation_gate, "selection": split_info}, indent=2), flush=True)
 
 
 if __name__ == "__main__":

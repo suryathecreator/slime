@@ -10,9 +10,12 @@ optimizer, scheduler, split code, detector, evaluator, and scorer are absent.
 
 ## Pinned assumptions and deviations
 
-- Lingua 2.2.0 whole-text classification at confidence 0.50 is the simple
-  deterministic interpretation of “mixed language.” The count gate may fail;
-  it will not be weakened automatically.
+- The language filter is deliberately narrow: it checks only assistant
+  responses for Han, Hiragana, Katakana, Hangul, or Bopomofo Unicode letters.
+  Prompt language and all non-CJK scripts are ignored.
+- The original non-English/mixed reference count and ±5% range are reused
+  literally for the assistant-CJK metric even though the semantics differ.
+  The validation gate may fail and will not be weakened automatically.
 - Splitting is by seed-1234 shuffled raw eligible rows, not prompt groups. Text
   duplicates may cross SFT and OPD. This follows the final local contract and
   differs from a grouped leakage-control design.
@@ -26,7 +29,7 @@ optimizer, scheduler, split code, detector, evaluator, and scorer are absent.
 
 ## Execution risks
 
-- Cleanup language counts may fall outside ±5%, which blocks all downstream
+- Cleanup reference counts may fall outside ±5%, which blocks all downstream
   jobs by design.
 - SFT full-state and eight weight snapshots may require about 250 GB; OPD may
   require about 180 GB plus rollout tensors. Checkpoint validation happens
