@@ -13,6 +13,9 @@
 set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_32b_full_repro"
 source "${SCRIPT_DIR}/env.sh"
+export TMPDIR="/tmp/${USER:-suryadv}/q8b32b-${SLURM_JOB_ID}"
+export RAY_TMPDIR="${TMPDIR}/ray"
+unset LD_LIBRARY_PATH
 : "${EVAL_STAGE:?Set EVAL_STAGE}"
 : "${EVAL_MODEL_DIR:?Set EVAL_MODEL_DIR}"
 EVAL_STAGE_DIR="${EVAL_OUTPUT_ROOT}/${EVAL_STAGE}"
@@ -31,7 +34,7 @@ trap requeue_eval USR1
 
 [[ -f "${EVAL_MODEL_DIR}/config.json" ]] || { echo "Missing eval model: ${EVAL_MODEL_DIR}" >&2; exit 1; }
 VLLM_TARGET_LIBS="$(find "${VLLM_EVAL_SITE}" -path '*/nvidia/*/lib' -type d -printf '%p:' 2>/dev/null || true)"
-export LD_LIBRARY_PATH="${VLLM_TARGET_LIBS}${LD_LIBRARY_PATH:-}"
+export LD_LIBRARY_PATH="${VLLM_TARGET_LIBS}"
 export PYTHONPATH="${VLLM_EVAL_SITE}:${MATH_VERIFY_SITE}:${SLIME_REPO_ROOT}:${PYTHONPATH:-}"
 export SLIME_VLLM_PATCH_SITE=0
 export SLIME_SGLANG_PATCH_SITE=0

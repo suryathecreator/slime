@@ -2,7 +2,7 @@
 #SBATCH --job-name=q8b32b-cleanup
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=32
 #SBATCH --gres=gpu:h200:4
 #SBATCH --mem=0
 #SBATCH --time=48:00:00
@@ -13,6 +13,9 @@
 set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_32b_full_repro"
 source "${SCRIPT_DIR}/env.sh"
+export TMPDIR="/tmp/${USER:-suryadv}/q8b32b-${SLURM_JOB_ID}"
+export RAY_TMPDIR="${TMPDIR}/ray"
+unset LD_LIBRARY_PATH
 mkdir -p "${SLURM_LOG_DIR}" "${DATA_ROOT}" "${CLEANUP_WORK_DIR}" "${TMPDIR}"
 exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
 
@@ -30,7 +33,7 @@ requeue_cleanup() {
 }
 trap requeue_cleanup USR1
 PYTHONPATH="${STRICT_LANGUAGE_SITE}:${PYTHONPATH:-}" \
-  "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/clean_openthoughts3.py" --workers 48 &
+  "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/clean_openthoughts3.py" --workers 32 &
 cleanup_pid="$!"
 wait "${cleanup_pid}"
 cleanup_pid=""

@@ -105,7 +105,11 @@ def main() -> None:
             for name in ("torch", "transformers", "ray", "sglang", "flash-attn", "math-verify", "lingua-language-detector")
         },
         "cuda": torch.version.cuda,
-        "cudnn": torch.backends.cudnn.version(),
+        # Do not eagerly initialize cuDNN: this Qwen/FlashAttention path does
+        # not use it, and Apptainer --nv exposes the host cuDNN before the
+        # PyTorch-bundled copy on this cluster. Record the pinned package
+        # version without loading the unused backend.
+        "cudnn_package": optional_package("nvidia-cudnn-cu12"),
         "nccl_package": optional_package("nvidia-nccl-cu12"),
         "external_vllm_version": "0.24.0",
         "token_ids": token_ids,

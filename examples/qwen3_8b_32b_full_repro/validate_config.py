@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 
 
@@ -64,7 +65,12 @@ def main() -> None:
         require(int(os.environ.get("OPD_MAX_RESPONSE_LEN", "0")) == opd["response_cap"], "runtime OPD response cap differs")
         require(int(os.environ.get("EVAL_MAX_RESPONSE_LEN", "0")) == evaluation["max_new_tokens"], "runtime eval response cap differs")
         for slurm in root.glob("*.sbatch"):
-            require("#SBATCH --gres=gpu:h200:4" in slurm.read_text(), f"{slurm.name} does not request exactly four H200s")
+            text = slurm.read_text()
+            require("#SBATCH --gres=gpu:h200:4" in text, f"{slurm.name} does not request exactly four H200s")
+            cpu_match = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.M)
+            require(cpu_match is not None, f"{slurm.name} has no explicit CPU request")
+            if cpu_match is not None:
+                require(int(cpu_match.group(1)) <= 32, f"{slurm.name} exceeds the site limit of eight CPUs per requested GPU")
     if errors:
         raise SystemExit("CONFIG_VALIDATION_FAILED\n" + "\n".join(f"- {error}" for error in errors))
     print("CONFIG_VALIDATION_OK")

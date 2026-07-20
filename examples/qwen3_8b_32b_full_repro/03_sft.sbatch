@@ -12,6 +12,9 @@
 set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_32b_full_repro"
 source "${SCRIPT_DIR}/env.sh"
+export TMPDIR="/tmp/${USER:-suryadv}/q8b32b-${SLURM_JOB_ID}"
+export RAY_TMPDIR="${TMPDIR}/ray"
+unset LD_LIBRARY_PATH
 cd "${SLIME_REPO_ROOT}"
 bash examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
 

@@ -1,9 +1,11 @@
 {
   "schema_version": 1,
+  "execution_revision": 2,
   "experiment": "qwen3_8b_base_ot3_200k_qwen3_32b_opd_1472x4",
   "branch": "qwen3-8b-32b-full-repro",
   "repository_commit": "34992b19fcf2c872c69638fc7cda3aed8931ff45",
   "slime_commit": "34992b19fcf2c872c69638fc7cda3aed8931ff45",
+  "superseded_failed_submission_contracts": ["0984ccb69c314a9f"],
   "megatron_lm_commit": "1dcf0dafa884ad52ffb243625717a3471643e087",
   "sources": {
     "openthoughts3": {"repo": "open-thoughts/OpenThoughts3-1.2M", "revision": "61bcf9d4eb38b30295efc2021227a63cc5bb34c8", "rows": 1200000},

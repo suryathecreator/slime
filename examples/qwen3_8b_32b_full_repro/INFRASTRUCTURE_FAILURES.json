@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "failures": [
+    {
+      "attempt": 1,
+      "branch_commit": "553a6a1623882cc28558c4a04eb5ea0a438d478c",
+      "contract_hash": "0984ccb69c314a9f",
+      "submitted_at": "2026-07-20T00:02:27.439811+00:00",
+      "artifact_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/0984ccb69c314a9f",
+      "failure_class": "partial_submission_after_sbatch_rejection",
+      "causes": [
+        "cleanup and OPD requested 64 CPUs with four GPUs, exceeding the site's eight-CPUs-per-GPU submission limit",
+        "the submission helper did not propagate sbatch failure, leaving blank dependency IDs",
+        "vLLM used a contract-root TMPDIR whose IPC socket path exceeded sockaddr_un.sun_path",
+        "training-stack preflight unnecessarily initialized host-injected cuDNN 9.16 while PyTorch expected bundled cuDNN 9.17.1; Qwen training uses the selected FlashAttention path rather than cuDNN"
+      ],
+      "jobs": [
+        {"job_id": 180853, "stage": "preflight", "state": "FAILED", "elapsed": "00:01:04", "exit_code": "1:0"},
+        {"job_id": 180854, "stage": "base_eval", "state": "FAILED", "elapsed": "00:01:55", "exit_code": "1:0"},
+        {"job_id": 180855, "stage": "teacher_eval", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180856, "stage": "sft_200k", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180857, "stage": "sft_eval", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180858, "stage": "opd_eval_100pct", "state": "FAILED", "elapsed": "00:00:04", "exit_code": "1:0"}
+      ],
+      "rejected_stages": ["cleanup", "opd_1472x4"],
+      "artifact_file_bytes": 34791,
+      "artifact_allocated_size_display": "186K",
+      "artifact_hashes": {
+        "submission_json": "53a4df383f780bc203d325ff9f36ac5c4690930c23af6ccb08ea045f0ad2e7a3",
+        "preflight_log": "96dbb4f898faa46be5d2f6f60ba4cd549dd67bebbd8e775883b5d490f8471496",
+        "base_eval_log": "c912f32a726a834d634654b002c492f8948038279feae61a1e81bee48cdbb1a0",
+        "opd_eval_log": "59f807efeb6a656b72429f2a5eb8386636e2a5d4eec9b5ffc22c473ec816a380"
+      },
+      "scientific_work_completed": false,
+      "math500_problem_outputs": 0,
+      "raw_dataset_modified": false,
+      "checkpoints_created": false,
+      "preservation": "The failed contract root and logs are retained without overwrite or deletion."
+    }
+  ]
+}

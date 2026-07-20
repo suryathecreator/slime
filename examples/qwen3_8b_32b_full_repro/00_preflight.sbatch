@@ -11,6 +11,9 @@
 set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_32b_full_repro"
 source "${SCRIPT_DIR}/env.sh"
+export TMPDIR="/tmp/${USER:-suryadv}/q8b32b-${SLURM_JOB_ID}"
+export RAY_TMPDIR="${TMPDIR}/ray"
+unset LD_LIBRARY_PATH
 mkdir -p "${SLURM_LOG_DIR}" "${MANIFEST_ROOT}" "${TMPDIR}" "${RAY_TMPDIR}" "${WANDB_DIR}"
 exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
 
@@ -32,7 +35,7 @@ PYTHONPATH="${STRICT_LANGUAGE_SITE}:${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
   "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/capture_environment.py"
 
 VLLM_TARGET_LIBS="$(find "${VLLM_EVAL_SITE}" -path '*/nvidia/*/lib' -type d -printf '%p:' 2>/dev/null || true)"
-LD_LIBRARY_PATH="${VLLM_TARGET_LIBS}${LD_LIBRARY_PATH:-}" \
+LD_LIBRARY_PATH="${VLLM_TARGET_LIBS}" \
 PYTHONPATH="${VLLM_EVAL_SITE}:${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
 SLIME_VLLM_PATCH_SITE=0 SLIME_SGLANG_PATCH_SITE=0 \
   "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/capture_eval_environment.py"

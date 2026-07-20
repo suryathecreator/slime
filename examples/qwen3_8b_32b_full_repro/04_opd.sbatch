@@ -2,7 +2,7 @@
 #SBATCH --job-name=q8b32b-opd1472
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=32
 #SBATCH --gres=gpu:h200:4
 #SBATCH --mem=0
 #SBATCH --time=36:00:00
@@ -12,6 +12,9 @@
 set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_32b_full_repro"
 source "${SCRIPT_DIR}/env.sh"
+export TMPDIR="/tmp/${USER:-suryadv}/q8b32b-${SLURM_JOB_ID}"
+export RAY_TMPDIR="${TMPDIR}/ray"
+unset LD_LIBRARY_PATH
 cd "${SLIME_REPO_ROOT}"
 if [[ "$(realpath "${OPD_INITIAL_LOAD_DIR}")" != "$(realpath "${OPD_REF_LOAD_DIR}")" ]]; then
   echo "Initial actor/reference synchronization failed: ${OPD_INITIAL_LOAD_DIR} != ${OPD_REF_LOAD_DIR}" >&2
