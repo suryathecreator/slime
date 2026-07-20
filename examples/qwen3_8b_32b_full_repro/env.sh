@@ -36,6 +36,8 @@ export TRANSFORMERS_OFFLINE=1
 export SLIME_SIF="${LEGACY_CACHE_ROOT}/containers/slime_latest.sandbox"
 export VLLM_EVAL_SITE="${LEGACY_CACHE_ROOT}/vllm_eval_site"
 export MATH_VERIFY_SITE="/gpfs/scrubbed/suryadv/slime-qwen3-4b-opd-harp-v2/harp_eval_site"
+export EVAL_ZIG_CC="${EVAL_ZIG_CC:-${MATH_VERIFY_SITE}/bin/zig-cc}"
+export EVAL_ZIG_INCLUDE_ROOT="${EVAL_ZIG_INCLUDE_ROOT:-${MATH_VERIFY_SITE}/python_include}"
 
 export STUDENT_HF_REPO="Qwen/Qwen3-8B-Base"
 export STUDENT_HF_REVISION="49e3418fbbbca6ecbdf9608b4d22e5a407081db4"

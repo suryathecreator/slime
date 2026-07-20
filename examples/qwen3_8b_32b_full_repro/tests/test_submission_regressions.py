@@ -38,6 +38,16 @@ def test_submission_is_fail_closed_and_cancels_partial_chain() -> None:
     assert 'raw="$(sbatch' not in text
 
 
+def test_base_eval_recovery_is_fail_closed_and_records_superseded_jobs() -> None:
+    text = (ROOT / "resubmit_from_base_eval.sh").read_text()
+    assert 'audit.get("validation_gate", {}).get("passed")' in text
+    assert 'scancel "${superseded_pending_jobs[@]}"' in text
+    assert "trap cancel_partial_resubmission EXIT" in text
+    assert 'scancel "${submitted_jobs[@]}"' in text
+    assert "resubmission_after_base_eval.json" in text
+    assert text.count("submit_job ") == 6
+
+
 def test_eval_disables_training_site_patch_and_uses_explicit_libraries() -> None:
     text = (ROOT / "02_eval_math500.sbatch").read_text()
     assert "export SLIME_VLLM_PATCH_SITE=0" in text
@@ -45,6 +55,26 @@ def test_eval_disables_training_site_patch_and_uses_explicit_libraries() -> None
     assert 'export LD_LIBRARY_PATH="${VLLM_TARGET_LIBS}"' in text
     env = (ROOT / "env.sh").read_text()
     assert 'SLIME_SGLANG_PATCH_SITE="${SLIME_SGLANG_PATCH_SITE:-1}"' in env
+
+
+def test_eval_configures_and_preflights_pinned_zig_compiler() -> None:
+    env = (ROOT / "env.sh").read_text()
+    assert 'EVAL_ZIG_CC="${EVAL_ZIG_CC:-${MATH_VERIFY_SITE}/bin/zig-cc}"' in env
+    assert 'EVAL_ZIG_INCLUDE_ROOT="${EVAL_ZIG_INCLUDE_ROOT:-${MATH_VERIFY_SITE}/python_include}"' in env
+
+    eval_job = (ROOT / "02_eval_math500.sbatch").read_text()
+    assert 'export CC="${EVAL_ZIG_CC}"' in eval_job
+    assert 'export CPATH="${EVAL_ZIG_INCLUDE_ROOT}/python3.12:${EVAL_ZIG_INCLUDE_ROOT}' in eval_job
+    assert 'test -x "${CC}"' in eval_job
+    assert 'EVAL_COMPILER_READY cc=${CC}' in eval_job
+
+    preflight = (ROOT / "00_preflight.sbatch").read_text()
+    assert '"${EVAL_ZIG_CC}"' in preflight
+    assert '"${EVAL_ZIG_INCLUDE_ROOT}/python3.12/Python.h"' in preflight
+
+    wrapper = (ROOT.parent / "qwen3_8b_opd_tillicum" / "container_exec.sh").read_text()
+    assert "  EVAL_ZIG_CC\n" in wrapper
+    assert "  EVAL_ZIG_INCLUDE_ROOT\n" in wrapper
 
 
 def test_environment_capture_does_not_initialize_unused_cudnn() -> None:

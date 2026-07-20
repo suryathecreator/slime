@@ -26,14 +26,20 @@ for path in \
   "${TEACHER_HF_DIR}/config.json" \
   "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" \
   "${MATH_VERIFY_SITE}/math_verify" \
-  "${VLLM_EVAL_SITE}/vllm"; do
+  "${VLLM_EVAL_SITE}/vllm" \
+  "${EVAL_ZIG_CC}" \
+  "${EVAL_ZIG_INCLUDE_ROOT}/python3.12/Python.h" \
+  "${EVAL_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h"; do
   [[ -e "${path}" ]] || { echo "Missing pinned prerequisite: ${path}" >&2; exit 1; }
 done
+[[ -x "${EVAL_ZIG_CC}" ]] || { echo "Eval compiler is not executable: ${EVAL_ZIG_CC}" >&2; exit 1; }
 
 PYTHONPATH="${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
   "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/capture_environment.py"
 
 VLLM_TARGET_LIBS="$(find "${VLLM_EVAL_SITE}" -path '*/nvidia/*/lib' -type d -printf '%p:' 2>/dev/null || true)"
+CC="${EVAL_ZIG_CC}" \
+CPATH="${EVAL_ZIG_INCLUDE_ROOT}/python3.12:${EVAL_ZIG_INCLUDE_ROOT}${CPATH:+:${CPATH}}" \
 LD_LIBRARY_PATH="${VLLM_TARGET_LIBS}" \
 PYTHONPATH="${VLLM_EVAL_SITE}:${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
 SLIME_VLLM_PATCH_SITE=0 SLIME_SGLANG_PATCH_SITE=0 \

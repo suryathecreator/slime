@@ -38,6 +38,24 @@ export LD_LIBRARY_PATH="${VLLM_TARGET_LIBS}"
 export PYTHONPATH="${VLLM_EVAL_SITE}:${MATH_VERIFY_SITE}:${SLIME_REPO_ROOT}:${PYTHONPATH:-}"
 export SLIME_VLLM_PATCH_SITE=0
 export SLIME_SGLANG_PATCH_SITE=0
+export CC="${EVAL_ZIG_CC}"
+export CPATH="${EVAL_ZIG_INCLUDE_ROOT}/python3.12:${EVAL_ZIG_INCLUDE_ROOT}${CPATH:+:${CPATH}}"
+
+for path in \
+  "${CC}" \
+  "${EVAL_ZIG_INCLUDE_ROOT}/python3.12/Python.h" \
+  "${EVAL_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h"; do
+  [[ -e "${path}" ]] || { echo "Missing eval compiler prerequisite: ${path}" >&2; exit 1; }
+done
+[[ -x "${CC}" ]] || { echo "Eval compiler is not executable: ${CC}" >&2; exit 1; }
+"${SCRIPT_DIR}/container_exec.sh" bash -lc '
+set -euo pipefail
+test -x "${CC}"
+test -f "${EVAL_ZIG_INCLUDE_ROOT}/python3.12/Python.h"
+test -f "${EVAL_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h"
+echo "EVAL_COMPILER_READY cc=${CC}"
+"${CC}" --version
+'
 
 cd "${SLIME_REPO_ROOT}"
 for shard in 0 1 2 3; do
