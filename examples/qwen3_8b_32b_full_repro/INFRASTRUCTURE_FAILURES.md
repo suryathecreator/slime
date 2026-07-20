@@ -88,3 +88,16 @@ compiler and Python include path through the clean container boundary and the
 Ray runtime environment. Both failed SFT logs and rollout tensors are retained
 with hashes in the JSON audit; base and teacher evaluation outputs remain
 unchanged.
+
+## Submission attempt 7: SFT Python include mismatch
+
+Job `181893` confirmed that the Zig compiler reached the SFT Ray workers, but
+the compiler returned nonzero: `Python.h` includes the multiarch path
+`x86_64-linux-gnu/python3.12/pyconfig.h`, while SFT's CPATH contained only that
+directory's leaf. The three descendants remained dependency-gated.
+
+Recovery now uses the exact completed-eval include layout: the Python 3.12
+include directory plus its parent include root. A forced uncached Triton
+`CudaUtils` compile passes inside the same container with this corrected CPATH.
+No optimizer update or checkpoint was created, and all failure artifacts remain
+preserved with hashes in the JSON audit.

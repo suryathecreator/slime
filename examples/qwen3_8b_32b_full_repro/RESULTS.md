@@ -28,8 +28,11 @@ The 16,384-token packing retry `181873` passed the same preflight and completed
 microbatch 1/77, proving that the original 32K logits OOM was removed. It then
 failed in fused cross-entropy backward because TorchInductor's Ray workers did
 not inherit a C compiler. It also completed no optimizer update or checkpoint.
-The next recovery explicitly propagates the already pinned Zig compiler and
-Python headers into those workers while retaining the 16K packing fix.
+Retry `181893` propagated the compiler but used an incorrect CPATH leaf, so
+`Python.h` could not resolve its multiarch-prefixed `pyconfig.h`. An uncached
+reproduction now passes with the exact proven eval CPATH
+`python3.12:<include-root>`. All retries retain the 16K packing fix and have
+completed no optimizer update or checkpoint.
 
 The final report will add SFT and OPD scores, paired transitions, bootstrap
 intervals, McNemar tests, length and termination diagnostics, checkpoint

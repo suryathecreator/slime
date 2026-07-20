@@ -85,7 +85,7 @@ def test_sft_uses_16k_dynamic_packing_with_32k_native_context() -> None:
 def test_sft_propagates_pinned_compiler_to_ray_workers() -> None:
     env = (ROOT / "env.sh").read_text()
     assert 'SFT_TORCH_COMPILE_CC="${SFT_TORCH_COMPILE_CC:-${EVAL_ZIG_CC}}"' in env
-    assert "SFT_TORCH_COMPILE_CPATH=" in env
+    assert 'SFT_TORCH_COMPILE_CPATH="${SFT_TORCH_COMPILE_CPATH:-${EVAL_ZIG_INCLUDE_ROOT}/python3.12:${EVAL_ZIG_INCLUDE_ROOT}}"' in env
 
     sft_job = (ROOT / "03_sft.sbatch").read_text()
     assert '"${SFT_TORCH_COMPILE_CC}"' in sft_job

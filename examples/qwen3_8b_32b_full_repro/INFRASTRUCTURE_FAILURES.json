@@ -182,7 +182,35 @@
       "loss_mask_preflight_passed": true,
       "optimizer_updates_completed": 0,
       "checkpoints_created": false,
-      "recovery": "Propagate the pinned Zig compiler and Python include path through the training container and Ray runtime environment.",
+      "recovery": "Commit 8065745 propagated the pinned Zig compiler through the training container and Ray runtime. Retry 181893 invoked it successfully but exposed an incorrect multiarch Python include path.",
+      "preservation": "The failed log and deterministic first-batch rollout tensor are retained; completed evaluations remain unchanged."
+    },
+    {
+      "attempt": 7,
+      "branch_commit": "8065745c797a5a5e2337a49a30520218696c1c13",
+      "contract_hash": "4095e6ac256b0dbf",
+      "submitted_at": "2026-07-20T17:54:46.842346+00:00",
+      "artifact_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf",
+      "failure_class": "sft_triton_python_include_mismatch",
+      "cause": "The Zig compiler reached every SFT Ray worker, but CPATH contained the architecture-specific leaf instead of the include root required to resolve x86_64-linux-gnu/python3.12/pyconfig.h.",
+      "jobs": [
+        {"job_id": 181893, "stage": "sft_200k", "state": "FAILED", "elapsed": "00:04:17", "exit_code": "1:0"},
+        {"job_id": 181894, "stage": "sft_eval", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181895, "stage": "opd_1472x4", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181896, "stage": "opd_eval_100pct", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0"}
+      ],
+      "compiler_reached_ray_workers": true,
+      "sft_dynamic_packing_max_tokens_per_gpu": 16384,
+      "sft_native_context_length": 32768,
+      "artifact_hashes": {
+        "sft_log": "5e77adb391135e604459ebaebc9cf4ce49b8429d84cdb6e4c072343f7f5fb481",
+        "failed_rollout_tensor": "93a9ee5e4c19e361a70c21033ed53418bea0165e05bb07a0e4689f53bdbcd532",
+        "source_resubmission_manifest": "2665bf8bddefc4c7dfc8f327973bf70af424cfd696f9eaa1e7d23e27d0323207"
+      },
+      "failed_rollout_tensor_bytes": 18335753,
+      "optimizer_updates_completed": 0,
+      "checkpoints_created": false,
+      "recovery": "Use the same CPATH as completed evals: the Python 3.12 include directory plus its parent include root. A forced uncached Triton CudaUtils build passes with this configuration.",
       "preservation": "The failed log and deterministic first-batch rollout tensor are retained; completed evaluations remain unchanged."
     }
   ]

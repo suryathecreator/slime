@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial",
   "contract_hash": "4095e6ac256b0dbf",
-  "updated_at": "2026-07-20T17:51:07+00:00",
+  "updated_at": "2026-07-20T18:08:00+00:00",
   "targets": {
     "sft_pass_at_1": 0.76,
     "opd_pass_at_1": 0.94,
@@ -55,8 +55,8 @@
     },
     "sft_200000": {
       "status": "pending_recovery",
-      "failed_training_job_ids": [181408, 181873],
-      "latest_failure": "TorchInductor could not find a C compiler inside the SFT Ray workers after the 16K packing fix crossed the original OOM point"
+      "failed_training_job_ids": [181408, 181873, 181893],
+      "latest_failure": "The propagated Zig compiler could not resolve the multiarch pyconfig.h because SFT passed the architecture-specific leaf instead of the Python include root"
     },
     "opd_100pct": {"status": "pending_sft"}
   },
