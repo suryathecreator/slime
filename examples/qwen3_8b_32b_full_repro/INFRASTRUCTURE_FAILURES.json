@@ -69,6 +69,90 @@
       "raw_dataset_modified": false,
       "checkpoints_created": false,
       "preservation": "The completed preflight manifests and failed contract root are retained without overwrite or deletion."
+    },
+    {
+      "attempt": 3,
+      "branch_commit": "1f73cdff3e5a4f304c42695c3c753d59c44f3dbf",
+      "contract_hash": "4095e6ac256b0dbf",
+      "submitted_at": "2026-07-20T03:45:46.591177+00:00",
+      "artifact_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf",
+      "failure_class": "eval_compiler_unavailable",
+      "cause": "Triton could not find a C compiler inside the evaluation container.",
+      "jobs": [
+        {"job_id": 180968, "stage": "preflight", "state": "COMPLETED", "elapsed": "00:02:31", "exit_code": "0:0"},
+        {"job_id": 180969, "stage": "cleanup", "state": "COMPLETED", "elapsed": "01:25:44", "exit_code": "0:0"},
+        {"job_id": 180970, "stage": "base_eval", "state": "FAILED", "elapsed": "00:01:52", "exit_code": "1:0"},
+        {"job_id": 180971, "stage": "teacher_eval", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180972, "stage": "sft_200k", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180973, "stage": "sft_eval", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180974, "stage": "opd_1472x4", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180975, "stage": "opd_eval_100pct", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"}
+      ],
+      "artifact_hashes": {
+        "base_eval_log": "3a7ae103c0100e484a28cad2631c90b19d883c45cd208c09708e2abd3458bc50"
+      },
+      "recovery": "Commit 992a01c pinned and preflighted a Zig C compiler plus Python headers for every evaluation shard.",
+      "scientific_work_completed": false,
+      "raw_dataset_modified": false,
+      "checkpoints_created": false,
+      "preservation": "The failed log and original submission manifest are retained without overwrite or deletion."
+    },
+    {
+      "attempt": 4,
+      "branch_commit": "992a01c541d8ee93bf6b4b5f30ec7e26ae760da4",
+      "contract_hash": "4095e6ac256b0dbf",
+      "submitted_at": "2026-07-20T07:41:37.680271+00:00",
+      "artifact_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf",
+      "failure_class": "eval_gpu_shard_collision",
+      "cause": "The container wrapper did not forward CUDA_VISIBLE_DEVICES, so all four base-eval shards loaded onto physical GPU 0 and exhausted it.",
+      "jobs": [
+        {"job_id": 181398, "stage": "base_eval", "state": "FAILED", "elapsed": "00:02:23", "exit_code": "1:0"},
+        {"job_id": 181399, "stage": "teacher_eval", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181400, "stage": "sft_200k", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181401, "stage": "sft_eval", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181402, "stage": "opd_1472x4", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181403, "stage": "opd_eval_100pct", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"}
+      ],
+      "artifact_hashes": {
+        "base_eval_log": "8cf082282e8ac2a80ab396f79df6db94ef15c9eb888d0da0ec0867ca1597102f",
+        "resubmission_manifest": "98fd20a3b0a2fac46ffe86bc6987702fd003bb44dd439b362e69bc4b00707773"
+      },
+      "recovery": "Commit 9205c4a forwarded CUDA_VISIBLE_DEVICES and added per-shard in-container GPU assertions.",
+      "scientific_work_completed": false,
+      "raw_dataset_modified": false,
+      "checkpoints_created": false,
+      "preservation": "The failed log and recovery manifest are retained without overwrite or deletion."
+    },
+    {
+      "attempt": 5,
+      "branch_commit": "9205c4a2f4ca59a43a0dd2b4a64af8a7f3043b2b",
+      "contract_hash": "4095e6ac256b0dbf",
+      "submitted_at": "2026-07-20T07:48:34.339091+00:00",
+      "artifact_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf",
+      "failure_class": "sft_fp32_logits_oom",
+      "cause": "At microbatch 0/37, the TP2 shard converted 32,768-token vocabulary logits to FP32 and needed another 9.27 GiB, but GPU 0 had only 3.64 GiB free.",
+      "jobs": [
+        {"job_id": 181406, "stage": "base_eval", "state": "COMPLETED", "elapsed": "00:26:52", "exit_code": "0:0"},
+        {"job_id": 181407, "stage": "teacher_eval", "state": "COMPLETED", "elapsed": "04:12:53", "exit_code": "0:0"},
+        {"job_id": 181408, "stage": "sft_200k", "state": "FAILED", "elapsed": "00:04:37", "exit_code": "1:0"},
+        {"job_id": 181409, "stage": "sft_eval", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181410, "stage": "opd_1472x4", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181411, "stage": "opd_eval_100pct", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0"}
+      ],
+      "completed_evaluations": {
+        "base": {"correct": 235, "total": 500, "pass_at_1": 0.47, "summary_sha256": "ba252b5bfa78e7e5ccc6f803c9af4a9d32df7121b0d87001a2761646fbf4fef9"},
+        "teacher": {"correct": 476, "total": 500, "pass_at_1": 0.952, "summary_sha256": "d1d8ee1fed7472f81c7524764b7a255e52779eabe137ee1a8ff393e31ad5d103"}
+      },
+      "artifact_hashes": {
+        "sft_log": "8a06c1d145d69e0899db6f0976cb0f31f753bc4fa0c518e6445f2c7d3aba2a71",
+        "failed_rollout_tensor": "93a9ee5e4c19e361a70c21033ed53418bea0165e05bb07a0e4689f53bdbcd532"
+      },
+      "failed_rollout_tensor_bytes": 18335753,
+      "loss_mask_preflight_passed": true,
+      "optimizer_updates_completed": 0,
+      "checkpoints_created": false,
+      "recovery": "Pending: reduce dynamic packing from 32,768 to 16,384 tokens per GPU while retaining the 32,768-token native context and all 200,000 rows.",
+      "preservation": "The failed log and rollout tensor are retained; completed base and teacher summaries will be reused."
     }
   ]
 }

@@ -1,5 +1,64 @@
 {
-  "status": "pending",
-  "targets": {"sft_pass_at_1": 0.76, "opd_pass_at_1": 0.94, "minimum_absolute_gain": 0.12},
-  "evaluations": {}
+  "schema_version": 1,
+  "status": "partial",
+  "contract_hash": "4095e6ac256b0dbf",
+  "updated_at": "2026-07-20T17:38:08+00:00",
+  "targets": {
+    "sft_pass_at_1": 0.76,
+    "opd_pass_at_1": 0.94,
+    "minimum_absolute_gain": 0.12
+  },
+  "evaluations": {
+    "qwen3_8b_base": {
+      "status": "completed",
+      "job_id": 181406,
+      "correct": 235,
+      "total": 500,
+      "pass_at_1": 0.47,
+      "bootstrap_95_ci": [0.426, 0.514],
+      "parseable": 495,
+      "eligible_final_answers": 495,
+      "finish_reasons": {"stop": 489, "length": 11},
+      "cap_hits": 11,
+      "response_tokens": {
+        "mean": 920.32,
+        "median": 453.5,
+        "p90": 1006.7,
+        "p95": 1286.05,
+        "max": 16384
+      },
+      "summary_path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/math500/qwen3_8b_base/summary.json",
+      "summary_bytes": 290101,
+      "summary_sha256": "ba252b5bfa78e7e5ccc6f803c9af4a9d32df7121b0d87001a2761646fbf4fef9"
+    },
+    "qwen3_32b_teacher": {
+      "status": "completed",
+      "job_id": 181407,
+      "correct": 476,
+      "total": 500,
+      "pass_at_1": 0.952,
+      "bootstrap_95_ci": [0.932, 0.97],
+      "parseable": 491,
+      "eligible_final_answers": 491,
+      "finish_reasons": {"stop": 486, "length": 14},
+      "cap_hits": 14,
+      "response_tokens": {
+        "mean": 4447.134,
+        "median": 3180.5,
+        "p90": 8893.7,
+        "p95": 12225.3,
+        "max": 16384
+      },
+      "summary_path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/math500/qwen3_32b_teacher/summary.json",
+      "summary_bytes": 295409,
+      "summary_sha256": "d1d8ee1fed7472f81c7524764b7a255e52779eabe137ee1a8ff393e31ad5d103"
+    },
+    "sft_200000": {
+      "status": "pending_recovery",
+      "failed_training_job_id": 181408,
+      "failure": "CUDA OOM before the first optimizer update while converting the TP2 vocabulary logits to FP32"
+    },
+    "opd_100pct": {"status": "pending_sft"}
+  },
+  "artifact_policy": "Compact metrics and hashes are tracked; raw generations, rollouts, and checkpoints remain outside Git."
 }
