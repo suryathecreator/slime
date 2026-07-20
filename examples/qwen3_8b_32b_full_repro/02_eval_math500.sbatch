@@ -61,7 +61,17 @@ cd "${SLIME_REPO_ROOT}"
 for shard in 0 1 2 3; do
   (
     export CUDA_VISIBLE_DEVICES="${shard}"
-    "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/evaluate_math500.py" shard \
+    "${SCRIPT_DIR}/container_exec.sh" bash -lc '
+      set -euo pipefail
+      expected_visible_gpu="$1"
+      shift
+      if [[ "${CUDA_VISIBLE_DEVICES:-}" != "${expected_visible_gpu}" ]]; then
+        echo "CUDA visibility mismatch: expected=${expected_visible_gpu} actual=${CUDA_VISIBLE_DEVICES:-unset}" >&2
+        exit 1
+      fi
+      echo "EVAL_SHARD_GPU_READY shard=${expected_visible_gpu} visible=${CUDA_VISIBLE_DEVICES}"
+      exec "$@"
+    ' bash "${shard}" python3 "${SCRIPT_DIR}/evaluate_math500.py" shard \
       --model "${EVAL_MODEL_DIR}" \
       --stage "${EVAL_STAGE}" \
       --output-dir "${EVAL_STAGE_DIR}" \

@@ -13,28 +13,32 @@ upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev
 [[ -n "${upstream}" ]] || { echo "Push this branch and set its upstream before resubmission." >&2; exit 1; }
 [[ "$(git rev-parse HEAD)" == "$(git rev-parse "${upstream}")" ]] || { echo "Local HEAD is not the pushed upstream commit." >&2; exit 1; }
 
-original_manifest="${MANIFEST_ROOT}/submission.json"
-resubmission_path="${MANIFEST_ROOT}/resubmission_after_base_eval.json"
-resubmission_pending="${MANIFEST_ROOT}/resubmission_after_base_eval.pending.json"
-resubmission_failed="${MANIFEST_ROOT}/resubmission_after_base_eval.failed.json"
+source_manifest="${RECOVERY_SOURCE_MANIFEST:-${MANIFEST_ROOT}/submission.json}"
+resubmission_stem="${RECOVERY_MANIFEST_STEM:-resubmission_after_base_eval}"
+recovery_reason="${RECOVERY_REASON:-base eval failed because Triton could not find a C compiler}"
+[[ "${resubmission_stem}" =~ ^resubmission_[a-z0-9_]+$ ]] || { echo "Invalid recovery manifest stem: ${resubmission_stem}" >&2; exit 1; }
+resubmission_path="${MANIFEST_ROOT}/${resubmission_stem}.json"
+resubmission_pending="${MANIFEST_ROOT}/${resubmission_stem}.pending.json"
+resubmission_failed="${MANIFEST_ROOT}/${resubmission_stem}.failed.json"
 
-[[ -f "${original_manifest}" ]] || { echo "Missing original submission manifest: ${original_manifest}" >&2; exit 1; }
+[[ -f "${source_manifest}" ]] || { echo "Missing source submission manifest: ${source_manifest}" >&2; exit 1; }
 for path in "${resubmission_path}" "${resubmission_pending}" "${resubmission_failed}"; do
   [[ ! -e "${path}" ]] || { echo "Refusing to overwrite prior recovery state: ${path}" >&2; exit 1; }
 done
 
-export ORIGINAL_SUBMISSION_MANIFEST="${original_manifest}"
+export RECOVERY_SOURCE_MANIFEST="${source_manifest}"
+export RECOVERY_REASON="${recovery_reason}"
 python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
-manifest = json.loads(Path(os.environ["ORIGINAL_SUBMISSION_MANIFEST"]).read_text())
+manifest = json.loads(Path(os.environ["RECOVERY_SOURCE_MANIFEST"]).read_text())
 if manifest.get("contract_hash") != os.environ["CONTRACT_HASH"]:
-    raise SystemExit("Original submission contract hash does not match the active contract")
+    raise SystemExit("Source submission contract hash does not match the active contract")
 required = {"base_eval", "teacher_eval", "sft_200k", "sft_eval", "opd_1472x4", "opd_eval_100pct"}
 if not required.issubset(manifest.get("jobs", {})):
-    raise SystemExit("Original submission manifest is missing recovery job IDs")
+    raise SystemExit("Source submission manifest is missing recovery job IDs")
 
 audit = json.loads(Path(os.environ["CLEANUP_AUDIT_JSON"]).read_text())
 if not audit.get("validation_gate", {}).get("passed"):
@@ -63,7 +67,7 @@ import json
 import os
 from pathlib import Path
 
-jobs = json.loads(Path(os.environ["ORIGINAL_SUBMISSION_MANIFEST"]).read_text())["jobs"]
+jobs = json.loads(Path(os.environ["RECOVERY_SOURCE_MANIFEST"]).read_text())["jobs"]
 for key in ("base_eval", "teacher_eval", "sft_200k", "sft_eval", "opd_1472x4", "opd_eval_100pct"):
     print(jobs[key])
 PY
@@ -83,6 +87,7 @@ done
 
 mkdir -p "${SLURM_LOG_DIR}" "${MANIFEST_ROOT}" "${OUTPUT_ROOT}" "${TMPDIR}"
 export RESUBMISSION_PENDING_PATH="${resubmission_pending}"
+export RESUBMISSION_FAILED_PATH="${resubmission_failed}"
 export FAILED_BASE_JOB_ID="${failed_base_job}"
 export SUPERSEDED_PENDING_JOB_IDS="${superseded_pending_jobs[*]}"
 python3 - <<'PY'
@@ -97,6 +102,7 @@ value = {
     "status": "canceling_superseded_chain",
     "started_at": datetime.now(timezone.utc).isoformat(),
     "contract_hash": os.environ["CONTRACT_HASH"],
+    "source_manifest": os.environ["RECOVERY_SOURCE_MANIFEST"],
     "failed_base_eval": os.environ["FAILED_BASE_JOB_ID"],
     "superseded_pending_jobs": os.environ["SUPERSEDED_PENDING_JOB_IDS"].split(),
 }
@@ -123,7 +129,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 pending = Path(os.environ["RESUBMISSION_PENDING_PATH"])
-failed = pending.with_name("resubmission_after_base_eval.failed.json")
+failed = Path(os.environ["RESUBMISSION_FAILED_PATH"])
 value = json.loads(pending.read_text()) if pending.is_file() else {}
 value.update(
     {
@@ -207,7 +213,7 @@ value.update(
     {
         "status": "submitted",
         "submitted_at": datetime.now(timezone.utc).isoformat(),
-        "reason": "base eval failed because Triton could not find a C compiler",
+        "reason": os.environ["RECOVERY_REASON"],
         "commit": os.popen("git rev-parse HEAD").read().strip(),
         "jobs": {
             "base_eval": os.environ["base_eval_job"],

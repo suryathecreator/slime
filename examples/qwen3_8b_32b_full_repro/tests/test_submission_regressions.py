@@ -44,7 +44,9 @@ def test_base_eval_recovery_is_fail_closed_and_records_superseded_jobs() -> None
     assert 'scancel "${superseded_pending_jobs[@]}"' in text
     assert "trap cancel_partial_resubmission EXIT" in text
     assert 'scancel "${submitted_jobs[@]}"' in text
-    assert "resubmission_after_base_eval.json" in text
+    assert 'RECOVERY_MANIFEST_STEM:-resubmission_after_base_eval' in text
+    assert "RECOVERY_SOURCE_MANIFEST" in text
+    assert "RECOVERY_MANIFEST_STEM" in text
     assert text.count("submit_job ") == 6
 
 
@@ -67,6 +69,7 @@ def test_eval_configures_and_preflights_pinned_zig_compiler() -> None:
     assert 'export CPATH="${EVAL_ZIG_INCLUDE_ROOT}/python3.12:${EVAL_ZIG_INCLUDE_ROOT}' in eval_job
     assert 'test -x "${CC}"' in eval_job
     assert 'EVAL_COMPILER_READY cc=${CC}' in eval_job
+    assert 'EVAL_SHARD_GPU_READY shard=${expected_visible_gpu}' in eval_job
 
     preflight = (ROOT / "00_preflight.sbatch").read_text()
     assert '"${EVAL_ZIG_CC}"' in preflight
@@ -75,6 +78,7 @@ def test_eval_configures_and_preflights_pinned_zig_compiler() -> None:
     wrapper = (ROOT.parent / "qwen3_8b_opd_tillicum" / "container_exec.sh").read_text()
     assert "  EVAL_ZIG_CC\n" in wrapper
     assert "  EVAL_ZIG_INCLUDE_ROOT\n" in wrapper
+    assert "  CUDA_VISIBLE_DEVICES\n" in wrapper
 
 
 def test_environment_capture_does_not_initialize_unused_cudnn() -> None:
