@@ -3,8 +3,8 @@
   "execution_revision": 4,
   "experiment": "qwen3_8b_base_ot3_200k_qwen3_32b_opd_1472x4",
   "branch": "qwen3-8b-32b-full-repro",
-  "repository_commit": "a61d0eac16b547442a70e32a06c03ecced9cb6ee",
-  "slime_commit": "a61d0eac16b547442a70e32a06c03ecced9cb6ee",
+  "repository_commit": "a92bd1c8e2a36e7a5024ac92cd69a39fb105f20e",
+  "slime_commit": "a92bd1c8e2a36e7a5024ac92cd69a39fb105f20e",
   "superseded_failed_submission_contracts": ["0984ccb69c314a9f", "0e42ac6dd4a5557a", "33ace84e3dd7b788"],
   "megatron_lm_commit": "1dcf0dafa884ad52ffb243625717a3471643e087",
   "sources": {
