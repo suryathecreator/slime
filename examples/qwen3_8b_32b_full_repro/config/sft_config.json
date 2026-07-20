@@ -6,6 +6,7 @@
   "seed": 1234,
   "precision": "bf16",
   "native_context_length": 32768,
+  "dynamic_packing_max_tokens_per_gpu": 16384,
   "overlength_policy": "reject_before_selection; never truncate",
   "global_batch_size": 200,
   "rollout_batch_size": 200,

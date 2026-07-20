@@ -37,6 +37,7 @@ def main() -> None:
     require(sft["examples"] == 200_000 and sft["epochs"] == 1, "SFT exposure must be 200K x one epoch")
     require(sft["optimizer"]["lr"] == 1e-6 and sft["scheduler"] == "constant", "SFT LR/schedule mismatch")
     require(sft["native_context_length"] == 32768 and "never truncate" in sft["overlength_policy"], "SFT native-context policy mismatch")
+    require(sft["dynamic_packing_max_tokens_per_gpu"] == 16384, "SFT dynamic packing target must remain 16,384 tokens/GPU")
     require(sft["hardware"]["gpus"] == 4, "SFT must use exactly four GPUs")
     require(sft["parallelism"] == {"tp": 2, "dp": 2, "pp": 1, "cp": 1}, "SFT parallelism mismatch")
     require(sft["checkpoint_exposure_rows"] == list(range(25_000, 200_001, 25_000)), "SFT checkpoint cadence mismatch")
@@ -72,6 +73,10 @@ def main() -> None:
         require(os.environ.get("EVAL_PROMPT") == evaluation["prompt_instruction"], "runtime prompt differs from eval contract")
         require(int(os.environ.get("SFT_SIZE", "0")) == sft["examples"], "runtime SFT row count differs")
         require(int(os.environ.get("SFT_SEQ_LENGTH", "0")) == sft["native_context_length"], "runtime SFT context differs")
+        require(
+            int(os.environ.get("SFT_MAX_TOKENS_PER_GPU", "0")) == sft["dynamic_packing_max_tokens_per_gpu"],
+            "runtime SFT dynamic packing target differs",
+        )
         require(int(os.environ.get("OPD_TRAIN_SIZE", "0")) == opd["prompt_rows"], "runtime OPD prompt count differs")
         require(int(os.environ.get("OPD_N_SAMPLES_PER_PROMPT", "0")) == opd["samples_per_prompt"], "runtime OPD samples/prompt differs")
         require(int(os.environ.get("OPD_MAX_RESPONSE_LEN", "0")) == opd["response_cap"], "runtime OPD response cap differs")

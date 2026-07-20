@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -48,6 +49,37 @@ def test_base_eval_recovery_is_fail_closed_and_records_superseded_jobs() -> None
     assert "RECOVERY_SOURCE_MANIFEST" in text
     assert "RECOVERY_MANIFEST_STEM" in text
     assert text.count("submit_job ") == 6
+
+
+def test_sft_recovery_is_fail_closed_and_reuses_completed_evals() -> None:
+    text = (ROOT / "resubmit_from_sft.sh").read_text()
+    assert 'RECOVERY_MANIFEST_STEM:-resubmission_after_sft_oom' in text
+    assert 'resubmission_after_cuda_visibility.json' in text
+    assert 'scancel "${superseded_pending_jobs[@]}"' in text
+    assert "trap cancel_partial_resubmission EXIT" in text
+    assert 'scancel "${submitted_jobs[@]}"' in text
+    assert 'failed_rollout_archive' in text
+    assert text.count("submit_job ") == 4
+    assert "q8b32b-eval-base" not in text
+    assert "q8b32b-eval-teacher" not in text
+
+
+def test_sft_uses_16k_dynamic_packing_with_32k_native_context() -> None:
+    env = (ROOT / "env.sh").read_text()
+    assert "export SFT_MAX_TOKENS_PER_GPU=16384" in env
+    assert "export SFT_SEQ_LENGTH=32768" in env
+
+    config = json.loads((ROOT / "config/sft_config.json").read_text())
+    assert config["dynamic_packing_max_tokens_per_gpu"] == 16384
+    assert config["native_context_length"] == 32768
+    assert "never truncate" in config["overlength_policy"]
+
+    validator = (ROOT / "validate_config.py").read_text()
+    assert 'os.environ.get("SFT_MAX_TOKENS_PER_GPU", "0")' in validator
+    assert 'sft["dynamic_packing_max_tokens_per_gpu"]' in validator
+
+    wrapper = (ROOT.parent / "qwen3_8b_opd_tillicum" / "04_run_sft_100k_8xh200.sbatch").read_text()
+    assert '--max-tokens-per-gpu "${SFT_MAX_TOKENS_PER_GPU}"' in wrapper
 
 
 def test_eval_disables_training_site_patch_and_uses_explicit_libraries() -> None:
