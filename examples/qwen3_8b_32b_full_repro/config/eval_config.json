@@ -1,0 +1,16 @@
+{
+  "dataset": "HuggingFaceH4/MATH-500",
+  "dataset_revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+  "dataset_policy": "load read-only in original 500-row order; never rewrite, filter, normalize, subset, reorder, or resample",
+  "prompt_instruction": "Please reason step by step, and put your final answer within \\boxed{}.",
+  "enable_thinking": true,
+  "sampling": {"temperature": 0.8, "top_p": 0.7, "top_k": -1, "n": 1, "seed": 1234},
+  "max_new_tokens": 16384,
+  "safety_margin": 64,
+  "stop_token_ids": [151643, 151645],
+  "scorer": "math500_event_scorer_v1",
+  "math_verify": "0.9.0",
+  "parser_timeout_seconds": 10,
+  "verifier_timeout_seconds": 15,
+  "automatic_checkpoints": ["qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct"]
+}

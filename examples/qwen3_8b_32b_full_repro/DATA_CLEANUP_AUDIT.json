@@ -1,0 +1,6 @@
+{
+  "status": "pending_execution",
+  "generated_by": "clean_openthoughts3.py",
+  "runtime_path": "$DATA_ROOT/cleanup_audit.json",
+  "count_gate": "fatal_before_split_or_training"
+}

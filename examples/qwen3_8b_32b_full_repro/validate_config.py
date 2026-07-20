@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""Fail-closed static validation for the full reproduction contract."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+
+
+def load(path: Path) -> dict:
+    return json.loads(path.read_text())
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent)
+    parser.add_argument("--require-pinned-commit", action="store_true")
+    args = parser.parse_args()
+    root = args.root
+    contract = load(root / "config/experiment_contract.json")
+    sft = load(root / "config/sft_config.json")
+    opd = load(root / "config/opd_config.json")
+    evaluation = load(root / "config/eval_config.json")
+    errors: list[str] = []
+
+    def require(condition: bool, message: str) -> None:
+        if not condition:
+            errors.append(message)
+
+    require(contract["branch"] == "qwen3-8b-32b-full-repro", "wrong experiment branch")
+    if args.require_pinned_commit:
+        require("TO_BE_PINNED" not in contract["repository_commit"], "repository commit is not pinned")
+        require(contract["repository_commit"] == contract["slime_commit"], "SLIME/repository commits differ")
+    require(sft["examples"] == 200_000 and sft["epochs"] == 1, "SFT exposure must be 200K x one epoch")
+    require(sft["optimizer"]["lr"] == 1e-6 and sft["scheduler"] == "constant", "SFT LR/schedule mismatch")
+    require(sft["native_context_length"] == 32768 and "never truncate" in sft["overlength_policy"], "SFT native-context policy mismatch")
+    require(sft["hardware"]["gpus"] == 4, "SFT must use exactly four GPUs")
+    require(sft["parallelism"] == {"tp": 2, "dp": 2, "pp": 1, "cp": 1}, "SFT parallelism mismatch")
+    require(sft["checkpoint_exposure_rows"] == list(range(25_000, 200_001, 25_000)), "SFT checkpoint cadence mismatch")
+    require(opd["prompt_rows"] == 1472 and opd["samples_per_prompt"] == 4 and opd["trajectories"] == 5888, "OPD size mismatch")
+    require(opd["prompt_batch_size"] == 16 and opd["global_batch_size"] == 64 and opd["updates"] == 92, "OPD batch geometry mismatch")
+    require(opd["sampling"] == {"temperature": 0.8, "top_p": 1.0, "top_k": -1}, "OPD sampling mismatch")
+    require(opd["response_cap"] == 16384 and opd["rollout_context"] == 16380, "OPD 16K context mismatch")
+    require(opd["rollout_context"] % (2 * opd["colocation"]["cp"]) == 0, "OPD context is not CP-compatible")
+    require(opd["objective"] == {"opd_kl_coef": 1.0, "base_kl_coef": 0.0, "entropy_coef": 0.0, "scalar_reward": 0.0}, "OPD objective mismatch")
+    require(opd["colocation"]["physical_gpus"] == 4 and opd["colocation"]["teacher_gpu"] == 3, "OPD must use colocated four-GPU layout")
+    require(opd["student"] == "final_200k_sft", "OPD actor/reference initialization must be the final SFT weights")
+    require(evaluation["sampling"] == {"temperature": 0.8, "top_p": 0.7, "top_k": -1, "n": 1, "seed": 1234}, "evaluation sampling mismatch")
+    require(evaluation["max_new_tokens"] == 16384, "evaluation cap mismatch")
+    require(evaluation["automatic_checkpoints"] == ["qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct"], "evaluation checkpoint policy mismatch")
+    require(evaluation["dataset_policy"].startswith("load read-only"), "MATH-500 must be read-only")
+    require(contract["cleanup"]["prompt_grouping"] is False, "prompt grouping must stay disabled")
+    require(contract["cleanup"]["prompt_deduplication"] is False, "prompt deduplication must stay disabled")
+    require(contract["cleanup"]["math500_cross_contamination_check"] is False, "MATH-500 cross-contamination check must stay disabled")
+    require(contract["failure_gates"]["opd_behavior_metrics"] == "nonfatal_diagnostic", "OPD behavior metrics must be nonfatal")
+    if os.environ.get("FULL_REPRO_DIR"):
+        require(os.environ.get("EVAL_PROMPT") == evaluation["prompt_instruction"], "runtime prompt differs from eval contract")
+        require(int(os.environ.get("SFT_SIZE", "0")) == sft["examples"], "runtime SFT row count differs")
+        require(int(os.environ.get("SFT_SEQ_LENGTH", "0")) == sft["native_context_length"], "runtime SFT context differs")
+        require(int(os.environ.get("OPD_TRAIN_SIZE", "0")) == opd["prompt_rows"], "runtime OPD prompt count differs")
+        require(int(os.environ.get("OPD_N_SAMPLES_PER_PROMPT", "0")) == opd["samples_per_prompt"], "runtime OPD samples/prompt differs")
+        require(int(os.environ.get("OPD_MAX_RESPONSE_LEN", "0")) == opd["response_cap"], "runtime OPD response cap differs")
+        require(int(os.environ.get("EVAL_MAX_RESPONSE_LEN", "0")) == evaluation["max_new_tokens"], "runtime eval response cap differs")
+        for slurm in root.glob("*.sbatch"):
+            require("#SBATCH --gres=gpu:h200:4" in slurm.read_text(), f"{slurm.name} does not request exactly four H200s")
+    if errors:
+        raise SystemExit("CONFIG_VALIDATION_FAILED\n" + "\n".join(f"- {error}" for error in errors))
+    print("CONFIG_VALIDATION_OK")
+
+
+if __name__ == "__main__":
+    main()

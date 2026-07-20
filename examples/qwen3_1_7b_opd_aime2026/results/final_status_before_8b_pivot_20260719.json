@@ -59,7 +59,7 @@
     {"job_id": 179846, "stage": "opd_002048_single_eval", "state": "COMPLETED", "elapsed": "01:43:30", "exit_code": "0:0"},
     {"job_id": 179847, "stage": "opd_005120_r16k", "state": "COMPLETED", "elapsed": "04:30:51", "exit_code": "0:0"},
     {"job_id": 179848, "stage": "opd_005120_single_eval", "state": "COMPLETED", "elapsed": "01:33:13", "exit_code": "0:0"},
-    {"job_id": 179849, "stage": "opd_005120_mc16_eval", "state": "RUNNING", "elapsed": "06:08:40", "exit_code": "0:0"}
+    {"job_id": 179849, "stage": "opd_005120_mc16_eval", "state": "CANCELLED by 1574950", "elapsed": "06:11:33", "exit_code": "0:0"}
   ],
   "partial_eval": {
     "job_id": 179849,
@@ -69,7 +69,7 @@
     "shard_completed_prompts": [51, 49, 49, 52],
     "completed_prompts_total": 201,
     "target_generations": 480,
-    "partial_directory_size": "33M",
+    "partial_directory_size": "516K",
     "hf_checkpoint_size": "12G",
     "full_checkpoint_size": "23G",
     "point_in_time_hashes": {
@@ -80,7 +80,15 @@
       "shard_3_log": "360797cd0d485e9513f32bb8699c5b2e46c03beb4c49427beb8bf5100f854b71"
     },
     "raw_partial_generations_materialized": false,
-    "preservation_policy": "Preserve the output directory, readiness markers, and worker logs without overwrite or deletion."
+    "preservation_policy": "Preserve the output directory, readiness markers, and worker logs without overwrite or deletion.",
+    "post_cancel": {
+      "state": "CANCELLED by 1574950",
+      "elapsed": "06:11:33",
+      "shard_completed_prompts": [51, 49, 49, 52],
+      "completed_prompts_total": 201,
+      "raw_partial_generations_materialized": false,
+      "artifacts_deleted": false
+    }
   },
   "conclusion": "The 16K cutoff bounded rollout compute but did not restore termination or useful AIME behavior; the 1.7B result remains a scaled analogue and is retained as provenance for the full 8B-to-32B reproduction."
 }

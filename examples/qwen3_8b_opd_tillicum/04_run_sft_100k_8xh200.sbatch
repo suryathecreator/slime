@@ -53,6 +53,7 @@ echo "SFT loss mask type: ${SFT_LOSS_MASK_TYPE}"
 echo "SFT loss mask preflight: enabled=${SFT_LOSS_MASK_PREFLIGHT_ENABLED} require_think=${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK} samples=${SFT_LOSS_MASK_PREFLIGHT_SAMPLES}"
 echo "SFT LR: ${SFT_LR}"
 echo "SFT max tokens per GPU: ${SFT_MAX_TOKENS_PER_GPU}"
+echo "SFT sequence length / gradient clip: ${SFT_SEQ_LENGTH}/${SFT_GRAD_CLIP}"
 echo "SFT log probs chunk size: ${SFT_LOG_PROBS_CHUNK_SIZE}"
 echo "SFT optimizer CPU offload: ${SFT_OPTIMIZER_CPU_OFFLOAD}"
 echo "SFT recompute loss function: ${SFT_RECOMPUTE_LOSS_FUNCTION}"
@@ -171,6 +172,7 @@ SFT_ARGS=(
   --prompt-data "${SFT_PARQUET}"
   --input-key messages
   --rollout-shuffle
+  --rollout-seed "${DATA_SEED}"
   --num-epoch "${SFT_NUM_EPOCH}"
   --rollout-batch-size "${SFT_ROLLOUT_BATCH_SIZE}"
   --global-batch-size "${SFT_GLOBAL_BATCH_SIZE}"
@@ -188,6 +190,7 @@ PERF_ARGS=(
   --sequence-parallel
   --pipeline-model-parallel-size "${SFT_PIPELINE_MODEL_PARALLEL_SIZE}"
   --context-parallel-size "${SFT_CONTEXT_PARALLEL_SIZE}"
+  --seq-length "${SFT_SEQ_LENGTH}"
   --expert-model-parallel-size 1
   --expert-tensor-parallel-size 1
   --recompute-granularity full
@@ -205,6 +208,7 @@ OPTIMIZER_ARGS=(
   --weight-decay 0.1
   --adam-beta1 0.9
   --adam-beta2 0.95
+  --clip-grad "${SFT_GRAD_CLIP}"
 )
 if [[ "${SFT_OPTIMIZER_CPU_OFFLOAD}" == "1" ]]; then
   OPTIMIZER_ARGS+=(
@@ -225,6 +229,7 @@ if [[ "${WANDB_MODE}" != "disabled" ]]; then
 fi
 
 MISC_ARGS=(
+  --seed "${DATA_SEED}"
   --attention-dropout 0.0
   --hidden-dropout 0.0
   --attention-softmax-in-fp32

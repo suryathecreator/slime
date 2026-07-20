@@ -60,6 +60,16 @@ The live job-log hashes in the companion JSON are point-in-time hashes and are
 expected to change until job `179849` exits. A post-cancel state and final log
 hashes will be appended without rewriting the raw files.
 
+## Post-cancel record
+
+After the status above was committed, job `179849` was rechecked and canceled
+for the pivot. Slurm recorded `CANCELLED by 1574950` after `06:11:33`. Worker
+progress remained 51/49/49/52 (201/480); no completed shard JSONL was
+materialized, so no partial score is reported. The 516 KiB directory of
+readiness markers and worker logs remains preserved. Final log hashes are the
+same hashes recorded in the companion JSON; no checkpoint, rollout, or result
+artifact was deleted.
+
 ## Conclusion
 
 The smaller experiments were useful: they exposed loss-mask and checkpoint

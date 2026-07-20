@@ -295,14 +295,16 @@ ROLLOUT_ARGS=(
   --apply-chat-template
   --apply-chat-template-kwargs "{\"enable_thinking\": true}"
   --rollout-shuffle
+  --rollout-seed "${DATA_SEED}"
   --num-rollout "${OPD_NUM_ROLLOUT}"
   --rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}"
   --n-samples-per-prompt "${OPD_N_SAMPLES_PER_PROMPT}"
   --rollout-max-response-len "${OPD_MAX_RESPONSE_LEN}"
   --rollout-max-context-len "${OPD_ROLLOUT_MAX_CONTEXT_LEN}"
   --rollout-stop-token-ids ${OPD_ROLLOUT_STOP_TOKEN_IDS}
-  --rollout-temperature 1
-  --rollout-top-p 1
+  --rollout-temperature "${OPD_ROLLOUT_TEMPERATURE}"
+  --rollout-top-p "${OPD_ROLLOUT_TOP_P}"
+  --rollout-top-k "${OPD_ROLLOUT_TOP_K}"
   --global-batch-size "${OPD_GLOBAL_BATCH_SIZE}"
   --balance-data
   --save-debug-rollout-data "${OPD_ROLLOUT_LOG_DIR}/rollout_{rollout_id}.pt"
@@ -382,6 +384,7 @@ if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
 fi
 
 MISC_ARGS=(
+  --seed "${DATA_SEED}"
   --attention-dropout 0.0
   --hidden-dropout 0.0
   --accumulate-allreduce-grads-in-fp32

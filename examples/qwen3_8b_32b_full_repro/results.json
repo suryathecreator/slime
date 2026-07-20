@@ -1,0 +1,5 @@
+{
+  "status": "pending",
+  "targets": {"sft_pass_at_1": 0.76, "opd_pass_at_1": 0.94, "minimum_absolute_gain": 0.12},
+  "evaluations": {}
+}

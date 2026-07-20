@@ -33,6 +33,26 @@ def iter_rows(path: Path, limit: int):
             yield index, json.loads(line)
 
 
+def find_subsequence(sequence: list[int], needle: list[int]) -> list[int]:
+    if not needle:
+        return []
+    return [
+        index
+        for index in range(0, len(sequence) - len(needle) + 1)
+        if sequence[index : index + len(needle)] == needle
+    ]
+
+
+def require_supervised_subsequence(
+    *, row_index: int, name: str, token_ids: list[int], loss_mask: list[int], needle: list[int]
+) -> None:
+    matches = find_subsequence(token_ids, needle)
+    if not matches:
+        raise SystemExit(f"row {row_index}: required target {name} token ids {needle} are absent")
+    if not any(all(loss_mask[position] != 0 for position in range(start, start + len(needle))) for start in matches):
+        raise SystemExit(f"row {row_index}: required target {name} exists but has zero loss weight")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", required=True, type=Path)
@@ -75,6 +95,41 @@ def main() -> None:
         train_target_ids = token_ids[-response_length:]
         terminal_audit = None
         if args.require_think:
+            for name, text in (("think_open", "<think>"), ("think_close", "</think>")):
+                require_supervised_subsequence(
+                    row_index=row_index,
+                    name=name,
+                    token_ids=token_ids,
+                    loss_mask=loss_mask,
+                    needle=tokenizer(text, add_special_tokens=False)["input_ids"],
+                )
+            require_supervised_subsequence(
+                row_index=row_index,
+                name="chat_terminal_im_end",
+                token_ids=token_ids,
+                loss_mask=loss_mask,
+                needle=[tokenizer.convert_tokens_to_ids("<|im_end|>")],
+            )
+            final_text = assistant.rsplit("</think>", 1)[-1].strip()
+            if not final_text:
+                raise SystemExit(f"row {row_index}: assistant has no final-answer text after </think>")
+            supervised_target = tokenizer.decode(
+                [token_id for token_id, weight in zip(token_ids, loss_mask, strict=True) if weight != 0],
+                skip_special_tokens=False,
+            )
+            if final_text not in supervised_target:
+                raise SystemExit(f"row {row_index}: post-think final answer is not fully supervised")
+            if "\\boxed" in final_text and "\\boxed" not in supervised_target:
+                raise SystemExit(f"row {row_index}: boxed final answer is not supervised")
+            eos_id = tokenizer.eos_token_id
+            if eos_id is not None and eos_id in train_target_ids:
+                train_target_mask = loss_mask[-response_length:]
+                supervised_eos = any(
+                    token_id == eos_id and train_target_mask[index] != 0
+                    for index, token_id in enumerate(train_target_ids)
+                )
+                if not supervised_eos and eos_id != tokenizer.convert_tokens_to_ids("<|im_end|>"):
+                    raise SystemExit(f"row {row_index}: genuine EOS is present but has zero loss weight")
             try:
                 terminal_audit = semantic_terminal_audit(
                     tokenizer,

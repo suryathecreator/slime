@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen3_8b_base_ot3_200k_qwen3_32b_opd_1472x4",
+  "branch": "qwen3-8b-32b-full-repro",
+  "repository_commit": "TO_BE_PINNED_AFTER_IMPLEMENTATION_COMMIT",
+  "slime_commit": "TO_BE_PINNED_AFTER_IMPLEMENTATION_COMMIT",
+  "megatron_lm_commit": "1dcf0dafa884ad52ffb243625717a3471643e087",
+  "sources": {
+    "openthoughts3": {"repo": "open-thoughts/OpenThoughts3-1.2M", "revision": "61bcf9d4eb38b30295efc2021227a63cc5bb34c8", "rows": 1200000},
+    "student": {"repo": "Qwen/Qwen3-8B-Base", "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"},
+    "teacher": {"repo": "Qwen/Qwen3-32B", "revision": "9216db5781bf21249d130ec9da846c4624c16137"},
+    "math500": {"repo": "HuggingFaceH4/MATH-500", "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be", "policy": "read_only_original_order"}
+  },
+  "software": {
+    "math_verify": "0.9.0",
+    "lingua_language_detector": "2.2.0",
+    "transformers_training": "5.8.1",
+    "transformers_evaluation": "5.13.0",
+    "pytorch": "2.11.0+cu129",
+    "cuda_for_pytorch": "12.9",
+    "nccl": "2.28.9",
+    "sglang": "0.5.13",
+    "vllm": "0.24.0",
+    "flash_attention": "2.7.4.post1",
+    "ray": "2.55.1"
+  },
+  "seeds": {"data": 1234, "training": 1234, "rollout": 1234, "evaluation": 1234, "bootstrap": 1234},
+  "prompt": "Please reason step by step, and put your final answer within \\boxed{}.",
+  "chat_template": {"implementation": "pinned tokenizer apply_chat_template", "enable_thinking": true, "add_generation_prompt": true},
+  "loss_mask": {"type": "qwen3", "prompt_tokens": 0, "assistant_tokens": 1, "required_supervised_tokens": ["<think>", "</think>", "final answer", "<|im_end|>", "genuine EOS"]},
+  "stop_tokens": {"ids": [151643, 151645], "tokens": ["<|endoftext|>", "<|im_end|>"], "stop_strings": [], "think_close_is_terminal": false},
+  "cleanup": {"version": "ot3_simple_en_v1", "think_rule": "exactly_one_ordered_nonempty_pair_and_nonempty_post_think", "language_detector": "lingua 2.2.0 whole-text prompt and assistant separately", "relative_count_epsilon": 0.05, "row_split_seed": 1234, "sft_rows": 200000, "opd_reserve_rows": 100000, "prompt_grouping": false, "prompt_deduplication": false, "math500_cross_contamination_check": false},
+  "sft_config": "config/sft_config.json",
+  "opd_config": "config/opd_config.json",
+  "eval_config": "config/eval_config.json",
+  "checkpoint_policy": "atomic rolling full-state checkpoint plus durable weights at every requested cadence",
+  "failure_gates": {"cleanup_count_gate": "fatal", "source_row_overlap": "fatal", "terminal_loss_mask": "fatal", "checkpoint_corruption": "fatal", "nonfinite_training": "fatal", "opd_behavior_metrics": "nonfatal_diagnostic"},
+  "reproduction_criteria": {"sft_target_percent": 76.0, "sft_band_points": 3.0, "opd_target_percent": 94.0, "opd_band_points": 3.0, "minimum_opd_gain_points": 12.0, "post_hoc_seed_selection": false, "scorer_changes_after_launch": false},
+  "expected_artifacts": ["cleanup audit", "split hashes", "SFT weights at 25K cadence", "final SFT full state", "OPD weights at quarters", "final OPD full state", "four MATH-500 evaluations", "raw generations", "scorer traces", "stopping audit", "infrastructure report", "results JSON and Markdown"]
+}
