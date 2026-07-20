@@ -68,6 +68,13 @@ trap cleanup EXIT
 set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
 
+if [[ -n "${SFT_TORCH_COMPILE_CC:-}" ]]; then
+  [[ -x "${SFT_TORCH_COMPILE_CC}" ]] || { echo "SFT compiler is not executable: ${SFT_TORCH_COMPILE_CC}" >&2; exit 1; }
+  export CC="${SFT_TORCH_COMPILE_CC}"
+  export CPATH="${SFT_TORCH_COMPILE_CPATH}"
+  echo "SFT_TORCH_COMPILER_READY cc=${CC} cpath=${CPATH}"
+fi
+
 ray stop --force >/dev/null 2>&1 || true
 
 NVLINK_COUNT=$(nvidia-smi topo -m 2>/dev/null | grep -o "NV[0-9][0-9]*" | wc -l || true)
@@ -262,6 +269,12 @@ if [[ -z "${SFT_CUDA_DEVICE_MAX_CONNECTIONS:-}" ]]; then
 fi
 echo "SFT CUDA_DEVICE_MAX_CONNECTIONS=${SFT_CUDA_DEVICE_MAX_CONNECTIONS}"
 
+COMPILER_RUNTIME_ENV=""
+if [[ -n "${CC:-}" ]]; then
+  COMPILER_RUNTIME_ENV=",
+    \"CC\": \"${CC}\",
+    \"CPATH\": \"${CPATH}\""
+fi
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
     \"PYTHONPATH\": \"/root/Megatron-LM:${SLIME_REPO_ROOT}\",
@@ -269,7 +282,7 @@ RUNTIME_ENV_JSON="{
     \"NCCL_NVLS_ENABLE\": \"${HAS_NVLINK}\",
     \"PYTORCH_CUDA_ALLOC_CONF\": \"expandable_segments:True\",
     \"WANDB_MODE\": \"${WANDB_MODE}\",
-    \"HF_HOME\": \"${HF_HOME}\"
+    \"HF_HOME\": \"${HF_HOME}\"${COMPILER_RUNTIME_ENV}
   }
 }"
 

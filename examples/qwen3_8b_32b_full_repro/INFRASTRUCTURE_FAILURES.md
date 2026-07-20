@@ -73,3 +73,18 @@ packing target to the previously successful 16,384 tokens per GPU; native
 32,768-token context, overlength-row handling, and the full 200,000-row
 exposure remain unchanged. Completed base and teacher evaluations will not be
 rerun.
+
+## Submission attempt 6: SFT compiler propagation failure
+
+Packing-repair job `181873` again passed the eight-row loss-mask preflight. Its
+first 200-row batch was split into 77 microbatches instead of 37, and
+microbatch 1 completed, so the original 9.27 GiB FP32-logits OOM was removed.
+The next backward microbatch invoked TorchInductor for fused cross-entropy and
+failed because the Ray workers did not inherit a C compiler.
+
+No optimizer update or checkpoint completed, and jobs `181874`–`181876` remain
+dependency-gated pending replacement. Recovery passes the already pinned Zig
+compiler and Python include path through the clean container boundary and the
+Ray runtime environment. Both failed SFT logs and rollout tensors are retained
+with hashes in the JSON audit; base and teacher evaluation outputs remain
+unchanged.

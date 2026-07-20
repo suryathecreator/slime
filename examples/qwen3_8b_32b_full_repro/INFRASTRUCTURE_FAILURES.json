@@ -151,8 +151,39 @@
       "loss_mask_preflight_passed": true,
       "optimizer_updates_completed": 0,
       "checkpoints_created": false,
-      "recovery": "Pending: reduce dynamic packing from 32,768 to 16,384 tokens per GPU while retaining the 32,768-token native context and all 200,000 rows.",
+      "recovery": "Commit 90124cc reduced dynamic packing from 32,768 to 16,384 tokens per GPU while retaining the 32,768-token native context and all 200,000 rows. Retry 181873 crossed microbatch 0 but exposed a missing compiler in the SFT Ray workers.",
       "preservation": "The failed log and rollout tensor are retained; completed base and teacher summaries will be reused."
+    },
+    {
+      "attempt": 6,
+      "branch_commit": "90124cc17e957879d20c963efb4f4c5a358e3a30",
+      "contract_hash": "4095e6ac256b0dbf",
+      "submitted_at": "2026-07-20T17:44:19.998735+00:00",
+      "artifact_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf",
+      "failure_class": "sft_triton_compiler_unavailable",
+      "cause": "Fused cross-entropy backward invoked TorchInductor/Triton inside the SFT Ray workers, which did not inherit a C compiler.",
+      "jobs": [
+        {"job_id": 181873, "stage": "sft_200k", "state": "FAILED", "elapsed": "00:04:45", "exit_code": "1:0"},
+        {"job_id": 181874, "stage": "sft_eval", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181875, "stage": "opd_1472x4", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 181876, "stage": "opd_eval_100pct", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0"}
+      ],
+      "reused_completed_evaluations": {"base_job_id": 181406, "teacher_job_id": 181407},
+      "sft_dynamic_packing_max_tokens_per_gpu": 16384,
+      "sft_native_context_length": 32768,
+      "original_oom_regression_passed": true,
+      "microbatches_completed": 1,
+      "artifact_hashes": {
+        "sft_log": "acb729df102c7711f561e584afe940ac3647cf9b8be7432ed329a33518621dee",
+        "failed_rollout_tensor": "93a9ee5e4c19e361a70c21033ed53418bea0165e05bb07a0e4689f53bdbcd532",
+        "source_resubmission_manifest": "2fd6000c65c60c19b0b3f4cad17d6647ab880ae424480afbbf289175b7f4d7d7"
+      },
+      "failed_rollout_tensor_bytes": 18335753,
+      "loss_mask_preflight_passed": true,
+      "optimizer_updates_completed": 0,
+      "checkpoints_created": false,
+      "recovery": "Propagate the pinned Zig compiler and Python include path through the training container and Ray runtime environment.",
+      "preservation": "The failed log and deterministic first-batch rollout tensor are retained; completed evaluations remain unchanged."
     }
   ]
 }

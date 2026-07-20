@@ -82,6 +82,26 @@ def test_sft_uses_16k_dynamic_packing_with_32k_native_context() -> None:
     assert '--max-tokens-per-gpu "${SFT_MAX_TOKENS_PER_GPU}"' in wrapper
 
 
+def test_sft_propagates_pinned_compiler_to_ray_workers() -> None:
+    env = (ROOT / "env.sh").read_text()
+    assert 'SFT_TORCH_COMPILE_CC="${SFT_TORCH_COMPILE_CC:-${EVAL_ZIG_CC}}"' in env
+    assert "SFT_TORCH_COMPILE_CPATH=" in env
+
+    sft_job = (ROOT / "03_sft.sbatch").read_text()
+    assert '"${SFT_TORCH_COMPILE_CC}"' in sft_job
+    assert '"${EVAL_ZIG_INCLUDE_ROOT}/python3.12/Python.h"' in sft_job
+
+    wrapper = (ROOT.parent / "qwen3_8b_opd_tillicum" / "04_run_sft_100k_8xh200.sbatch").read_text()
+    assert 'export CC="${SFT_TORCH_COMPILE_CC}"' in wrapper
+    assert 'export CPATH="${SFT_TORCH_COMPILE_CPATH}"' in wrapper
+    assert '\\"CC\\": \\"${CC}\\"' in wrapper
+    assert '\\"CPATH\\": \\"${CPATH}\\"' in wrapper
+
+    container = (ROOT.parent / "qwen3_8b_opd_tillicum" / "container_exec.sh").read_text()
+    assert "  SFT_TORCH_COMPILE_CC\n" in container
+    assert "  SFT_TORCH_COMPILE_CPATH\n" in container
+
+
 def test_eval_disables_training_site_patch_and_uses_explicit_libraries() -> None:
     text = (ROOT / "02_eval_math500.sbatch").read_text()
     assert "export SLIME_VLLM_PATCH_SITE=0" in text

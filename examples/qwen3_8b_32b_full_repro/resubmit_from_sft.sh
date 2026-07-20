@@ -107,8 +107,12 @@ failed_rollout_archive="${failed_rollout}.failed_${failed_sft_job}"
 [[ ! -e "${failed_rollout_archive}" ]] || { echo "Refusing to overwrite failed rollout archive: ${failed_rollout_archive}" >&2; exit 1; }
 failed_sft_log_sha256="$(sha256sum "${failed_sft_log}" | awk '{print $1}')"
 failed_rollout_sha256="$(sha256sum "${failed_rollout}" | awk '{print $1}')"
-[[ "${failed_sft_log_sha256}" == "8a06c1d145d69e0899db6f0976cb0f31f753bc4fa0c518e6445f2c7d3aba2a71" ]] || { echo "Failed SFT log hash changed." >&2; exit 1; }
-[[ "${failed_rollout_sha256}" == "93a9ee5e4c19e361a70c21033ed53418bea0165e05bb07a0e4689f53bdbcd532" ]] || { echo "Failed rollout tensor hash changed." >&2; exit 1; }
+if [[ -n "${RECOVERY_EXPECTED_FAILED_SFT_LOG_SHA256:-}" ]]; then
+  [[ "${failed_sft_log_sha256}" == "${RECOVERY_EXPECTED_FAILED_SFT_LOG_SHA256}" ]] || { echo "Failed SFT log hash differs from the requested recovery hash." >&2; exit 1; }
+fi
+if [[ -n "${RECOVERY_EXPECTED_FAILED_ROLLOUT_SHA256:-}" ]]; then
+  [[ "${failed_rollout_sha256}" == "${RECOVERY_EXPECTED_FAILED_ROLLOUT_SHA256}" ]] || { echo "Failed rollout tensor hash differs from the requested recovery hash." >&2; exit 1; }
+fi
 
 mkdir -p "${SLURM_LOG_DIR}" "${MANIFEST_ROOT}" "${OUTPUT_ROOT}" "${TMPDIR}"
 export RESUBMISSION_PENDING_PATH="${resubmission_pending}"

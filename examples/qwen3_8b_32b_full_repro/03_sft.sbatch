@@ -29,6 +29,13 @@ requeue_sft() {
   exit 0
 }
 trap requeue_sft USR1
+for path in \
+  "${SFT_TORCH_COMPILE_CC}" \
+  "${EVAL_ZIG_INCLUDE_ROOT}/python3.12/Python.h" \
+  "${EVAL_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h"; do
+  [[ -e "${path}" ]] || { echo "Missing SFT compiler prerequisite: ${path}" >&2; exit 1; }
+done
+[[ -x "${SFT_TORCH_COMPILE_CC}" ]] || { echo "SFT compiler is not executable: ${SFT_TORCH_COMPILE_CC}" >&2; exit 1; }
 bash examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch &
 sft_pid="$!"
 wait "${sft_pid}"

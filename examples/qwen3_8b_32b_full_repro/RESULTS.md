@@ -24,6 +24,13 @@ allocate 9.27 GiB with only 3.64 GiB free on GPU 0. No optimizer update or
 checkpoint completed. The failed log and rollout tensor are preserved and
 hashed in `INFRASTRUCTURE_FAILURES.json`.
 
+The 16,384-token packing retry `181873` passed the same preflight and completed
+microbatch 1/77, proving that the original 32K logits OOM was removed. It then
+failed in fused cross-entropy backward because TorchInductor's Ray workers did
+not inherit a C compiler. It also completed no optimizer update or checkpoint.
+The next recovery explicitly propagates the already pinned Zig compiler and
+Python headers into those workers while retaining the 16K packing fix.
+
 The final report will add SFT and OPD scores, paired transitions, bootstrap
 intervals, McNemar tests, length and termination diagnostics, checkpoint
 hashes, and all deviations. Results outside the 76% ±3 SFT or 94% ±3 OPD
