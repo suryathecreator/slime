@@ -71,6 +71,11 @@ def main() -> None:
             require(cpu_match is not None, f"{slurm.name} has no explicit CPU request")
             if cpu_match is not None:
                 require(int(cpu_match.group(1)) <= 32, f"{slurm.name} exceeds the site limit of eight CPUs per requested GPU")
+            time_match = re.search(r"^#SBATCH --time=(\d+):(\d+):(\d+)$", text, re.M)
+            require(time_match is not None, f"{slurm.name} has no explicit wall-time request")
+            if time_match is not None:
+                hours, minutes, seconds = map(int, time_match.groups())
+                require(hours * 3600 + minutes * 60 + seconds <= 86_400, f"{slurm.name} exceeds the normal-QoS one-day wall limit")
     if errors:
         raise SystemExit("CONFIG_VALIDATION_FAILED\n" + "\n".join(f"- {error}" for error in errors))
     print("CONFIG_VALIDATION_OK")

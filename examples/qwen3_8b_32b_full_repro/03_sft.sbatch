@@ -5,8 +5,9 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --gres=gpu:h200:4
 #SBATCH --mem=0
-#SBATCH --time=48:00:00
+#SBATCH --time=24:00:00
 #SBATCH --requeue
+#SBATCH --signal=B:USR1@600
 #SBATCH --mail-type=END,FAIL
 
 set -euo pipefail
@@ -16,7 +17,22 @@ export TMPDIR="/tmp/${USER:-suryadv}/q8b32b-${SLURM_JOB_ID}"
 export RAY_TMPDIR="${TMPDIR}/ray"
 unset LD_LIBRARY_PATH
 cd "${SLIME_REPO_ROOT}"
-bash examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch
+sft_pid=""
+requeue_sft() {
+  trap - USR1
+  echo "SFT_REQUEUE job=${SLURM_JOB_ID} at=$(date -Is)"
+  if [[ -n "${sft_pid}" ]]; then
+    kill -TERM "${sft_pid}" 2>/dev/null || true
+    wait "${sft_pid}" 2>/dev/null || true
+  fi
+  scontrol requeue "${SLURM_JOB_ID}"
+  exit 0
+}
+trap requeue_sft USR1
+bash examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch &
+sft_pid="$!"
+wait "${sft_pid}"
+sft_pid=""
 
 IMPLEMENTATION_COMMIT="$(python3 -c 'import json,os; print(json.load(open(os.environ["CONTRACT_FILE"]))["repository_commit"])')"
 export IMPLEMENTATION_COMMIT

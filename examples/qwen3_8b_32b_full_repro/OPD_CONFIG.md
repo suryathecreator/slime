@@ -22,3 +22,5 @@ reported as deviations rather than attributed to the public script.
   quarter retains full training state; the final 100% save remains full.
 - Stopping, cap, formatting, and repetition metrics are nonfatal diagnostics and
   do not abort this faithful run.
+- The job requests at most 24 hours and self-requeues ten minutes before timeout
+  from the newest validated quarter state if the first allocation is insufficient.

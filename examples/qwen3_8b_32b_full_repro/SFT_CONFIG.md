@@ -19,3 +19,5 @@ pinned hardware-aware choices and are not attributed to SLIME.
 - Weight snapshots are written at every 25K rows. The newest completed cadence
   retains full optimizer/scheduler/RNG/loader/trainer state; when the next save
   is atomically validated, the older full state is pruned but its weights stay.
+- The job requests the normal-QoS maximum of 24 hours and self-requeues ten
+  minutes before timeout, resuming from the newest validated full state.

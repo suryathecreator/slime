@@ -14,8 +14,19 @@ def test_every_job_respects_four_gpu_cpu_limit_and_short_tmpdir() -> None:
         cpus = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.M)
         assert cpus is not None
         assert int(cpus.group(1)) <= 32
+        wall = re.search(r"^#SBATCH --time=(\d+):(\d+):(\d+)$", text, re.M)
+        assert wall is not None
+        hours, minutes, seconds = map(int, wall.groups())
+        assert hours * 3600 + minutes * 60 + seconds <= 86_400
         assert 'export TMPDIR="/tmp/${USER:-suryadv}/q8b32b-${SLURM_JOB_ID}"' in text
         assert "unset LD_LIBRARY_PATH" in text
+
+
+def test_long_training_stages_self_requeue_before_qos_limit() -> None:
+    for name in ("03_sft.sbatch", "04_opd.sbatch"):
+        text = (ROOT / name).read_text()
+        assert "#SBATCH --signal=B:USR1@600" in text
+        assert "scontrol requeue" in text
 
 
 def test_submission_is_fail_closed_and_cancels_partial_chain() -> None:

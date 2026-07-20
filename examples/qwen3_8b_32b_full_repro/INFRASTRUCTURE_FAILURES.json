@@ -36,6 +36,39 @@
       "raw_dataset_modified": false,
       "checkpoints_created": false,
       "preservation": "The failed contract root and logs are retained without overwrite or deletion."
+    },
+    {
+      "attempt": 2,
+      "branch_commit": "adf869125a82c07effcf5805db2ba30bd00b316a",
+      "contract_hash": "0e42ac6dd4a5557a",
+      "submitted_at": "2026-07-20T00:23:30.315114+00:00",
+      "artifact_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/0e42ac6dd4a5557a",
+      "failure_class": "qos_wall_limit_hold",
+      "cause": "cleanup requested 48 hours while the normal QoS MaxWall is 1-00:00:00",
+      "jobs": [
+        {"job_id": 180863, "stage": "preflight", "state": "COMPLETED", "elapsed": "00:02:19", "exit_code": "0:0"},
+        {"job_id": 180864, "stage": "cleanup", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0", "prior_pending_reason": "QOSMaxWallDurationPerJobLimit"},
+        {"job_id": 180865, "stage": "base_eval", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180866, "stage": "teacher_eval", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180867, "stage": "sft_200k", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180868, "stage": "sft_eval", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180869, "stage": "opd_1472x4", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"},
+        {"job_id": 180870, "stage": "opd_eval_100pct", "state": "CANCELLED by 1574950", "elapsed": "00:00:00", "exit_code": "0:0"}
+      ],
+      "preflight_verified": true,
+      "artifact_file_bytes": 12738,
+      "artifact_allocated_size_display": "147K",
+      "artifact_hashes": {
+        "submission_json": "e654fceff2810b4003cfbb350abfb012f40e1d79de5ea45e5c6ac086943af834",
+        "environment_json": "48894bd2831db55f91396bf9eb542bba52d9b0629cdb99c23e88557256b48551",
+        "evaluation_environment_json": "dfb21df30e5ceba0523c07f136d91ad846b4c2cc6a2ce561c4534ebe34af469d",
+        "preflight_log": "6f3d6881a6b42a1141549f941d7a53943a0ec19280834bb580dedcd112c7b127"
+      },
+      "scientific_work_completed": false,
+      "math500_problem_outputs": 0,
+      "raw_dataset_modified": false,
+      "checkpoints_created": false,
+      "preservation": "The completed preflight manifests and failed contract root are retained without overwrite or deletion."
     }
   ]
 }

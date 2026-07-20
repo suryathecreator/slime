@@ -5,8 +5,9 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --gres=gpu:h200:4
 #SBATCH --mem=0
-#SBATCH --time=36:00:00
+#SBATCH --time=24:00:00
 #SBATCH --requeue
+#SBATCH --signal=B:USR1@600
 #SBATCH --mail-type=END,FAIL
 
 set -euo pipefail
@@ -20,7 +21,22 @@ if [[ "$(realpath "${OPD_INITIAL_LOAD_DIR}")" != "$(realpath "${OPD_REF_LOAD_DIR
   echo "Initial actor/reference synchronization failed: ${OPD_INITIAL_LOAD_DIR} != ${OPD_REF_LOAD_DIR}" >&2
   exit 1
 fi
-bash examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch
+opd_pid=""
+requeue_opd() {
+  trap - USR1
+  echo "OPD_REQUEUE job=${SLURM_JOB_ID} at=$(date -Is)"
+  if [[ -n "${opd_pid}" ]]; then
+    kill -TERM "${opd_pid}" 2>/dev/null || true
+    wait "${opd_pid}" 2>/dev/null || true
+  fi
+  scontrol requeue "${SLURM_JOB_ID}"
+  exit 0
+}
+trap requeue_opd USR1
+bash examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch &
+opd_pid="$!"
+wait "${opd_pid}"
+opd_pid=""
 
 PYTHONPATH="${MATH_VERIFY_SITE}:${PYTHONPATH:-}" \
   "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/audit_opd_rollouts.py"

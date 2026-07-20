@@ -58,6 +58,8 @@ Expected wall times are roughly 6–24 hours cleanup, 4–12 hours per full
 MATH-500 evaluation, 20–30 hours SFT, and 8–12 hours OPD. Expected peak durable
 storage is about 250 GB for SFT weights plus latest full state, 180 GB for OPD
 weights plus latest full state, and additional rollout/evaluation artifacts.
+Every request stays within the normal QoS 24-hour limit; long cleanup, SFT, OPD,
+and evaluation stages requeue and resume from atomic artifacts when needed.
 
 After the chain completes, run `sync_completed_artifacts.py`, review the compact
 diff and allowlist, run tests again, then commit and push the final audits and
