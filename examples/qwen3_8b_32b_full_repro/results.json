@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "partial",
   "contract_hash": "4095e6ac256b0dbf",
-  "updated_at": "2026-07-20T18:08:00+00:00",
+  "updated_at": "2026-07-22T00:14:56+00:00",
   "targets": {
     "sft_pass_at_1": 0.76,
     "opd_pass_at_1": 0.94,
@@ -54,11 +54,64 @@
       "summary_sha256": "d1d8ee1fed7472f81c7524764b7a255e52779eabe137ee1a8ff393e31ad5d103"
     },
     "sft_200000": {
-      "status": "pending_recovery",
-      "failed_training_job_ids": [181408, 181873, 181893],
-      "latest_failure": "The propagated Zig compiler could not resolve the multiarch pyconfig.h because SFT passed the architecture-specific leaf instead of the Python include root"
+      "status": "completed",
+      "training_job_id": 181911,
+      "evaluation_job_id": 181912,
+      "correct": 304,
+      "total": 500,
+      "pass_at_1": 0.608,
+      "bootstrap_95_ci": [0.566, 0.65],
+      "parseable": 445,
+      "eligible_final_answers": 445,
+      "finish_reasons": {"stop": 413, "length": 87},
+      "cap_hits": 87,
+      "cap_hit_subset": {"correct": 4, "total": 87, "accuracy": 0.04597701149425287},
+      "natural_stop_subset": {"correct": 300, "total": 413, "accuracy": 0.7263922518159807},
+      "think_closed": 319,
+      "parser_verifier_failures": 5,
+      "response_tokens": {
+        "mean": 6161.166,
+        "median": 3775.0,
+        "p90": 16384.0,
+        "p95": 16384.0,
+        "max": 16384
+      },
+      "scorer_version": "math500_event_scorer_v1",
+      "policy_sha256": "0dd7db2683f82e416aff70cb7324a93c7762ad875513e28f51b90379c16f0a0e",
+      "raw_artifact_manifest_sha256": "9aaa6d9a57996eff08600f699e758d145dc76955782160c3e08ba4aec5e588c6",
+      "model_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000999",
+      "checkpoint_report_sha256": "bea15eee09a53581f37b8a19a677711f12a1d988943aa2bf8280174abed345b8",
+      "summary_path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/math500/sft_200000/summary.json",
+      "summary_bytes": 289930,
+      "summary_sha256": "2f9937f2e6b49943fa0ea0d006ce80ea4526f436cf049718874225f2e120e180"
     },
-    "opd_100pct": {"status": "pending_sft"}
+    "opd_100pct": {
+      "status": "failed_infrastructure",
+      "job_id": 181913,
+      "elapsed": "00:03:03",
+      "failure": "The 32B teacher reached its first health generation, where Triton failed because CC was not set inside the OPD container.",
+      "rollouts_completed": 0,
+      "optimizer_updates_completed": 0,
+      "checkpoints_created": false,
+      "opd_log_sha256": "8fcbea75a8a6ec2b31a3128b4204f1595636d8463e80e7049ee86a3a98a66c8c",
+      "teacher_log_sha256": "8534fe24e1b9bff3b0a29aafa31221efcd8f503c863f0add6abc700f95fdfd79",
+      "pending_superseded_eval_job_id": 181914
+    }
+  },
+  "context_budget_hypothesis": {
+    "primary_result_is_immutable": true,
+    "completed_policy": {
+      "description": "fixed 16,384-token output-generation cap within a 32,768-token model context",
+      "effective_response_budget": "min(16384, 32768 - rendered_prompt_tokens - 64)"
+    },
+    "planned_diagnostic_proxy": {
+      "description": "rerun only source cap-hit prompts from the original input with a dynamic response budget up to 32K total context; reuse natural stops",
+      "effective_response_budget": "32768 - rendered_prompt_tokens - 64",
+      "total_context_accounting": "rendered prompt tokens plus generated response tokens plus 64 reserved safety tokens",
+      "required_exactness_check": "the first 16K generated token IDs of every rerun must exactly match its saved source generation",
+      "interpretation": "an exact cap-hit-only proxy for the corresponding 32K-total-context evaluation only when all prefix checks pass"
+    },
+    "reported_result_hypothesis": "The reported post-SFT result may have used an effective 32K total context even though released scripts describe a 16K generation cap; the 300/413 = 72.64% natural-stop subset is selected and not a pass@1 estimate, but is within plausible sampling noise of that result."
   },
   "artifact_policy": "Compact metrics and hashes are tracked; raw generations, rollouts, and checkpoints remain outside Git."
 }

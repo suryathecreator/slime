@@ -101,3 +101,20 @@ include directory plus its parent include root. A forced uncached Triton
 `CudaUtils` compile passes inside the same container with this corrected CPATH.
 No optimizer update or checkpoint was created, and all failure artifacts remain
 preserved with hashes in the JSON audit.
+
+## Submission attempt 8: SFT complete; OPD compiler unavailable
+
+The corrected SFT job `181911` completed all 200,000 examples and 1,000
+optimizer steps in 22:55:17, producing final weights at `iter_0000999`. Its
+evaluation job `181912` completed in 3:31:11 at 304/500 (60.8%), with 87 cap
+hits. The immutable summary and checkpoint report are hashed in the JSON audit.
+
+OPD job `181913` then loaded the 32B teacher but failed on its first health
+generation because Triton could not find a C compiler inside the OPD container.
+It exited in 3:03 before rollout 0; the OPD sanity audit has zero rows, and no
+optimizer update or checkpoint was created. Dependent evaluation `181914`
+remains blocked by `DependencyNeverSatisfied` pending replacement.
+
+Recovery forwards the same proven Zig `CC` and Python-header `CPATH` used by
+the successful SFT and evaluation jobs into OPD and adds an in-container compile
+preflight. The failed logs and empty sanity result remain preserved.

@@ -212,6 +212,54 @@
       "checkpoints_created": false,
       "recovery": "Use the same CPATH as completed evals: the Python 3.12 include directory plus its parent include root. A forced uncached Triton CudaUtils build passes with this configuration.",
       "preservation": "The failed log and deterministic first-batch rollout tensor are retained; completed evaluations remain unchanged."
+    },
+    {
+      "attempt": 8,
+      "branch_commit": "fcf6ece7a27fe5468e22b9552d8f4dc1847876af",
+      "contract_hash": "4095e6ac256b0dbf",
+      "submitted_at": "2026-07-20T18:16:34.083526+00:00",
+      "artifact_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf",
+      "failure_class": "opd_triton_compiler_unavailable",
+      "cause": "The 32B teacher reached its first OPD health generation, but Triton could not find a C compiler because the OPD launcher did not forward the pinned CC and CPATH.",
+      "jobs": [
+        {"job_id": 181911, "stage": "sft_200k", "state": "COMPLETED", "elapsed": "22:55:17", "exit_code": "0:0"},
+        {"job_id": 181912, "stage": "sft_eval", "state": "COMPLETED", "elapsed": "03:31:11", "exit_code": "0:0"},
+        {"job_id": 181913, "stage": "opd_1472x4", "state": "FAILED", "elapsed": "00:03:03", "exit_code": "1:0"},
+        {"job_id": 181914, "stage": "opd_eval_100pct", "state": "PENDING", "elapsed": "00:00:00", "exit_code": "0:0", "pending_reason": "DependencyNeverSatisfied"}
+      ],
+      "completed_sft": {
+        "examples": 200000,
+        "optimizer_steps": 1000,
+        "final_iteration": 999,
+        "final_weights": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000999",
+        "checkpoint_report_sha256": "bea15eee09a53581f37b8a19a677711f12a1d988943aa2bf8280174abed345b8"
+      },
+      "completed_sft_evaluation": {
+        "correct": 304,
+        "total": 500,
+        "pass_at_1": 0.608,
+        "bootstrap_95_ci": [0.566, 0.65],
+        "parseable": 445,
+        "cap_hits": 87,
+        "natural_stop_correct": 300,
+        "natural_stop_total": 413,
+        "cap_hit_correct": 4,
+        "cap_hit_total": 87,
+        "summary_sha256": "2f9937f2e6b49943fa0ea0d006ce80ea4526f436cf049718874225f2e120e180",
+        "raw_artifact_manifest_sha256": "9aaa6d9a57996eff08600f699e758d145dc76955782160c3e08ba4aec5e588c6"
+      },
+      "opd_rollouts_completed": 0,
+      "opd_optimizer_updates_completed": 0,
+      "opd_checkpoints_created": false,
+      "artifact_hashes": {
+        "opd_log": "8fcbea75a8a6ec2b31a3128b4204f1595636d8463e80e7049ee86a3a98a66c8c",
+        "teacher_log": "8534fe24e1b9bff3b0a29aafa31221efcd8f503c863f0add6abc700f95fdfd79",
+        "sft_summary": "2f9937f2e6b49943fa0ea0d006ce80ea4526f436cf049718874225f2e120e180",
+        "sft_checkpoint_report": "bea15eee09a53581f37b8a19a677711f12a1d988943aa2bf8280174abed345b8",
+        "source_resubmission_manifest": "ec0feebb47092f3d9bd40da6b1782aacf9de6c8094dffc6ddc01f8e37d146051"
+      },
+      "recovery": "Forward the proven Zig CC and Python 3.12 plus parent include-root CPATH through the OPD container boundary and validate an uncached Triton compile before starting the teacher server.",
+      "preservation": "The completed SFT artifacts and evaluation are immutable; failed OPD logs and the zero-row sanity result are retained."
     }
   ]
 }
