@@ -102,6 +102,23 @@ def test_sft_propagates_pinned_compiler_to_ray_workers() -> None:
     assert "  SFT_TORCH_COMPILE_CPATH\n" in container
 
 
+def test_opd_propagates_and_preflights_pinned_compiler() -> None:
+    env = (ROOT / "env.sh").read_text()
+    assert 'OPD_TORCH_COMPILE_CC="${OPD_TORCH_COMPILE_CC:-${EVAL_ZIG_CC}}"' in env
+    assert 'OPD_TORCH_COMPILE_CPATH="${OPD_TORCH_COMPILE_CPATH:-${EVAL_ZIG_INCLUDE_ROOT}/python3.12:${EVAL_ZIG_INCLUDE_ROOT}}"' in env
+
+    opd_job = (ROOT / "04_opd.sbatch").read_text()
+    assert 'export CC="${OPD_TORCH_COMPILE_CC}"' in opd_job
+    assert 'export CPATH="${OPD_TORCH_COMPILE_CPATH}' in opd_job
+    assert "from triton.backends.nvidia.driver import CudaUtils" in opd_job
+    assert "OPD_TRITON_COMPILER_READY" in opd_job
+
+    wrapper = (ROOT.parent / "qwen3_8b_opd_tillicum" / "05_run_opd_50k_8xh200.sbatch").read_text()
+    assert 'OPD_TORCH_COMPILER_READY cc=${CC} cpath=${CPATH}' in wrapper
+    assert '\\"CC\\": \\"${CC}\\"' in wrapper
+    assert '\\"CPATH\\": \\"${CPATH}\\"' in wrapper
+
+
 def test_eval_disables_training_site_patch_and_uses_explicit_libraries() -> None:
     text = (ROOT / "02_eval_math500.sbatch").read_text()
     assert "export SLIME_VLLM_PATCH_SITE=0" in text
@@ -131,6 +148,36 @@ def test_eval_configures_and_preflights_pinned_zig_compiler() -> None:
     assert "  EVAL_ZIG_CC\n" in wrapper
     assert "  EVAL_ZIG_INCLUDE_ROOT\n" in wrapper
     assert "  CUDA_VISIBLE_DEVICES\n" in wrapper
+
+
+def test_cap_hit_proxy_is_exact_fail_closed_and_serial() -> None:
+    config = json.loads((ROOT / "config/eval_config.json").read_text())
+    proxy = config["cap_hit_context_proxy"]
+    assert proxy["target_total_context_tokens"] == 32768
+    assert proxy["status"] == "diagnostic_not_primary_protocol"
+    assert "exact prefix" in proxy["publication_gate"]
+
+    job = (ROOT / "05_eval_cap_hits_32k.sbatch").read_text()
+    assert "cap-rerun-shard" in job
+    assert "aggregate-cap-proxy" in job
+    assert '--target-context "${EVAL_CAP_PROXY_TARGET_CONTEXT}"' in job
+    assert 'CAP_PROXY_SHARD_GPU_READY shard=${expected_visible_gpu}' in job
+
+    recovery = (ROOT / "resubmit_after_opd_compiler.sh").read_text()
+    assert 'scancel' not in recovery or '"${SCANCEL_BIN}" 181914' in recovery
+    assert "trap cancel_partial_resubmission EXIT" in recovery
+    assert '"${SCANCEL_BIN}" "${submitted_jobs[@]}"' in recovery
+    assert recovery.count("submit_job ") == 6
+    ordered_names = [
+        "submit_job opd_job",
+        "submit_job opd_eval_job",
+        "submit_job opd_proxy_job",
+        "submit_job sft_proxy_job",
+        "submit_job teacher_proxy_job",
+        "submit_job base_proxy_job",
+    ]
+    offsets = [recovery.index(name) for name in ordered_names]
+    assert offsets == sorted(offsets)
 
 
 def test_environment_capture_does_not_initialize_unused_cudnn() -> None:

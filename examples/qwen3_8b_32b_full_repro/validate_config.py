@@ -52,6 +52,16 @@ def main() -> None:
     require(evaluation["sampling"] == {"temperature": 0.8, "top_p": 0.7, "top_k": -1, "n": 1, "seed": 1234}, "evaluation sampling mismatch")
     require(evaluation["max_new_tokens"] == 16384, "evaluation cap mismatch")
     require(evaluation["automatic_checkpoints"] == ["qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct"], "evaluation checkpoint policy mismatch")
+    proxy = evaluation["cap_hit_context_proxy"]
+    require(proxy["status"] == "diagnostic_not_primary_protocol", "32K proxy must remain diagnostic")
+    require(proxy["target_total_context_tokens"] == 32768, "32K proxy context mismatch")
+    require(proxy["safety_margin"] == evaluation["safety_margin"], "32K proxy safety margin mismatch")
+    require(proxy["selection"].startswith("only rows with cap_hit=true"), "32K proxy must select only cap hits")
+    require("exact prefix" in proxy["publication_gate"], "32K proxy must fail closed on prefix drift")
+    require(
+        proxy["serial_order"] == ["opd_100pct", "sft_200000", "qwen3_32b_teacher", "qwen3_8b_base"],
+        "32K proxy serial order mismatch",
+    )
     require(evaluation["dataset_policy"].startswith("load read-only"), "MATH-500 must be read-only")
     cleanup = contract["cleanup"]
     require(cleanup["version"] == "ot3_assistant_cjk_v1", "cleanup version mismatch")
@@ -81,6 +91,10 @@ def main() -> None:
         require(int(os.environ.get("OPD_N_SAMPLES_PER_PROMPT", "0")) == opd["samples_per_prompt"], "runtime OPD samples/prompt differs")
         require(int(os.environ.get("OPD_MAX_RESPONSE_LEN", "0")) == opd["response_cap"], "runtime OPD response cap differs")
         require(int(os.environ.get("EVAL_MAX_RESPONSE_LEN", "0")) == evaluation["max_new_tokens"], "runtime eval response cap differs")
+        require(
+            int(os.environ.get("EVAL_CAP_PROXY_TARGET_CONTEXT", "0")) == proxy["target_total_context_tokens"],
+            "runtime 32K proxy context differs",
+        )
         for slurm in root.glob("*.sbatch"):
             text = slurm.read_text()
             require("#SBATCH --gres=gpu:h200:4" in text, f"{slurm.name} does not request exactly four H200s")

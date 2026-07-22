@@ -106,6 +106,12 @@ trap cleanup_pruner EXIT
 set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
 
+if [[ -n "${CC:-}" ]]; then
+  [[ -x "${CC}" ]] || { echo "OPD compiler is not executable: ${CC}" >&2; exit 1; }
+  [[ -n "${CPATH:-}" ]] || { echo "OPD compiler CPATH is empty." >&2; exit 1; }
+  echo "OPD_TORCH_COMPILER_READY cc=${CC} cpath=${CPATH}"
+fi
+
 if [[ "${QWEN3_ENABLE_THINKING}" != "1" ]]; then
   echo "This Qwen3 OPD run requires QWEN3_ENABLE_THINKING=1." >&2
   exit 2
@@ -417,6 +423,12 @@ SLIME_SGLANG_PATCH_SITE=0 CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray star
   --num-gpus "${OPD_RAY_GPUS}" \
   --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
 
+COMPILER_RUNTIME_ENV=""
+if [[ -n "${CC:-}" ]]; then
+  COMPILER_RUNTIME_ENV=",
+    \"CC\": \"${CC}\",
+    \"CPATH\": \"${CPATH}\""
+fi
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
     \"PYTHONPATH\": \"/root/Megatron-LM:${SLIME_REPO_ROOT}\",
@@ -434,7 +446,7 @@ RUNTIME_ENV_JSON="{
     \"OPD_SANITY_MAX_CAP_HIT_RATE\": \"${OPD_SANITY_MAX_CAP_HIT_RATE}\",
     \"OPD_SANITY_MAX_AVG_RESPONSE_TOKENS\": \"${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}\",
     \"OPD_SANITY_MIN_FINAL_ANSWER_RATE\": \"${OPD_SANITY_MIN_FINAL_ANSWER_RATE}\",
-    \"OPD_SANITY_REPORT_DIR\": \"${OPD_SANITY_REPORT_DIR}\"
+    \"OPD_SANITY_REPORT_DIR\": \"${OPD_SANITY_REPORT_DIR}\"${COMPILER_RUNTIME_ENV}
   }
 }"
 

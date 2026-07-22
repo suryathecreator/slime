@@ -42,6 +42,10 @@ def main() -> None:
         output_root / "final_report" / "RESULTS.md": repo_dir / "RESULTS.md",
         output_root / "final_report" / "STOPPING_OBJECTIVE_AUDIT.json": repo_dir / "STOPPING_OBJECTIVE_AUDIT.json",
         output_root / "final_report" / "STOPPING_OBJECTIVE_AUDIT.md": repo_dir / "STOPPING_OBJECTIVE_AUDIT.md",
+        output_root / "math500" / "qwen3_8b_base_32k_proxy" / "summary.json": repo_dir / "MATH500_BASE_32K_PROXY.json",
+        output_root / "math500" / "qwen3_32b_teacher_32k_proxy" / "summary.json": repo_dir / "MATH500_TEACHER_32K_PROXY.json",
+        output_root / "math500" / "sft_200000_32k_proxy" / "summary.json": repo_dir / "MATH500_SFT_32K_PROXY.json",
+        output_root / "math500" / "opd_100pct_32k_proxy" / "summary.json": repo_dir / "MATH500_OPD_32K_PROXY.json",
     }
     missing = [str(path) for path in sources if not path.is_file()]
     if missing:

@@ -16,6 +16,9 @@ source "${SCRIPT_DIR}/env.sh"
 export TMPDIR="/tmp/${USER:-suryadv}/q8b32b-${SLURM_JOB_ID}"
 export RAY_TMPDIR="${TMPDIR}/ray"
 unset LD_LIBRARY_PATH
+export CC="${OPD_TORCH_COMPILE_CC}"
+export CPATH="${OPD_TORCH_COMPILE_CPATH}${CPATH:+:${CPATH}}"
+mkdir -p "${TMPDIR}"
 cd "${SLIME_REPO_ROOT}"
 if [[ "$(realpath "${OPD_INITIAL_LOAD_DIR}")" != "$(realpath "${OPD_REF_LOAD_DIR}")" ]]; then
   echo "Initial actor/reference synchronization failed: ${OPD_INITIAL_LOAD_DIR} != ${OPD_REF_LOAD_DIR}" >&2
@@ -33,6 +36,21 @@ requeue_opd() {
   exit 0
 }
 trap requeue_opd USR1
+for path in \
+  "${CC}" \
+  "${EVAL_ZIG_INCLUDE_ROOT}/python3.12/Python.h" \
+  "${EVAL_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h"; do
+  [[ -e "${path}" ]] || { echo "Missing OPD compiler prerequisite: ${path}" >&2; exit 1; }
+done
+[[ -x "${CC}" ]] || { echo "OPD compiler is not executable: ${CC}" >&2; exit 1; }
+"${SCRIPT_DIR}/container_exec.sh" bash -lc '
+set -euo pipefail
+test -x "${CC}"
+test -f "${EVAL_ZIG_INCLUDE_ROOT}/python3.12/Python.h"
+test -f "${EVAL_ZIG_INCLUDE_ROOT}/x86_64-linux-gnu/python3.12/pyconfig.h"
+export TRITON_CACHE_DIR="${TMPDIR}/opd-triton-compiler-preflight"
+python3 -c "from triton.backends.nvidia.driver import CudaUtils; CudaUtils(); print(\"OPD_TRITON_COMPILER_READY\")"
+'
 bash examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch &
 opd_pid="$!"
 wait "${opd_pid}"

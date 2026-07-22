@@ -14,6 +14,12 @@ from typing import Any
 
 
 STAGES = ("qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct")
+CAP_PROXY_STAGES = {
+    "qwen3_8b_base": "qwen3_8b_base_32k_proxy",
+    "qwen3_32b_teacher": "qwen3_32b_teacher_32k_proxy",
+    "sft_200000": "sft_200000_32k_proxy",
+    "opd_100pct": "opd_100pct_32k_proxy",
+}
 
 
 def atomic_text(path: Path, text: str) -> None:
@@ -91,6 +97,10 @@ def main() -> None:
     eval_root = Path(os.environ["EVAL_OUTPUT_ROOT"])
     report_root = Path(os.environ["OUTPUT_ROOT"]) / "final_report"
     values = {stage: load_stage(eval_root, stage) for stage in STAGES}
+    proxy_values = {
+        source_stage: load_stage(eval_root, proxy_stage)
+        for source_stage, proxy_stage in CAP_PROXY_STAGES.items()
+    }
     sft = values["sft_200000"]
     opd = values["opd_100pct"]
     sft_points = 100 * float(sft["pass_at_1"])
@@ -109,6 +119,7 @@ def main() -> None:
         "schema_version": 1,
         "contract_sha256": sha256_file(Path(os.environ["CONTRACT_FILE"])),
         "evaluations": values,
+        "cap_hit_32k_context_proxies": proxy_values,
         "reproduction_criteria": criteria,
         "stopping_audit": audit,
     }
@@ -117,10 +128,21 @@ def main() -> None:
     for stage in STAGES:
         value = values[stage]
         lines.append(f"- {stage}: {value['correct']}/500 ({100 * value['pass_at_1']:.2f}%)")
+    lines.extend(["", "## Cap-hit-only 32K total-context diagnostics", ""])
+    for source_stage, proxy_stage in CAP_PROXY_STAGES.items():
+        value = proxy_values[source_stage]
+        gate = value["exactness_gate"]
+        lines.append(
+            f"- {source_stage}: {value['correct']}/500 ({100 * value['pass_at_1']:.2f}%), "
+            f"reran {gate['source_cap_hits_selected']} cap hits with "
+            f"{gate['prefixes_exact']}/{gate['prefixes_checked']} exact saved prefixes"
+        )
     lines.extend(
         [
             "",
             f"Observed OPD gain: {criteria['observed_gain_points']:.2f} points. Public targets were 76% SFT and 94% OPD; exact observed values are reported without seed or scorer selection.",
+            "",
+            "Primary reproduction criteria use only the fixed-16K-output evaluations above. The diagnostics reuse natural stops and rerun only cap-hit prompts with a dynamic response budget up to 32K total context; they are exact proxies only because every saved 16K token prefix is required to match.",
         ]
     )
     atomic_text(report_root / "RESULTS.md", "\n".join(lines) + "\n")

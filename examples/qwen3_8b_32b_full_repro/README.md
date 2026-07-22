@@ -14,6 +14,7 @@ OpenThoughts3 raw rows
   -> final SFT MATH-500 evaluation
   -> 1,472-prompt x four-sample colocated OPD
   -> final 100% OPD MATH-500 evaluation
+  -> serial exact-prefix 32K cap-hit proxies (OPD, SFT, teacher, base)
   -> results and stopping audit
 ```
 
@@ -30,9 +31,28 @@ selection, and there is no OpenThoughts3/MATH-500 cross-contamination check.
   temperature 0.8, top-p 1.0, top-k -1, response cap 16,384, CP-compatible
   16,380 context, batch 16/global 64, LR 1e-6, pure OPD objective.
 - Evaluation: exact boxed-answer prompt, temperature 0.8, top-p 0.7, top-k -1,
-  one sample, adaptive maximum 16,384, EOS plus `<|im_end|>` stopping.
+  one sample, fixed 16,384 output-generation cap within the 32,768-token model
+  context, EOS plus `<|im_end|>` stopping. The exact effective response budget
+  is `min(16384, 32768 - rendered_prompt_tokens - 64)`.
 - Automatic evaluation: base 8B, teacher 32B, final 200K SFT, final 100% OPD
   only. Intermediate weights remain available.
+
+After the primary post-OPD evaluation, the recovery chain runs a diagnostic
+32K-total-context proxy in serial order: OPD, SFT, teacher, then base. It
+regenerates only source rows that hit the primary cap, from the original saved
+input token IDs and per-problem seed. Natural stops are reused. The dynamic
+response budget is `32768 - rendered_prompt_tokens - 64`, where the rendered
+prompt includes chat-template special tokens, the problem, instruction, and
+assistant prefix; the generated response includes reasoning, think tags, answer
+text, and any emitted stop token. There is no hidden reasoning stream outside
+that accounting. Every rerun must reproduce the saved source output token IDs
+as an exact prefix or the diagnostic refuses to publish.
+
+The primary rule is a 16K output cap, while the proxy rule is a dynamic 32K
+total-context budget. Prompt lengths are small enough that their effective
+generation lengths remain near 16K and 32K respectively. Each rule is applied
+consistently to every checkpoint, and proxy results never replace the primary
+reproduction metrics.
 
 ## Execution
 

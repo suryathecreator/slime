@@ -12,5 +12,17 @@
   "math_verify": "0.9.0",
   "parser_timeout_seconds": 10,
   "verifier_timeout_seconds": 15,
-  "automatic_checkpoints": ["qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct"]
+  "automatic_checkpoints": ["qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct"],
+  "cap_hit_context_proxy": {
+    "status": "diagnostic_not_primary_protocol",
+    "source_response_budget": "min(16384, 32768 - rendered_prompt_tokens - 64)",
+    "target_total_context_tokens": 32768,
+    "target_response_budget": "32768 - rendered_prompt_tokens - 64",
+    "safety_margin": 64,
+    "selection": "only rows with cap_hit=true in the immutable source evaluation",
+    "natural_stops": "reuse the saved source generation without regeneration",
+    "cap_hits": "rerun the original saved input token IDs with the original per-problem seed and source sampling policy",
+    "publication_gate": "every rerun must reproduce all saved source generated token IDs as an exact prefix",
+    "serial_order": ["opd_100pct", "sft_200000", "qwen3_32b_teacher", "qwen3_8b_base"]
+  }
 }
