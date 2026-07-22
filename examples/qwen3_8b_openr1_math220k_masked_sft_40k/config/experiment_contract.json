@@ -1,0 +1,35 @@
+{
+  "base_model": {
+    "hf_repo": "Qwen/Qwen3-8B-Base",
+    "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
+  },
+  "data": {
+    "config": "default",
+    "dataset": "open-r1/OpenR1-Math-220k",
+    "revision": "dc748648036c1ed619b020e056dc4b603eb39817",
+    "seed": 42,
+    "split": "train"
+  },
+  "evaluation": {
+    "base_summary_sha256": "ba252b5bfa78e7e5ccc6f803c9af4a9d32df7121b0d87001a2761646fbf4fef9",
+    "dataset": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "seed": 1234,
+    "stop_token_ids": [151643, 151645]
+  },
+  "selection": {
+    "correct_only_rows": 40000,
+    "mixed_correct_rows": 20000,
+    "mixed_wrong_rows": 20000,
+    "mode": "unpaired_disjoint_problem_ids"
+  },
+  "training": {
+    "full_sft": true,
+    "global_batch_size": 200,
+    "learning_rate": 1e-06,
+    "max_sequence_length": 32768,
+    "num_epochs": 1,
+    "tau": 0.2,
+    "variants": ["correct_only", "weighted_tau_0p20", "unmasked"]
+  }
+}

@@ -116,7 +116,7 @@ class Sample:
     response_length: int = 0
     label: str | None = None
     reward: float | dict[str, Any] | None = None
-    loss_mask: list[int] | None = None
+    loss_mask: list[float] | list[int] | None = None
     weight_versions: list[str] = field(default_factory=list)
     rollout_log_probs: list[float] | None = None  # Log probabilities from rollout engine
     # Ragged top-p nucleus token ids replayed from rollout sampling. For response

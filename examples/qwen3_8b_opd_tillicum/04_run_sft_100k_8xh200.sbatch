@@ -175,9 +175,9 @@ fi
 echo "SFT DP optimizer args: ${DP_OPT_ARGS[*]}"
 
 SFT_ARGS=(
-  --rollout-function-path slime.rollout.sft_rollout.generate_rollout
+  --rollout-function-path "${SFT_ROLLOUT_FUNCTION_PATH:-slime.rollout.sft_rollout.generate_rollout}"
   --prompt-data "${SFT_PARQUET}"
-  --input-key messages
+  --input-key "${SFT_INPUT_KEY:-messages}"
   --rollout-shuffle
   --rollout-seed "${DATA_SEED}"
   --num-epoch "${SFT_NUM_EPOCH}"
@@ -232,7 +232,10 @@ fi
 
 WANDB_ARGS=()
 if [[ "${WANDB_MODE}" != "disabled" ]]; then
-  WANDB_ARGS+=(--wandb-project slime-tillicum --wandb-group qwen3-8b-sft25k)
+  WANDB_ARGS+=(
+    --wandb-project "${SFT_WANDB_PROJECT:-slime-tillicum}"
+    --wandb-group "${SFT_WANDB_GROUP:-qwen3-8b-sft25k}"
+  )
 fi
 
 MISC_ARGS=(

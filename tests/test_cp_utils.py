@@ -62,6 +62,25 @@ def test_default_reduces_to_per_sample_mean():
 
 
 @pytest.mark.unit
+def test_per_token_loss_preserves_fractional_loss_weights():
+    """Continuous SFT masks contribute as weights and normalize by weight sum."""
+    total_lengths = [7]
+    response_lengths = [3]
+    loss_masks = [torch.tensor([0.25, 0.5, 1.0], dtype=torch.float32)]
+    reducer = get_sum_of_sample_mean(
+        total_lengths,
+        response_lengths,
+        loss_masks,
+        calculate_per_token_loss=True,
+    )
+    token_losses = torch.tensor([4.0, 2.0, 1.0])
+    weighted_sum = reducer(token_losses)
+    normalized = weighted_sum / loss_masks[0].sum()
+    assert weighted_sum.item() == pytest.approx(3.0)
+    assert normalized.item() == pytest.approx(3.0 / 1.75)
+
+
+@pytest.mark.unit
 def test_per_rollout_denom_collapses_siblings_into_one_mean():
     """Pre-computed per-rollout mask sums make N sibling samples contribute one
     token-weighted mean instead of N per-sample means."""
