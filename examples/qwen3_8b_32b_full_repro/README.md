@@ -14,7 +14,7 @@ OpenThoughts3 raw rows
   -> final SFT MATH-500 evaluation
   -> 1,472-prompt x four-sample colocated OPD
   -> final 100% OPD MATH-500 evaluation
-  -> serial exact-prefix 32K cap-hit proxies (OPD, SFT, teacher, base)
+  -> failed-closed 32K replay attempt on OPD cap hits (no score)
   -> results and stopping audit
 ```
 
@@ -37,21 +37,34 @@ selection, and there is no OpenThoughts3/MATH-500 cross-contamination check.
 - Automatic evaluation: base 8B, teacher 32B, final 200K SFT, final 100% OPD
   only. Intermediate weights remain available.
 
-After the primary post-OPD evaluation, the recovery chain runs a diagnostic
-32K-total-context proxy in serial order: OPD, SFT, teacher, then base. It
-regenerates only source rows that hit the primary cap, from the original saved
-input token IDs and per-problem seed. Natural stops are reused. The dynamic
-response budget is `32768 - rendered_prompt_tokens - 64`, where the rendered
-prompt includes chat-template special tokens, the problem, instruction, and
-assistant prefix; the generated response includes reasoning, think tags, answer
-text, and any emitted stop token. There is no hidden reasoning stream outside
-that accounting. Every rerun must reproduce the saved source output token IDs
-as an exact prefix or the diagnostic refuses to publish.
+After the primary post-OPD evaluation, job `183039` attempted a diagnostic
+32K-total-context replay of the 58 OPD rows that hit the primary cap. All four
+shards completed generation, but seeded reruns diverged from their saved 16K
+prefixes. The fail-closed gate therefore published zero rows and no 32K score.
+Jobs `183040`, `183041`, and `183042` (SFT, teacher, and base proxies) were
+cancelled without starting.
 
-The primary rule is a 16K output cap, while the proxy rule is a dynamic 32K
-total-context budget. Prompt lengths are small enough that their effective
-generation lengths remain near 16K and 32K respectively. Each rule is applied
-consistently to every checkpoint, and proxy results never replace the primary
+Exact sampled generation-to-generation equality is not guaranteed by a seed.
+Dynamic batching, asynchronous scheduling, RNG consumption, kernel and
+floating-point paths, engine/runtime details, and even the requested generation
+budget can change the sampled tokens. The observed first failures occurred at
+token offsets 95, 173, and 287; another seeded rerun stopped after 5,159 tokens
+instead of reproducing its saved 16,384-token prefix.
+
+Continuing from the saved 16K response would avoid replay drift, but it would
+condition on an old trajectory while restarting sampler state. That is not the
+same experiment as drawing a response from the original prompt with a 32K
+budget, so it is not treated as a fidelity-preserving evaluation. A valid 32K
+ablation would regenerate all 500 prompts from their original inputs under one
+pinned protocol. Context length alone would still not guarantee perfect
+reproduction of an external result unless the checkpoint, prompt template,
+tokenizer, stop rules, sampling implementation, seed handling, scorer,
+engine/runtime, batching, and hardware behavior were also aligned. Such a 32K
+ablation, and other protocol ablations, can be run later if desired.
+
+The completed primary rule is a fixed 16K output cap, subject to the 32K model
+context and 64-token safety margin. The abandoned attempt used a dynamic 32K
+total-context budget. No incomplete 32K attempt is included in the reported
 reproduction metrics.
 
 ## Execution

@@ -14,14 +14,6 @@ from typing import Any
 
 
 STAGES = ("qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct")
-CAP_PROXY_STAGES = {
-    "qwen3_8b_base": "qwen3_8b_base_32k_proxy",
-    "qwen3_32b_teacher": "qwen3_32b_teacher_32k_proxy",
-    "sft_200000": "sft_200000_32k_proxy",
-    "opd_100pct": "opd_100pct_32k_proxy",
-}
-
-
 def atomic_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
@@ -97,10 +89,16 @@ def main() -> None:
     eval_root = Path(os.environ["EVAL_OUTPUT_ROOT"])
     report_root = Path(os.environ["OUTPUT_ROOT"]) / "final_report"
     values = {stage: load_stage(eval_root, stage) for stage in STAGES}
-    proxy_values = {
-        source_stage: load_stage(eval_root, proxy_stage)
-        for source_stage, proxy_stage in CAP_PROXY_STAGES.items()
-    }
+    learning_path = report_root / "opd_learning_dynamics.json"
+    attempt_32k_path = report_root / "CAP_HIT_32K_ATTEMPT.json"
+    if not learning_path.is_file():
+        raise SystemExit(f"Missing OPD learning dynamics: {learning_path}")
+    if not attempt_32k_path.is_file():
+        raise SystemExit(f"Missing 32K attempt record: {attempt_32k_path}")
+    learning = json.loads(learning_path.read_text())
+    attempt_32k = json.loads(attempt_32k_path.read_text())
+    if attempt_32k.get("status") != "abandoned_incomplete_no_score":
+        raise SystemExit(f"Unexpected 32K attempt status: {attempt_32k.get('status')}")
     sft = values["sft_200000"]
     opd = values["opd_100pct"]
     sft_points = 100 * float(sft["pass_at_1"])
@@ -119,30 +117,70 @@ def main() -> None:
         "schema_version": 1,
         "contract_sha256": sha256_file(Path(os.environ["CONTRACT_FILE"])),
         "evaluations": values,
-        "cap_hit_32k_context_proxies": proxy_values,
+        "cap_hit_32k_context_evaluation": attempt_32k,
         "reproduction_criteria": criteria,
         "stopping_audit": audit,
+        "opd_learning_dynamics": learning,
     }
     atomic_text(report_root / "results.json", json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
     lines = ["# Qwen3 8B -> 32B reproduction results", ""]
     for stage in STAGES:
         value = values[stage]
         lines.append(f"- {stage}: {value['correct']}/500 ({100 * value['pass_at_1']:.2f}%)")
-    lines.extend(["", "## Cap-hit-only 32K total-context diagnostics", ""])
-    for source_stage, proxy_stage in CAP_PROXY_STAGES.items():
-        value = proxy_values[source_stage]
-        gate = value["exactness_gate"]
+    lines.extend(["", "## OPD learning dynamics", ""])
+    lines.extend(
+        [
+            "| Rollouts | Mean tokens | Cap hit | Think closed | Eligible final | `<|im_end|>` | Repetition | Reverse-KL |",
+            "|---:|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for row in learning["milestone_windows"]:
         lines.append(
-            f"- {source_stage}: {value['correct']}/500 ({100 * value['pass_at_1']:.2f}%), "
-            f"reran {gate['source_cap_hits_selected']} cap hits with "
-            f"{gate['prefixes_exact']}/{gate['prefixes_checked']} exact saved prefixes"
+            f"| {row['rollout_start']}-{row['rollout_end']} | {row['length']['mean']:.1f} | "
+            f"{row['cap_hit_rate']:.2%} | {row['think_closed_rate']:.2%} | "
+            f"{row['eligible_final_answer_rate']:.2%} | "
+            f"{row['terminal_condition_rates'].get('im_end', 0.0):.2%} | "
+            f"{row['repetition_indicator_rate']:.2%} | {row['sampled_reverse_kl']:.4f} |"
         )
+    delta = learning["first_to_last_window_change"]
+    lines.extend(
+        [
+            "",
+            "These are descriptive windows over different OpenThoughts prompts, not a controlled within-prompt estimate or a correctness measurement. From the first to final window, "
+            f"think closure changed by {delta['think_closed_rate_percentage_points']:+.2f} points, "
+            f"natural stopping by {delta['natural_stop_rate_percentage_points']:+.2f} points, "
+            f"`<|im_end|>` termination by {delta['im_end_rate_percentage_points']:+.2f} points, "
+            f"and cap hits by {delta['cap_hit_rate_percentage_points']:+.2f} points. "
+            "The 16K cutoff bounded compute; it was not an explicit terminal target.",
+            "",
+            "## Abandoned 32K context attempt",
+            "",
+            f"Job `{attempt_32k['job']['job_id']}` selected all {attempt_32k['attempt']['selected_cap_hit_rows']} OPD cap-hit rows. "
+            f"All {attempt_32k['attempt']['generation_attempts_reached_engine_completion']} generation attempts reached engine completion, "
+            f"but exact-prefix replay failed and {attempt_32k['attempt']['published_rows']} rows were published. No 32K score exists.",
+            "",
+            attempt_32k["fidelity_decision"]["exact_replay_unreliable"],
+            "",
+            attempt_32k["fidelity_decision"]["prefix_continuation_rejected"],
+            "",
+            attempt_32k["fidelity_decision"]["required_for_valid_32k_ablation"],
+            "",
+            attempt_32k["fidelity_decision"]["future_work"],
+            "",
+            "Remaining jobs were cancelled: "
+            + ", ".join(
+                f"`{row['job_id']}` ({row['stage']})"
+                for row in attempt_32k["cancelled_downstream_jobs"]
+            )
+            + ".",
+        ]
+    )
     lines.extend(
         [
             "",
             f"Observed OPD gain: {criteria['observed_gain_points']:.2f} points. Public targets were 76% SFT and 94% OPD; exact observed values are reported without seed or scorer selection.",
             "",
-            "Primary reproduction criteria use only the fixed-16K-output evaluations above. The diagnostics reuse natural stops and rerun only cap-hit prompts with a dynamic response budget up to 32K total context; they are exact proxies only because every saved 16K token prefix is required to match.",
+            "Primary reproduction criteria use only the completed fixed-16K-output evaluations above. No incomplete 32K attempt is included in any metric.",
         ]
     )
     atomic_text(report_root / "RESULTS.md", "\n".join(lines) + "\n")

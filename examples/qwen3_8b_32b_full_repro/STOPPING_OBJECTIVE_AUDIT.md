@@ -1,17 +1,10 @@
-# Stopping-objective audit
+# OPD rollout audit
 
-This file is populated after OPD. The audit reports rollout length
-distributions, 16K cap hits, think closure, eligible final answers, EOS versus
-`<|im_end|>`, answer events and corrections, terminal teacher/student
-log-probabilities, and repetition indicators.
+- Trajectories: 5888
+- Mean/median/p95/max tokens: 13173.4/15562.5/16316.0/16344
+- Cap-hit rate: 49.61%
+- Think closure / eligible final answer: 43.73%/85.48%
+- Sampled reverse-KL: 0.317694
+- Mean teacher/student terminal log-probability: -4.51343591049375/-1.3004331004441432
 
-`audit_opd_rollouts.py` reads the preserved rollout tensors after training and
-writes per-trajectory JSONL plus an aggregate JSON/Markdown report. Global IDs
-combine the root rollout ID with within-rollout order; they never rely on a
-local sample index that may reset. OpenThoughts responses are not treated as
-verified gold, so correctness is explicitly unavailable rather than inferred.
-
-The interpretation is fixed in advance: a 16K cutoff bounds compute but does
-not teach stopping. Capped trajectories contain no synthetic EOS and remain in
-the faithful OPD loss. Behavioral threshold violations are reported but do not
-abort or modify the run.
+All behavior thresholds were diagnostic and nonfatal. Capped and failed trajectories remain preserved.

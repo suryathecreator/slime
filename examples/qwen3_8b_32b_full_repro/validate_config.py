@@ -53,7 +53,10 @@ def main() -> None:
     require(evaluation["max_new_tokens"] == 16384, "evaluation cap mismatch")
     require(evaluation["automatic_checkpoints"] == ["qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct"], "evaluation checkpoint policy mismatch")
     proxy = evaluation["cap_hit_context_proxy"]
-    require(proxy["status"] == "diagnostic_not_primary_protocol", "32K proxy must remain diagnostic")
+    require(
+        proxy["status"] == "abandoned_incomplete_no_score",
+        "32K attempt must remain explicitly abandoned and unscored",
+    )
     require(proxy["target_total_context_tokens"] == 32768, "32K proxy context mismatch")
     require(proxy["safety_margin"] == evaluation["safety_margin"], "32K proxy safety margin mismatch")
     require(proxy["selection"].startswith("only rows with cap_hit=true"), "32K proxy must select only cap hits")

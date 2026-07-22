@@ -1,0 +1,967 @@
+{
+  "opd": {
+    "data_revision": "61bcf9d4eb38b30295efc2021227a63cc5bb34c8",
+    "latest_full_state": {
+      "examples_or_prompt_rows": 1472,
+      "files": [
+        {
+          "bytes": 210336,
+          "path": ".metadata",
+          "sha256": "51629f40b6e4ea74c3e8333e80a2fe54a7a65c9b1c1090b3fff4f8e81e515063"
+        },
+        {
+          "bytes": 19117319354,
+          "path": "__0_0.distcp",
+          "sha256": "8a8646db30280c5161c6dfeff25642b34094625dcf14a9d8d8bd34ffb928a93f"
+        },
+        {
+          "bytes": 19119004358,
+          "path": "__0_1.distcp",
+          "sha256": "d6efef706fc389f3665c72888dcf8d46395bfe1fdbf2cebddbde9df6c735b39c"
+        },
+        {
+          "bytes": 19101987394,
+          "path": "__1_0.distcp",
+          "sha256": "034e846beb4452969388847eb16c1f0430f9927770843e2cb003fef62c3d53b7"
+        },
+        {
+          "bytes": 19101390517,
+          "path": "__1_1.distcp",
+          "sha256": "ae98e21f298b5f0d7dd9aa4ff876c22d1586238fedb1b6713a0527922eb52e2b"
+        },
+        {
+          "bytes": 19115662632,
+          "path": "__2_0.distcp",
+          "sha256": "a430154cdaabfeb0d66dc75288074d7dabf4aeba455de8472f6d07e08772dd57"
+        },
+        {
+          "bytes": 19117181096,
+          "path": "__2_1.distcp",
+          "sha256": "9f90ef158f65feafd9a562a20031a1275e92fcb4025a59848cf3e3b296eef57e"
+        },
+        {
+          "bytes": 52391,
+          "path": "common.pt",
+          "sha256": "a59d23c6dbc29d6b784980f2e99d40a333a8693fb3b8a4190051b50fd06657a1"
+        },
+        {
+          "bytes": 119,
+          "path": "metadata.json",
+          "sha256": "9817072de14c715c70e8435a7fee90bac30abaf6885fc53ade6fe88babeef851"
+        }
+      ],
+      "iteration": 91,
+      "kind": "full_training_state",
+      "optimizer_step": 92,
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_full_state/iter_0000091",
+      "tokens_consumed": 77565029,
+      "trajectories": 5888
+    },
+    "load_instructions": "Use the HF snapshot for evaluation or fresh phase initialization; use latest full state only for exact same-geometry resume.",
+    "model_revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
+    "repository_commit": "a92bd1c8e2a36e7a5024ac92cd69a39fb105f20e",
+    "schema_version": 1,
+    "split_metadata": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/data/cleanup_and_split_audit.json",
+    "split_metadata_sha256": "4cd357d03375747b3f4ae44f77653148813c1e2dd098617688eb99195f31f1f2",
+    "stage": "opd",
+    "teacher_revision": "9216db5781bf21249d130ec9da846c4624c16137",
+    "tokenizer_revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
+    "weights": [
+      {
+        "examples_or_prompt_rows": 368,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "45de29108f31082d053aa3d71045329d8fddecd8d328a2ee5bd01762e475ef6b"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "367e8eec7e7ad98f20f56df5f17e2d27383ef237615c0f56d39454f844426648"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "e2459ce3d267d242590696b46d06819eb6e11aa2e82709794e6c1d3c654d5422"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "589763520e3d98163778cc3f57d478ac75e0347511528b74b121efa52c61b8d4"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "97590c3f4d4a8a44a676b53f604354fb9e511a87d3ecfdb49211c2ed89bb4581"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "05493a5e4bdd9c8d0478c8facf68cc50e97f4db5028ebe0bdfeb373f9b00aacc"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 22,
+        "kind": "weights_only",
+        "optimizer_step": 23,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_weights/iter_0000022",
+        "token_accounting": "generated response tokens",
+        "tokens_consumed": 19591418,
+        "trajectories": 1472
+      },
+      {
+        "examples_or_prompt_rows": 736,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "1374df6edecaef3737925c218a8725f5f9125725a37b2f35d74ada8a3a29f74d"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "1f75cc4e6ec9c0d6a42e2f64ae91d6b1c87bfcdc1fa22e104dc4dd41e6b8e156"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "f06186b547d8eae1262d64b274008ccec6fe5e15e6e76d1ef5df0413ff7a8512"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "22a1dcdd38a2a2639b79646adf9c8731d3e6c2c3efa3671174a0949b9896e161"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "d8c20d64423e6e795e274bc9bfc0a92c039c03b98d636229a4b04730d09b54a4"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "05493a5e4bdd9c8d0478c8facf68cc50e97f4db5028ebe0bdfeb373f9b00aacc"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 45,
+        "kind": "weights_only",
+        "optimizer_step": 46,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_weights/iter_0000045",
+        "token_accounting": "generated response tokens",
+        "tokens_consumed": 39618752,
+        "trajectories": 2944
+      },
+      {
+        "examples_or_prompt_rows": 1104,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "27eab1a7f163cc3de212b476c8190cdeb8c6dfd2d2da3a3eb2207ce2b17bbc53"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "4123cd69b70dd5d5dbd40e186cc98af3fba0163a9fce5d856ef789c1775e54a9"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "4df20118d96d5bce5e6b7339a862b4db79c234e73f143d80ee23ce52db4ad0e4"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "62f5f5d77dec41ce8923671339587321f501e38d6c0b124f8f87773c1038426c"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "d39c6f001cd8be9090e813872dff01daedfb3b39c99ab22c4da96effd6b04b67"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "05493a5e4bdd9c8d0478c8facf68cc50e97f4db5028ebe0bdfeb373f9b00aacc"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 68,
+        "kind": "weights_only",
+        "optimizer_step": 69,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_weights/iter_0000068",
+        "token_accounting": "generated response tokens",
+        "tokens_consumed": 59175046,
+        "trajectories": 4416
+      },
+      {
+        "examples_or_prompt_rows": 1472,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "ae603e953afa5f2a08773ef6d703ba1666e7aeecb854251d064ac6cd1f4e821d"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "93df63e6b04df8d340f3e5ef50ee7ba148cb9c103674f76d95c80c74cee883f7"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "73b14d4b452d8b7929353609289748afeece4ef0d00e2f4176a70a5eae9177e9"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "65deb9b77857188892dc635019e2df23457fd8017e8f90830b073df966c1d764"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "acfa5d76b91b3d0485fe8c701102793ae23561da839671c0a22f4a44a49a7c2c"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "05493a5e4bdd9c8d0478c8facf68cc50e97f4db5028ebe0bdfeb373f9b00aacc"
+          },
+          {
+            "bytes": 236277,
+            "path": "opd_trained_manifest.json",
+            "sha256": "0cc455017e6029e87368b40aad93839e1775ae4c85cea940c35d19311b855165"
+          },
+          {
+            "bytes": 86386,
+            "path": "split_metadata.json",
+            "sha256": "4cd357d03375747b3f4ae44f77653148813c1e2dd098617688eb99195f31f1f2"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 91,
+        "kind": "weights_only",
+        "optimizer_step": 92,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_weights/iter_0000091",
+        "token_accounting": "generated response tokens",
+        "tokens_consumed": 77565029,
+        "trajectories": 5888
+      }
+    ]
+  },
+  "schema_version": 1,
+  "sft": {
+    "data_revision": "61bcf9d4eb38b30295efc2021227a63cc5bb34c8",
+    "latest_full_state": {
+      "examples_or_prompt_rows": 200000,
+      "files": [
+        {
+          "bytes": 353338,
+          "path": ".metadata",
+          "sha256": "3d9b229d8957d8b8cba86eb4a2ae17924650d1eb19613532a4231fb1429e92f4"
+        },
+        {
+          "bytes": 14328669296,
+          "path": "__0_0.distcp",
+          "sha256": "7f409261b233ce46d8c8743ceac0b0110f93cb6feaffd220ce3cddc2aac9aa1e"
+        },
+        {
+          "bytes": 14341255819,
+          "path": "__0_1.distcp",
+          "sha256": "f3bb835b151f78e4e23624bec5e75459212739853dfe956d043615b9a0a70219"
+        },
+        {
+          "bytes": 14328092846,
+          "path": "__1_0.distcp",
+          "sha256": "5e02eb59448a0f81c74c7ff81355c2e5c8b29f58a85f209c75ca663f4b4191c6"
+        },
+        {
+          "bytes": 14341105835,
+          "path": "__1_1.distcp",
+          "sha256": "a693706d9cac60eefce28e734519302cd0209f4b615956e8b194a39f899829b8"
+        },
+        {
+          "bytes": 14328528300,
+          "path": "__2_0.distcp",
+          "sha256": "af7038c143fdaef7e749cf232fd3dec3dc81835e7a761e4244ace15a2842e05a"
+        },
+        {
+          "bytes": 14341097253,
+          "path": "__2_1.distcp",
+          "sha256": "86206f249621b488fff2cf2c9ccad3a48f75a0a63aba52f8abc23e833f70e3aa"
+        },
+        {
+          "bytes": 14328081300,
+          "path": "__3_0.distcp",
+          "sha256": "d275e774e432911a2245aeb9ce1bf6063c85dafd48b3f1d4730badce70c003bb"
+        },
+        {
+          "bytes": 14341097253,
+          "path": "__3_1.distcp",
+          "sha256": "4018c8eed903d283a9078efffb86618410a5c81a54e5c2883a8f8cbb487d14fa"
+        },
+        {
+          "bytes": 31527,
+          "path": "common.pt",
+          "sha256": "8f04bc4a84379fd78a96778a7ff8f32e3964765d9b287582beac0ceb2c553529"
+        },
+        {
+          "bytes": 119,
+          "path": "metadata.json",
+          "sha256": "9817072de14c715c70e8435a7fee90bac30abaf6885fc53ade6fe88babeef851"
+        }
+      ],
+      "iteration": 999,
+      "kind": "full_training_state",
+      "optimizer_step": 1000,
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_full_state/iter_0000999",
+      "tokens_consumed": 400000,
+      "trajectories": null
+    },
+    "load_instructions": "Use the HF snapshot for evaluation or fresh phase initialization; use latest full state only for exact same-geometry resume.",
+    "model_revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
+    "repository_commit": "a92bd1c8e2a36e7a5024ac92cd69a39fb105f20e",
+    "schema_version": 1,
+    "split_metadata": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/data/cleanup_and_split_audit.json",
+    "split_metadata_sha256": "4cd357d03375747b3f4ae44f77653148813c1e2dd098617688eb99195f31f1f2",
+    "stage": "sft",
+    "teacher_revision": null,
+    "tokenizer_revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
+    "weights": [
+      {
+        "examples_or_prompt_rows": 25000,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "f6642b1678ad27d1b8db3de39d2141c53bae1ce8a65482d54950145066dee72f"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "00b0d6b8c49988a1a51891c140f3b7dc1b95c98161d40cc74d61deebf924b204"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "b9e61b9e4286d3ff1ca797e20f513aefe0df67c20a8a9c414c339ac92c33eb5c"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "0cf88c25207975575bbd6ce03965954c1690c6ba047b9540392059a089bff9c4"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "91b4e4a291c40c66de5e4ac73c5d811052ea093ab14639856d057a34e83eaae3"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "27d9790796c2512d1cdb6084eb9da8e25c62d84fcdfd91afb5d7a93eb9c62c1e"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 124,
+        "kind": "weights_only",
+        "optimizer_step": 125,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000124",
+        "token_accounting": "rendered supervised-sequence tokens",
+        "tokens_consumed": 50000,
+        "trajectories": null
+      },
+      {
+        "examples_or_prompt_rows": 50000,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "7c19f69442a06a26b5d4afc784762687213133a644fde5926c04f0accfbdd92d"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "419015c78fecee60fa037f5dabef8804e9f2b176b6914361946f882be7caebe0"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "f9e2974e704fb2ba32229f4d9f1992a28f336e3bea01ba4b9cf1550acd079378"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "fe374638f9dc2bd401a9a06707a4b5b9b0e1fdf8edf0227f277a2bd09fe989de"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "118d62462f9b4a034f4cef2c793a2bc3c41993afda90a20c6eaacab5c9490f5b"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "27d9790796c2512d1cdb6084eb9da8e25c62d84fcdfd91afb5d7a93eb9c62c1e"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 249,
+        "kind": "weights_only",
+        "optimizer_step": 250,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000249",
+        "token_accounting": "rendered supervised-sequence tokens",
+        "tokens_consumed": 100000,
+        "trajectories": null
+      },
+      {
+        "examples_or_prompt_rows": 75000,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "d24e7c183941f5d2d7cc523822fa799a3952bd0c85c2039624976743fefdc9ee"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "1d5caf64e67de9ba53359645bf3313b33f7bdb112ed641420b8a39465acb29c2"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "5183125658ae3fba20b8f95df7a01f895bb4fcd1cb114af06f951e671bfae5cb"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "0d8469e13b496a907cbeff2ca79fa40d08593286bbb3c7647dbd2f03f8519ee2"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "fd71944e1201ef0a07d4c2c443125a6a968f9fd5c57b1810d0d2e98287a8252d"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "27d9790796c2512d1cdb6084eb9da8e25c62d84fcdfd91afb5d7a93eb9c62c1e"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 374,
+        "kind": "weights_only",
+        "optimizer_step": 375,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000374",
+        "token_accounting": "rendered supervised-sequence tokens",
+        "tokens_consumed": 150000,
+        "trajectories": null
+      },
+      {
+        "examples_or_prompt_rows": 100000,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "6a14141e75731d0a813ef0a9add914c16d238f5cdd382350f3dbf5ccd4ed3d92"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "ae7489d21e37866b839cd0af1b6e69cc7aa4d42da5c63e8161c41720db3fc2b5"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "25b4fd06e461f9d57df4727fa3adb95a00128e82ca2162bbf6d9fe6b7d34a4c0"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "0dceca29ee82597ba667b55644f703582f4273d519d3ab94ab841ff91bf05c0c"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "2ceea30b6c0ec990916fabf7ba40ff1408cdee571064c4c2b35d29ee6e51b1b4"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "27d9790796c2512d1cdb6084eb9da8e25c62d84fcdfd91afb5d7a93eb9c62c1e"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 499,
+        "kind": "weights_only",
+        "optimizer_step": 500,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000499",
+        "token_accounting": "rendered supervised-sequence tokens",
+        "tokens_consumed": 200000,
+        "trajectories": null
+      },
+      {
+        "examples_or_prompt_rows": 125000,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "1426971d3fa7422e680c751124b0d32d3348a72ab3cae634664528868695455f"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "0ed237920969875c7967b0b035a6d8cae35d6ab13500e4846426a6dfb5eacfdf"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "e4678567e82898d9ea9ae8b4d89626b7f192105226aa011b434f0d4ca27c8a64"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "ff4441319ac938850a9e59f948216ef25f76459445433815f7bb70c337614be4"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "4ca06ea6c64da3c113c3057172de8a46186a9530791be59a622c3a4aa9033a8c"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "27d9790796c2512d1cdb6084eb9da8e25c62d84fcdfd91afb5d7a93eb9c62c1e"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 624,
+        "kind": "weights_only",
+        "optimizer_step": 625,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000624",
+        "token_accounting": "rendered supervised-sequence tokens",
+        "tokens_consumed": 250000,
+        "trajectories": null
+      },
+      {
+        "examples_or_prompt_rows": 150000,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "4a6b41f47884d2dfafd46891ec4179ca6d5af849c9fa67352bbd20c969d54dc4"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "94268302ad2baa766a4dd429788e15469dd5df8872058986e967cab87ea64a40"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "6fb3e864a56b94fcc5b61b5f33e2ec6a6fa1d0ac7c93cae624996f34e44e5b6a"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "e58991d9fda4937fcaacce1d5302fa18a274e7e6a7a7b364585a775e7eef5b67"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "2ceda7c28a7faf4c9795e71aa4a38d62d3c357570fae06b4ce8769145966c428"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "27d9790796c2512d1cdb6084eb9da8e25c62d84fcdfd91afb5d7a93eb9c62c1e"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 749,
+        "kind": "weights_only",
+        "optimizer_step": 750,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000749",
+        "token_accounting": "rendered supervised-sequence tokens",
+        "tokens_consumed": 300000,
+        "trajectories": null
+      },
+      {
+        "examples_or_prompt_rows": 175000,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "9314b03e6d513db8cc0d8f8c240744f01a72c76d0980eb712e05dad12803001c"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "11b4cd4a17a697104d2b28c24d70d0f776909eba0063e81bd9259fbea8aa3d0c"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "d50f0a8322913cf26c61b1377255b2fc79f63742cf682ccfd4d27f4c21c1b5f8"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "e56f91432757638cd48e2f3bd3b3d33c12bc79cf312e34d4ac08010e26b8529c"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "94caae802cc7a6a63b5880e47840313b7ac7def3ab1ecfd663023b9712aaa89b"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "27d9790796c2512d1cdb6084eb9da8e25c62d84fcdfd91afb5d7a93eb9c62c1e"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 874,
+        "kind": "weights_only",
+        "optimizer_step": 875,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000874",
+        "token_accounting": "rendered supervised-sequence tokens",
+        "tokens_consumed": 350000,
+        "trajectories": null
+      },
+      {
+        "examples_or_prompt_rows": 200000,
+        "files": [
+          {
+            "bytes": 4116,
+            "path": "chat_template.jinja",
+            "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+          },
+          {
+            "bytes": 1619,
+            "path": "config.json",
+            "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+          },
+          {
+            "bytes": 167,
+            "path": "generation_config.json",
+            "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+          },
+          {
+            "bytes": 3996250720,
+            "path": "model-00001-of-00005.safetensors",
+            "sha256": "c41d8180f06c7460d90e6a925012572c8ff770840b2a45913eb393cf7f923195"
+          },
+          {
+            "bytes": 3993160000,
+            "path": "model-00002-of-00005.safetensors",
+            "sha256": "7c2c35c875eedd5194a0ed85d08fc33af40a470909987c34db2499a4829e1116"
+          },
+          {
+            "bytes": 3959604736,
+            "path": "model-00003-of-00005.safetensors",
+            "sha256": "96cc87fde0a743c4c698827162c99102d96c2c93727ba8ab790a5ca7799a33b3"
+          },
+          {
+            "bytes": 3187841360,
+            "path": "model-00004-of-00005.safetensors",
+            "sha256": "7b22a016adc0c457966676eab43cc41c871e76116edc6943d9c246da43a70f56"
+          },
+          {
+            "bytes": 1244659808,
+            "path": "model-00005-of-00005.safetensors",
+            "sha256": "7be14dd71ce01438a274ff128cb9a9c44aeb7d4beb00396fd05f4e62964a734f"
+          },
+          {
+            "bytes": 34485,
+            "path": "model.safetensors.index.json",
+            "sha256": "27d9790796c2512d1cdb6084eb9da8e25c62d84fcdfd91afb5d7a93eb9c62c1e"
+          },
+          {
+            "bytes": 11422650,
+            "path": "tokenizer.json",
+            "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+          },
+          {
+            "bytes": 695,
+            "path": "tokenizer_config.json",
+            "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+          }
+        ],
+        "iteration": 999,
+        "kind": "weights_only",
+        "optimizer_step": 1000,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/sft_weights/iter_0000999",
+        "token_accounting": "rendered supervised-sequence tokens",
+        "tokens_consumed": 400000,
+        "trajectories": null
+      }
+    ]
+  }
+}

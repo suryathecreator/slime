@@ -1,0 +1,128 @@
+{
+  "attempt": {
+    "all_selected_generation_attempts_reached_engine_completion": true,
+    "fail_closed": true,
+    "generation_attempts_reached_engine_completion": 58,
+    "observed_completed_shard_sizes": [
+      6,
+      14,
+      18,
+      20
+    ],
+    "prefix_mismatches_observed": [
+      {
+        "eval_index": 9,
+        "first_mismatch_offset": 287,
+        "kind": "token",
+        "rerun_token_id": 5510,
+        "source_token_id": 12460
+      },
+      {
+        "eval_index": 10,
+        "first_mismatch_offset": 173,
+        "kind": "token",
+        "rerun_token_id": 11,
+        "source_token_id": 320
+      },
+      {
+        "eval_index": 36,
+        "kind": "length",
+        "rerun_generated_tokens": 5159,
+        "source_generated_tokens": 16384
+      },
+      {
+        "eval_index": 43,
+        "first_mismatch_offset": 95,
+        "kind": "token",
+        "rerun_token_id": 10696,
+        "source_token_id": 1084
+      }
+    ],
+    "published_rows": 0,
+    "saved_partial_generation_rows": 0,
+    "score_published": false,
+    "selected_cap_hit_rows": 58,
+    "shards": [
+      {
+        "num_shards": 4,
+        "pending": 20,
+        "policy_sha256": "928d08fda1a5db6a9d378f0a2b3f1ab435b3b4dbd17af96441b7305db73dea4b",
+        "selected": 20,
+        "shard_index": 0,
+        "source_stage": "opd_100pct",
+        "stage": "opd_100pct_32k_proxy"
+      },
+      {
+        "num_shards": 4,
+        "pending": 14,
+        "policy_sha256": "928d08fda1a5db6a9d378f0a2b3f1ab435b3b4dbd17af96441b7305db73dea4b",
+        "selected": 14,
+        "shard_index": 1,
+        "source_stage": "opd_100pct",
+        "stage": "opd_100pct_32k_proxy"
+      },
+      {
+        "num_shards": 4,
+        "pending": 18,
+        "policy_sha256": "928d08fda1a5db6a9d378f0a2b3f1ab435b3b4dbd17af96441b7305db73dea4b",
+        "selected": 18,
+        "shard_index": 2,
+        "source_stage": "opd_100pct",
+        "stage": "opd_100pct_32k_proxy"
+      },
+      {
+        "num_shards": 4,
+        "pending": 6,
+        "policy_sha256": "928d08fda1a5db6a9d378f0a2b3f1ab435b3b4dbd17af96441b7305db73dea4b",
+        "selected": 6,
+        "shard_index": 3,
+        "source_stage": "opd_100pct",
+        "stage": "opd_100pct_32k_proxy"
+      }
+    ],
+    "target_total_context_tokens": 32768
+  },
+  "cancelled_downstream_jobs": [
+    {
+      "job_id": 183040,
+      "stage": "sft_200000_32k_proxy",
+      "state": "CANCELLED"
+    },
+    {
+      "job_id": 183041,
+      "stage": "qwen3_32b_teacher_32k_proxy",
+      "state": "CANCELLED"
+    },
+    {
+      "job_id": 183042,
+      "stage": "qwen3_8b_base_32k_proxy",
+      "state": "CANCELLED"
+    }
+  ],
+  "fidelity_decision": {
+    "exact_replay_unreliable": "A seeded stochastic rerun is not guaranteed to reproduce an earlier sampled prefix. Batch scheduling, kernel and floating-point paths, RNG consumption, engine version, and the requested generation budget can all change token sampling.",
+    "future_work": "A fresh 32K evaluation can be run later as an explicit ablation, alongside other protocol ablations, without changing the completed fixed-16K primary result.",
+    "prefix_continuation_rejected": "Continuing from the saved 16K prefix would condition on an old trajectory while restarting the sampler state. It is not the same experiment as drawing the response from the original prompt with a 32K budget, so it is not reported as a fidelity-preserving evaluation.",
+    "required_for_valid_32k_ablation": "Regenerate all 500 prompts from their original inputs under one pinned 32K protocol. Context length alone would still not perfectly reproduce an external result unless the checkpoint, prompt template, tokenizer, stop rules, sampler implementation, seeds, scorer, engine/runtime, batching, and hardware behavior are also aligned."
+  },
+  "job": {
+    "job_id": 183039,
+    "stage": "opd_100pct_32k_proxy",
+    "state": "FAILED"
+  },
+  "log": {
+    "bytes": 125303,
+    "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/slurm_logs/q8b32b-proxy-opd_183039.log",
+    "sha256": "1d5ecd863c1f245e994662fd82d7eac011e5c112d777c6c882ac299f72e1680c"
+  },
+  "schema_version": 1,
+  "source_evaluation": {
+    "cap_hits": 58,
+    "correct": 429,
+    "stage": "opd_100pct",
+    "summary_path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/math500/opd_100pct/summary.json",
+    "summary_sha256": "bcd26ccb582627741c505135ac308e914ad6d402917108e79d12a123815e5c0c",
+    "total": 500
+  },
+  "status": "abandoned_incomplete_no_score"
+}

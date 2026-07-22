@@ -154,8 +154,9 @@ def test_cap_hit_proxy_is_exact_fail_closed_and_serial() -> None:
     config = json.loads((ROOT / "config/eval_config.json").read_text())
     proxy = config["cap_hit_context_proxy"]
     assert proxy["target_total_context_tokens"] == 32768
-    assert proxy["status"] == "diagnostic_not_primary_protocol"
+    assert proxy["status"] == "abandoned_incomplete_no_score"
     assert "exact prefix" in proxy["publication_gate"]
+    assert proxy["cancelled_jobs"] == [183040, 183041, 183042]
 
     job = (ROOT / "05_eval_cap_hits_32k.sbatch").read_text()
     assert "cap-rerun-shard" in job

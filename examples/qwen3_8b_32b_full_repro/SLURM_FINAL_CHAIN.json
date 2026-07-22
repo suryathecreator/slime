@@ -1,0 +1,61 @@
+{
+  "commit": "6502c50dc4ce45abc998dfa7fe33584674450907",
+  "contract_hash": "4095e6ac256b0dbf",
+  "failed_opd_job": "181913",
+  "failed_sanity_artifacts": [
+    {
+      "archive": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_sanity/opd_sanity_summary.json.failed_181913",
+      "bytes": 245,
+      "sha256": "e12fcfe71536bb09bb619f12b12394fa642051aeb9209d65a050966b872c5aee",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_sanity/opd_sanity_summary.json"
+    },
+    {
+      "archive": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_sanity/opd_sanity_summary.csv.failed_181913",
+      "bytes": 371,
+      "sha256": "e52b2af98458173c2238741ba2b13aae4e98786fedaac377a3468c9ed91e5228",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_sanity/opd_sanity_summary.csv"
+    },
+    {
+      "archive": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_sanity/opd_sanity_summary.md.failed_181913",
+      "bytes": 3038,
+      "sha256": "19a0332eaf5effa648160963420921fdeefbb842177041575f676e3a37394210",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_sanity/opd_sanity_summary.md"
+    }
+  ],
+  "jobs": {
+    "opd_100pct_32k_proxy": "183039",
+    "opd_1472x4": "183037",
+    "opd_eval_100pct_fixed_16k_output": "183038",
+    "qwen3_32b_teacher_32k_proxy": "183041",
+    "qwen3_8b_base_32k_proxy_and_final_report": "183042",
+    "sft_200000_32k_proxy": "183040"
+  },
+  "launch_commit": "6502c50dc4ce45abc998dfa7fe33584674450907",
+  "primary_eval_response_budget": "min(16384, 32768 - rendered_prompt_tokens - 64)",
+  "proxy_context_accounting": "rendered prompt tokens + generated response tokens + 64 reserved safety tokens",
+  "proxy_eval_response_budget": "32768 - rendered_prompt_tokens - 64",
+  "proxy_exactness_gate": "all cap-hit reruns must exactly reproduce the complete saved source generated-token prefix",
+  "reason": "OPD teacher health generation failed because CC and CPATH were not forwarded",
+  "reused_completed_jobs": {
+    "base_eval": "181406",
+    "sft_200k": "181911",
+    "sft_eval": "181912",
+    "teacher_eval": "181407"
+  },
+  "serial_order": [
+    "opd_1472x4",
+    "opd_eval_100pct_fixed_16k_output",
+    "opd_100pct_32k_proxy",
+    "sft_200000_32k_proxy",
+    "qwen3_32b_teacher_32k_proxy",
+    "qwen3_8b_base_32k_proxy_and_final_report"
+  ],
+  "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/manifests/resubmission_after_sft_python_include.json",
+  "source_manifest_sha256": "ec0feebb47092f3d9bd40da6b1782aacf9de6c8094dffc6ddc01f8e37d146051",
+  "started_at": "2026-07-22T01:04:41.302076+00:00",
+  "status": "submitted",
+  "submitted_at": "2026-07-22T01:04:41.607391+00:00",
+  "superseded_pending_jobs": [
+    "181914"
+  ]
+}

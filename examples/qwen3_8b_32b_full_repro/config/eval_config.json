@@ -14,15 +14,23 @@
   "verifier_timeout_seconds": 15,
   "automatic_checkpoints": ["qwen3_8b_base", "qwen3_32b_teacher", "sft_200000", "opd_100pct"],
   "cap_hit_context_proxy": {
-    "status": "diagnostic_not_primary_protocol",
+    "status": "abandoned_incomplete_no_score",
     "source_response_budget": "min(16384, 32768 - rendered_prompt_tokens - 64)",
     "target_total_context_tokens": 32768,
     "target_response_budget": "32768 - rendered_prompt_tokens - 64",
     "safety_margin": 64,
     "selection": "only rows with cap_hit=true in the immutable source evaluation",
     "natural_stops": "reuse the saved source generation without regeneration",
-    "cap_hits": "rerun the original saved input token IDs with the original per-problem seed and source sampling policy",
-    "publication_gate": "every rerun must reproduce all saved source generated token IDs as an exact prefix",
+    "cap_hits": "the attempted diagnostic reran the original saved input token IDs with the original per-problem seed and source sampling policy",
+    "publication_gate": "every rerun had to reproduce all saved source generated token IDs as an exact prefix; all four shards failed closed",
+    "observed_outcome": "58 generation attempts reached engine completion, zero rows were published, and no 32K score exists",
+    "fidelity_decision": "do not continue from the saved 16K prefix because restarting sampling from an old prefix is not equivalent to a fresh 32K generation",
+    "valid_future_ablation": "regenerate all 500 prompts from their original inputs under one pinned 32K protocol",
+    "cancelled_jobs": [
+      183040,
+      183041,
+      183042
+    ],
     "serial_order": ["opd_100pct", "sft_200000", "qwen3_32b_teacher", "qwen3_8b_base"]
   }
 }
