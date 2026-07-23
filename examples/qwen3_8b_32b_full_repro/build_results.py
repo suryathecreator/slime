@@ -101,12 +101,44 @@ def main() -> None:
         else None
     )
     scorer_audit = json.loads(args.scorer_audit.read_text()) if args.scorer_audit else None
+    scorer_audit_reference = None
     if scorer_audit:
         if scorer_audit.get("aggregate_gate_status") != "passed" or scorer_audit.get("review_count") != 0:
             raise SystemExit("Scorer audit did not pass fail-closed publication gates")
         for stage in STAGES:
             if int(scorer_audit["stages"][stage]["correct"]) != int(values[stage]["correct"]):
                 raise SystemExit(f"Scorer audit/result mismatch for {stage}")
+        stage_keys = (
+            "source_correct",
+            "correct",
+            "total",
+            "pass_at_1",
+            "incorrect_to_correct",
+            "correct_to_incorrect",
+            "cap_hits",
+            "eligible_final_answers",
+            "partial_cap_suppressions",
+        )
+        scorer_audit_reference = {
+            "schema_version": scorer_audit["schema_version"],
+            "scorer_version": scorer_audit["scorer_version"],
+            "source_scorer_version": scorer_audit["source_scorer_version"],
+            "audit_path": str(args.scorer_audit),
+            "audit_sha256": sha256_file(args.scorer_audit),
+            "expected_rows": scorer_audit["expected_rows"],
+            "rescored_rows": scorer_audit["rescored_rows"],
+            "review_count": scorer_audit["review_count"],
+            "aggregate_gate_status": scorer_audit["aggregate_gate_status"],
+            "methodology": scorer_audit["methodology"],
+            "stages": {
+                stage: {key: scorer_audit["stages"][stage][key] for key in stage_keys}
+                for stage in STAGES
+            },
+            "decision_change_counts": {
+                stage: len(scorer_audit["decision_changes"][stage]) for stage in STAGES
+            },
+            "spot_checks": scorer_audit["spot_checks"],
+        }
     learning_path = report_root / "opd_learning_dynamics.json"
     attempt_32k_path = report_root / "CAP_HIT_32K_ATTEMPT.json"
     if not learning_path.is_file():
@@ -136,7 +168,7 @@ def main() -> None:
         "contract_sha256": sha256_file(Path(os.environ["CONTRACT_FILE"])),
         "evaluations": values,
         "historical_evaluations": historical_values,
-        "scorer_audit": scorer_audit,
+        "scorer_audit": scorer_audit_reference,
         "cap_hit_32k_context_evaluation": attempt_32k,
         "reproduction_criteria": criteria,
         "stopping_audit": audit,

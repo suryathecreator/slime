@@ -1,0 +1,17 @@
+{
+  "branch": "qwen3-8b-32b-full-repro",
+  "job_id": 184654,
+  "launch_commit": "c7df00e25bbd862992c670c177eef8acc6bc43a6",
+  "output_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/math500/rescored/math500_event_scorer_v2",
+  "resources": {
+    "cpus": 8,
+    "gpu": "h200",
+    "gpus": 1,
+    "memory": "64G",
+    "walltime": "04:00:00"
+  },
+  "schema_version": 1,
+  "scorer_version": "math500_event_scorer_v2",
+  "source_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/math500",
+  "submitted_at": "2026-07-23T07:14:15.231962+00:00"
+}

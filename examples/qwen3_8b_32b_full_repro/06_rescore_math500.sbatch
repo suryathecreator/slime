@@ -34,6 +34,9 @@ export PYTHONPATH="${MATH_VERIFY_SITE}:${SLIME_REPO_ROOT}:${PYTHONPATH:-}"
   --expected 500 \
   --bootstrap-seed "${EVAL_SEED}"
 
+PYTHONPATH="${SLIME_REPO_ROOT}" \
+SLIME_SGLANG_PATCH_SITE=0 \
+SLIME_VLLM_PATCH_SITE=0 \
 python3 "${SCRIPT_DIR}/build_results.py" \
   --eval-root "${RESCORE_ROOT}" \
   --historical-eval-root "${EVAL_OUTPUT_ROOT}" \

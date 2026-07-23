@@ -1,9 +1,15 @@
 # Qwen3 8B -> 32B reproduction results
 
-- qwen3_8b_base: 235/500 (47.00%)
-- qwen3_32b_teacher: 476/500 (95.20%)
-- sft_200000: 304/500 (60.80%)
-- opd_100pct: 429/500 (85.80%)
+The primary results use `math500_event_scorer_v2`; the original V1 scores are retained for provenance.
+
+| Stage | V1 before audit | V2 corrected |
+|---|---:|---:|
+| qwen3_8b_base | 235/500 (47.00%) | 373/500 (74.60%) |
+| qwen3_32b_teacher | 476/500 (95.20%) | 482/500 (96.40%) |
+| sft_200000 | 304/500 (60.80%) | 434/500 (86.80%) |
+| opd_100pct | 429/500 (85.80%) | 440/500 (88.00%) |
+
+All 2,000 saved generations were rescored without new inference. See `MATH500_SCORER_AUDIT.md` for row-level changes and bug categories.
 
 ## OPD learning dynamics
 
@@ -30,6 +36,6 @@ A fresh 32K evaluation can be run later as an explicit ablation, alongside other
 
 Remaining jobs were cancelled: `183040` (sft_200000_32k_proxy), `183041` (qwen3_32b_teacher_32k_proxy), `183042` (qwen3_8b_base_32k_proxy).
 
-Observed OPD gain: 25.00 points. Public targets were 76% SFT and 94% OPD; exact observed values are reported without seed or scorer selection.
+Observed OPD gain: 1.20 points. Public targets were 76% SFT and 94% OPD; they were not used to choose row-level scorer decisions.
 
 Primary reproduction criteria use only the completed fixed-16K-output evaluations above. No incomplete 32K attempt is included in any metric.
