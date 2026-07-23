@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
-#SBATCH --gres=gpu:h200:1
+#SBATCH --gres=gpu:h200:4
 #SBATCH --mem=256G
 #SBATCH --time=16:00:00
 #SBATCH --mail-user=suryadv@cs.washington.edu
