@@ -16,7 +16,7 @@ from typing import Any
 
 import torch
 
-from examples.qwen3_8b_32b_full_repro.math500_scorer import apply_discourse, extract_events
+from examples.qwen3_8b_32b_full_repro.math500_scorer_v1 import apply_discourse, extract_events
 
 
 TERMINALS = {151643: "eos", 151645: "im_end"}

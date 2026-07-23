@@ -16,11 +16,15 @@ OpenThoughts3 raw rows
   -> final 100% OPD MATH-500 evaluation
   -> failed-closed 32K replay attempt on OPD cap hits (no score)
   -> results and stopping audit
+  -> immutable saved-generation rescore with scorer V2
+  -> corrected results and scorer audit
 ```
 
-Every Slurm stage requests exactly four H200 GPUs. MATH-500 is loaded read-only
-at the pinned revision in original order. It is never used in cleanup or split
-selection, and there is no OpenThoughts3/MATH-500 cross-contamination check.
+The training and inference stages request exactly four H200 GPUs. The
+saved-generation rescore requests one H200 and performs no model inference.
+MATH-500 is loaded read-only at the pinned revision in original order. It is
+never used in cleanup or split selection, and there is no
+OpenThoughts3/MATH-500 cross-contamination check.
 
 ## Key settings
 
@@ -97,3 +101,15 @@ and evaluation stages requeue and resume from atomic artifacts when needed.
 After the chain completes, run `sync_completed_artifacts.py`, review the compact
 diff and allowlist, run tests again, then commit and push the final audits and
 results without force-pushing.
+
+The original evaluation artifacts remain immutable under
+`math500_event_scorer_v1`. To rescore all four saved 500-row stages with the
+audited V2 policy, push a clean launch commit and run:
+
+```bash
+bash examples/qwen3_8b_32b_full_repro/submit_rescore.sh
+```
+
+The rescore submitter refuses a dirty or unpushed checkout. Publication is
+fail-closed unless all 2,000 source hashes validate, every row is decided,
+review count is zero, and all audited aggregate transition counts match.

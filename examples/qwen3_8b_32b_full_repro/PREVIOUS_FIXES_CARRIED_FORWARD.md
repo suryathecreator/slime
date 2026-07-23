@@ -4,7 +4,7 @@
 
 | Fix | Prior commit and file | Full-run treatment |
 |---|---|---|
-| Versioned answer state machine, raw generations, rescore hashes, and regression tests | `c5b590e`, `25f64f3`; `examples/qwen3_1_7b_opd_aime2026/aime_answer_v2.py`, `evaluate_aime_once_vllm.py`, `tests/test_aime_answer_v2.py` | Carried into immutable `math500_event_scorer_v1`, atomic per-problem JSON, and new tests. |
+| Versioned answer state machine, raw generations, rescore hashes, and regression tests | `c5b590e`, `25f64f3`; `examples/qwen3_1_7b_opd_aime2026/aime_answer_v2.py`, `evaluate_aime_once_vllm.py`, `tests/test_aime_answer_v2.py` | Carried into immutable generation-time `math500_event_scorer_v1`, atomic per-problem JSON, audited `math500_event_scorer_v2`, and fail-closed saved-generation rescoring. |
 | Qwen3 assistant-only masking and terminal supervision | `e98c321`, `cf960ae`; `slime/utils/mask_utils.py`, `slime/rollout/sft_rollout.py`, `examples/qwen3_8b_opd_tillicum/check_sft_loss_mask.py` | Carried and strengthened with explicit `<think>`, `</think>`, final, box, `<|im_end|>`, and genuine-EOS checks. |
 | EOS plus `<|im_end|>` stopping and auditable generated terminals | `cf960ae`; `validate_qwen3_generation.py`, `eval_math500_vllm.py` | Carried into rollout/eval stop-ID contracts and per-generation stop fields. |
 | Resumable, no-overwrite evaluation | `b645954`; `eval_math500_vllm.py`, `06_eval_math500_vllm.sbatch` | Carried into policy-hashed atomic MATH-500 problem files and four shards. |

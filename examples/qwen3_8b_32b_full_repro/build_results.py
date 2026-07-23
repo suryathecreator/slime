@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -86,9 +87,26 @@ def stopping_audit(root: Path) -> dict[str, Any]:
 
 
 def main() -> None:
-    eval_root = Path(os.environ["EVAL_OUTPUT_ROOT"])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--eval-root", type=Path, default=Path(os.environ["EVAL_OUTPUT_ROOT"]))
+    parser.add_argument("--historical-eval-root", type=Path)
+    parser.add_argument("--scorer-audit", type=Path)
+    args = parser.parse_args()
+    eval_root = args.eval_root
     report_root = Path(os.environ["OUTPUT_ROOT"]) / "final_report"
     values = {stage: load_stage(eval_root, stage) for stage in STAGES}
+    historical_values = (
+        {stage: load_stage(args.historical_eval_root, stage) for stage in STAGES}
+        if args.historical_eval_root
+        else None
+    )
+    scorer_audit = json.loads(args.scorer_audit.read_text()) if args.scorer_audit else None
+    if scorer_audit:
+        if scorer_audit.get("aggregate_gate_status") != "passed" or scorer_audit.get("review_count") != 0:
+            raise SystemExit("Scorer audit did not pass fail-closed publication gates")
+        for stage in STAGES:
+            if int(scorer_audit["stages"][stage]["correct"]) != int(values[stage]["correct"]):
+                raise SystemExit(f"Scorer audit/result mismatch for {stage}")
     learning_path = report_root / "opd_learning_dynamics.json"
     attempt_32k_path = report_root / "CAP_HIT_32K_ATTEMPT.json"
     if not learning_path.is_file():
@@ -114,9 +132,11 @@ def main() -> None:
     }
     audit = stopping_audit(report_root)
     result = {
-        "schema_version": 1,
+        "schema_version": 2 if historical_values else 1,
         "contract_sha256": sha256_file(Path(os.environ["CONTRACT_FILE"])),
         "evaluations": values,
+        "historical_evaluations": historical_values,
+        "scorer_audit": scorer_audit,
         "cap_hit_32k_context_evaluation": attempt_32k,
         "reproduction_criteria": criteria,
         "stopping_audit": audit,
@@ -124,9 +144,32 @@ def main() -> None:
     }
     atomic_text(report_root / "results.json", json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
     lines = ["# Qwen3 8B -> 32B reproduction results", ""]
-    for stage in STAGES:
-        value = values[stage]
-        lines.append(f"- {stage}: {value['correct']}/500 ({100 * value['pass_at_1']:.2f}%)")
+    if historical_values:
+        lines.extend(
+            [
+                "The primary results use `math500_event_scorer_v2`; the original V1 scores are retained for provenance.",
+                "",
+                "| Stage | V1 before audit | V2 corrected |",
+                "|---|---:|---:|",
+            ]
+        )
+        for stage in STAGES:
+            before = historical_values[stage]
+            after = values[stage]
+            lines.append(
+                f"| {stage} | {before['correct']}/500 ({100 * before['pass_at_1']:.2f}%) | "
+                f"{after['correct']}/500 ({100 * after['pass_at_1']:.2f}%) |"
+            )
+        lines.extend(
+            [
+                "",
+                "All 2,000 saved generations were rescored without new inference. See `MATH500_SCORER_AUDIT.md` for row-level changes and bug categories.",
+            ]
+        )
+    else:
+        for stage in STAGES:
+            value = values[stage]
+            lines.append(f"- {stage}: {value['correct']}/500 ({100 * value['pass_at_1']:.2f}%)")
     lines.extend(["", "## OPD learning dynamics", ""])
     lines.extend(
         [
@@ -178,7 +221,7 @@ def main() -> None:
     lines.extend(
         [
             "",
-            f"Observed OPD gain: {criteria['observed_gain_points']:.2f} points. Public targets were 76% SFT and 94% OPD; exact observed values are reported without seed or scorer selection.",
+            f"Observed OPD gain: {criteria['observed_gain_points']:.2f} points. Public targets were 76% SFT and 94% OPD; they were not used to choose row-level scorer decisions.",
             "",
             "Primary reproduction criteria use only the completed fixed-16K-output evaluations above. No incomplete 32K attempt is included in any metric.",
         ]

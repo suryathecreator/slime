@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from examples.qwen3_8b_32b_full_repro.math500_scorer import score_response, verify_equivalence
+from examples.qwen3_8b_32b_full_repro.math500_scorer import (
+    SCORER_VERSION,
+    score_response,
+    verify_equivalence,
+)
 
 
 def fake_parse(value: str, **_kwargs):
@@ -56,9 +60,9 @@ def test_multiple_boxes_choose_last_confident_replacement() -> None:
     assert result["answer_replacement_count"] == 1
 
 
-def test_correct_candidate_followed_by_doubt_returns_no_answer() -> None:
+def test_doubt_does_not_erase_a_complete_answer() -> None:
     result = score("The answer is 42. Maybe this is wrong.")
-    assert result["official_extracted_candidate"] is None
+    assert result["official_extracted_candidate"] == "42"
     assert result["invalidation_flags"]["any_doubt"]
 
 
@@ -80,6 +84,13 @@ def test_reaffirmation_remains_confident() -> None:
     assert any(item["action"] == "reaffirmation" for item in result["selection_history"])
 
 
+def test_v1_is_preserved_and_v2_is_active() -> None:
+    from examples.qwen3_8b_32b_full_repro import math500_scorer_v1
+
+    assert SCORER_VERSION == "math500_event_scorer_v2"
+    assert math500_scorer_v1.SCORER_VERSION == "math500_event_scorer_v1"
+
+
 def test_maybe_is_not_equivalent_to_assertion() -> None:
     assert score("Maybe 42")["official_extracted_candidate"] is None
     assert score("The answer is 42")["official_extracted_candidate"] == "42"
@@ -89,6 +100,55 @@ def test_capped_generation_can_use_earlier_confident_answer() -> None:
     result = score("reasoning\nThe answer is 42.\nmore unfinished reasoning", cap=True)
     assert result["official_extracted_candidate"] == "42"
     assert result["cap_status"]
+
+
+def test_cap_ignores_weak_incidental_terminal_number() -> None:
+    result = score("Working through the cases gives 100. Let me see", cap=True)
+    assert result["official_extracted_candidate"] is None
+    assert not result["is_correct"]
+
+
+def test_cap_retains_answer_through_checking_language() -> None:
+    result = score("The answer is 42.\nLet me verify this another way.", cap=True)
+    assert result["official_extracted_candidate"] == "42"
+
+
+def test_cap_suppresses_truncated_scalar_repeat() -> None:
+    result = score("The answer is 59.\nChecking again: the answer is 59.\nThe answer is 5", gold="59", cap=True)
+    assert result["official_extracted_candidate"] == "59"
+    assert result["partial_cap_suppression_count"] == 1
+    assert result["is_correct"]
+
+
+def test_cap_suppresses_truncated_multipart_repeat() -> None:
+    result = score(
+        r"\boxed{3}, \boxed{5}, \boxed{7}" "\n" r"Repeating the result: \boxed{3}",
+        gold="3, 5, 7",
+        cap=True,
+    )
+    assert result["official_extracted_candidate"] == "3, 5, 7"
+    assert result["partial_cap_suppression_count"] == 1
+
+
+def test_cap_ignores_hypothetical_box_after_real_final() -> None:
+    result = score(
+        "**Final Answer**\n"
+        r"\boxed{42}"
+        "\nSuppose the answer were 41; then the answer would be "
+        r"\boxed{41}",
+        cap=True,
+    )
+    assert result["official_extracted_candidate"] == "42"
+
+
+def test_distant_subproblem_negation_does_not_retract_answer() -> None:
+    result = score(
+        "The answer is 42. This resolves the requested problem. "
+        + "Further checking of an intermediate count follows. " * 4
+        + "That subproblem count is not 42 as previously thought.",
+        cap=True,
+    )
+    assert result["official_extracted_candidate"] == "42"
 
 
 def test_capped_latest_retracted_answer_returns_no_answer() -> None:
@@ -111,6 +171,33 @@ def test_closed_think_never_uses_answer_only_inside_think() -> None:
 def test_closed_think_uses_unboxed_final_afterward() -> None:
     result = score("<think>work</think>\nThe answer is 42.")
     assert result["official_extracted_candidate"] == "42"
+
+
+def test_structural_delimiter_cannot_replace_box() -> None:
+    result = score("\\boxed{42}\nThe final answer is \\]")
+    assert result["official_extracted_candidate"] == "42"
+    assert result["structural_candidate_rejection_count"] >= 1
+
+
+def test_natural_stop_prose_does_not_replace_strong_box() -> None:
+    result = score(r"\boxed{42}" "\nThis completes the requested calculation.")
+    assert result["official_extracted_candidate"] == "42"
+
+
+def test_concise_standalone_sentence_preserves_terminal_punctuation() -> None:
+    result = score("So, Hillary has 7 nickels.", gold="So, Hillary has 7 nickels.")
+    assert result["official_extracted_candidate"] == "So, Hillary has 7 nickels."
+
+
+def test_adjacent_boxes_are_one_exact_cardinality_answer() -> None:
+    result = score(r"\boxed{3}, \boxed{5}, \boxed{7}", gold="7, 3, 5")
+    assert result["official_extracted_candidate"] == "3, 5, 7"
+    assert result["extraction_rule"] == "boxed_group"
+    assert result["is_correct"]
+
+
+def test_collection_requires_exact_cardinality() -> None:
+    assert not score(r"\boxed{3}, \boxed{5}", gold="3, 5, 7")["is_correct"]
 
 
 def test_malformed_box_is_recorded_without_guessing() -> None:

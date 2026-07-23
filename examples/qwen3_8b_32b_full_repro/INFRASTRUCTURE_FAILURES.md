@@ -8,6 +8,11 @@ Historical infrastructure lessons are indexed in
 `PREVIOUS_FIXES_CARRIED_FORWARD.md`; objective failures remain separate from
 OOM, checkpoint, tokenizer, and server failures.
 
+Evaluation scores quoted in the historical attempt entries are the immutable
+generation-time `math500_event_scorer_v1` values. They are retained as
+provenance and are not silently rewritten when V2 corrected results are
+published.
+
 ## Submission attempt 1: preserved and superseded
 
 Contract `0984ccb69c314a9f` at commit `553a6a1` was submitted on 2026-07-19.

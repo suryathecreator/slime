@@ -8,13 +8,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_every_job_respects_four_gpu_cpu_limit_and_short_tmpdir() -> None:
+def test_every_job_respects_gpu_cpu_limit_and_short_tmpdir() -> None:
     for path in sorted(ROOT.glob("*.sbatch")):
         text = path.read_text()
-        assert "#SBATCH --gres=gpu:h200:4" in text
+        expected_gpus = 1 if path.name == "06_rescore_math500.sbatch" else 4
+        assert f"#SBATCH --gres=gpu:h200:{expected_gpus}" in text
         cpus = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.M)
         assert cpus is not None
-        assert int(cpus.group(1)) <= 32
+        assert int(cpus.group(1)) <= 8 * expected_gpus
         wall = re.search(r"^#SBATCH --time=(\d+):(\d+):(\d+)$", text, re.M)
         assert wall is not None
         hours, minutes, seconds = map(int, wall.groups())
@@ -37,6 +38,39 @@ def test_submission_is_fail_closed_and_cancels_partial_chain() -> None:
     assert 'scancel "${submitted_jobs[@]}"' in text
     assert "submission.failed.json" in text
     assert 'raw="$(sbatch' not in text
+
+
+def test_scorer_resubmit_is_one_gpu_fail_closed_and_remote_matched() -> None:
+    submitter = (ROOT / "submit_rescore.sh").read_text()
+    assert "git diff --quiet && git diff --cached --quiet" in submitter
+    assert 'git rev-parse "origin/${expected_branch}"' in submitter
+    assert '[[ "${head_sha}" == "${remote_sha}" ]]' in submitter
+    assert submitter.count("sbatch --parsable") == 1
+    assert "scorer_v2_rescore_submission.json" in submitter
+    assert 'scancel "${job_id}"' in submitter
+
+    job = (ROOT / "06_rescore_math500.sbatch").read_text()
+    assert "#SBATCH --gres=gpu:h200:1" in job
+    assert "rescore_math500.py" in job
+    assert "--historical-eval-root" in job
+    assert "--scorer-audit" in job
+
+
+def test_rescore_has_exact_audit_gate_and_preserves_v1() -> None:
+    scorer_v1 = (ROOT / "math500_scorer_v1.py").read_text()
+    scorer_v2 = (ROOT / "math500_scorer.py").read_text()
+    driver = (ROOT / "rescore_math500.py").read_text()
+    assert 'SCORER_VERSION = "math500_event_scorer_v1"' in scorer_v1
+    assert 'SCORER_VERSION = "math500_event_scorer_v2"' in scorer_v2
+    for expected in (
+        '"qwen3_8b_base": {"correct": 373, "up": 138, "down": 0}',
+        '"qwen3_32b_teacher": {"correct": 482, "up": 6, "down": 0}',
+        '"sft_200000": {"correct": 434, "up": 131, "down": 1}',
+        '"opd_100pct": {"correct": 440, "up": 11, "down": 0}',
+    ):
+        assert expected in driver
+    assert '"review_count": 0' in driver
+    assert "Audit gate mismatch" in driver
 
 
 def test_base_eval_recovery_is_fail_closed_and_records_superseded_jobs() -> None:

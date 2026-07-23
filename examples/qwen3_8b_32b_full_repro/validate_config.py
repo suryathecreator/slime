@@ -100,11 +100,15 @@ def main() -> None:
         )
         for slurm in root.glob("*.sbatch"):
             text = slurm.read_text()
-            require("#SBATCH --gres=gpu:h200:4" in text, f"{slurm.name} does not request exactly four H200s")
+            expected_gpus = 1 if slurm.name == "06_rescore_math500.sbatch" else 4
+            require(
+                f"#SBATCH --gres=gpu:h200:{expected_gpus}" in text,
+                f"{slurm.name} does not request exactly {expected_gpus} H200(s)",
+            )
             cpu_match = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.M)
             require(cpu_match is not None, f"{slurm.name} has no explicit CPU request")
             if cpu_match is not None:
-                require(int(cpu_match.group(1)) <= 32, f"{slurm.name} exceeds the site limit of eight CPUs per requested GPU")
+                require(int(cpu_match.group(1)) <= 8 * expected_gpus, f"{slurm.name} exceeds the site limit of eight CPUs per requested GPU")
             time_match = re.search(r"^#SBATCH --time=(\d+):(\d+):(\d+)$", text, re.M)
             require(time_match is not None, f"{slurm.name} has no explicit wall-time request")
             if time_match is not None:
