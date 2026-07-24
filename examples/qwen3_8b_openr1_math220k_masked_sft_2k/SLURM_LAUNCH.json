@@ -24,6 +24,25 @@
       "reason": "gpu-h200 permits at most eight CPUs per requested GPU"
     }
   ],
+  "dependency_repairs": [
+    {
+      "archived_failed_attempt": {
+        "bytes": 2789729992,
+        "file_count": 250,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/outputs/failed_attempts/correct_only_job_185501",
+        "partial_checkpoint_sha256": "45293c33720b41de9a57463bede3b6247896ef566428bc73be79f110eecc23b2",
+        "resumable": false
+      },
+      "cause": "multiprocessing.Manager AF_UNIX path too long during the first async torch_dist checkpoint",
+      "commit_submitted": "3964758c74dc94bb262a2808fe9298aa62849a2e",
+      "failed_train": 185501,
+      "preserved_downstream_anchor": 185503,
+      "replacement_train": 185708,
+      "reused_base_eval": 185500,
+      "rewired_eval": 185502,
+      "submitted_at": "2026-07-24T07:34:17.451596+00:00"
+    }
+  ],
   "jobs_in_dependency_order": [
     ["base_8b_eval", 185500],
     ["train_40k_correct_only", 185501],
