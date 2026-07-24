@@ -11,8 +11,9 @@ mode="${1:-}"
   exit 2
 }
 if [[ "${mode}" == "final" ]]; then
-  [[ -f "${SCRIPT_DIR}/MATH500_SCORER_V3_EXPECTED.json" ]] || {
-    echo "Final submission requires MATH500_SCORER_V3_EXPECTED.json" >&2
+  [[ -f "${SCRIPT_DIR}/MATH500_SCORER_V3_EXPECTED.json" ]] &&
+    [[ -f "${SCRIPT_DIR}/MATH500_SCORER_V3_REVIEW.json" ]] || {
+    echo "Final submission requires V3 expected metrics and review manifest" >&2
     exit 1
   }
 fi

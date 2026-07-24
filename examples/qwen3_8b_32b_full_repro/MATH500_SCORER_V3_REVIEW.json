@@ -1,0 +1,32 @@
+{
+  "audit_record_digest": "81bcfe31ee23b19359c4b101a41c741d18cdd0d4759aa179615476db6df8afef",
+  "draft_audit_sha256": "53d5f550ae840c024f4c5adab562764b5d6ebbd8472c61b5eaa2149b4c54589d",
+  "draft_job_id": 185373,
+  "draft_launch_commit": "2df62befa03463ea7a7e8eaf811da8ac7a628e51",
+  "draft_output_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/math500/rescored/math500_strict_boxed_scorer_v3_draft_2df62befa034",
+  "expected_metrics_sha256": "e59074776a77fcacbbd74d7cefb0243cba90ee867c33bc7646c6d023231f505e",
+  "findings": {
+    "cap_counterfactual_correct": 10,
+    "cap_counterfactual_scorable": 16,
+    "cap_hits_officially_wrong": 170,
+    "non_cap_candidate_changes_from_v2": 4,
+    "non_cap_candidates_matching_v2": 1826,
+    "non_cap_parser_verifier_exceptions": 0,
+    "non_cap_scorable": 1825,
+    "non_cap_unscorable": 5,
+    "selected_multipart_rows": 8,
+    "v2_to_v3_decision_changes": 47
+  },
+  "review_scope": [
+    "exhaustive invariant and compact-record scan over all 2000 rows",
+    "all 47 V2-to-V3 decision changes",
+    "all 170 cap-hit official decisions and all 16 scorable cap diagnostics",
+    "all 5 non-cap unscorable rows",
+    "all 8 selected multipart box groups",
+    "all non-cap candidate changes and parser/verifier exception buckets"
+  ],
+  "reviewed_rows": 2000,
+  "schema_version": 1,
+  "scorer_version": "math500_strict_boxed_scorer_v3",
+  "unresolved_review_count": 0
+}

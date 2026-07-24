@@ -50,6 +50,7 @@ def test_scorer_v3_resubmit_is_one_gpu_fail_closed_and_remote_matched() -> None:
     assert 'scancel "${job_id}"' in submitter
     assert "RESCORE_MODE=${mode}" in submitter
     assert "EXPECTED_LAUNCH_COMMIT=${head_sha}" in submitter
+    assert "MATH500_SCORER_V3_REVIEW.json" in submitter
 
     job = (ROOT / "06_rescore_math500.sbatch").read_text()
     assert "#SBATCH --gres=gpu:h200:1" in job
@@ -58,6 +59,7 @@ def test_scorer_v3_resubmit_is_one_gpu_fail_closed_and_remote_matched() -> None:
     assert "--v2-eval-root" in job
     assert "--scorer-audit" in job
     assert "--mode \"${RESCORE_MODE}\"" in job
+    assert "--review-manifest" in job
 
 
 def test_rescore_has_exact_audit_gate_and_preserves_v1_v2() -> None:
@@ -71,7 +73,8 @@ def test_rescore_has_exact_audit_gate_and_preserves_v1_v2() -> None:
     assert "EXPECTED_TAG_COUNTS" in driver
     assert "suggested_expected_metrics.json" in driver
     assert "Final aggregate/decision gate mismatch" in driver
-    assert '"review_count": 0 if args.mode == "final" else None' in driver
+    assert "Final review-manifest gate failed" in driver
+    assert '"review_count": int(review["unresolved_review_count"]) if review else None' in driver
 
 
 def test_base_eval_recovery_is_fail_closed_and_records_superseded_jobs() -> None:

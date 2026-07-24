@@ -45,11 +45,15 @@ else
   AUDIT_JSON="${REPORT_ROOT}/MATH500_SCORER_V3_AUDIT.json"
   AUDIT_MD="${REPORT_ROOT}/MATH500_SCORER_V3_AUDIT.md"
   EXPECTED_METRICS="${SCRIPT_DIR}/MATH500_SCORER_V3_EXPECTED.json"
-  [[ -f "${EXPECTED_METRICS}" ]] || {
-    echo "Missing final expected metrics: ${EXPECTED_METRICS}" >&2
+  REVIEW_MANIFEST="${SCRIPT_DIR}/MATH500_SCORER_V3_REVIEW.json"
+  [[ -f "${EXPECTED_METRICS}" && -f "${REVIEW_MANIFEST}" ]] || {
+    echo "Missing final expected metrics or review manifest" >&2
     exit 1
   }
-  expected_args=(--expected-metrics "${EXPECTED_METRICS}")
+  expected_args=(
+    --expected-metrics "${EXPECTED_METRICS}"
+    --review-manifest "${REVIEW_MANIFEST}"
+  )
 fi
 
 echo "RESCORE_START job=${SLURM_JOB_ID} mode=${RESCORE_MODE} source=${EVAL_OUTPUT_ROOT} output=${RESCORE_ROOT} at=$(date -Is)"

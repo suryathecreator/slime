@@ -60,13 +60,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--audit-md", type=Path, required=True)
     parser.add_argument("--mode", choices=("draft", "final"), required=True)
     parser.add_argument("--expected-metrics", type=Path)
+    parser.add_argument("--review-manifest", type=Path)
     parser.add_argument("--expected", type=int, default=500)
     parser.add_argument("--bootstrap-seed", type=int, default=1234)
     args = parser.parse_args()
-    if args.mode == "final" and not args.expected_metrics:
-        parser.error("--expected-metrics is required in final mode")
-    if args.mode == "draft" and args.expected_metrics:
-        parser.error("--expected-metrics is only valid in final mode")
+    if args.mode == "final" and (not args.expected_metrics or not args.review_manifest):
+        parser.error("--expected-metrics and --review-manifest are required in final mode")
+    if args.mode == "draft" and (args.expected_metrics or args.review_manifest):
+        parser.error("--expected-metrics and --review-manifest are only valid in final mode")
     return args
 
 
@@ -481,6 +482,27 @@ def validate_expected(
     return expected
 
 
+def validate_review(
+    review_path: Path,
+    expected_path: Path,
+    audit_record_digest: str,
+    expected_rows: int,
+) -> dict[str, Any]:
+    review = json.loads(review_path.read_text())
+    checks = {
+        "schema_version": review.get("schema_version") == 1,
+        "scorer_version": review.get("scorer_version") == SCORER_VERSION,
+        "reviewed_rows": int(review.get("reviewed_rows", -1)) == expected_rows,
+        "unresolved_review_count": int(review.get("unresolved_review_count", -1)) == 0,
+        "audit_record_digest": review.get("audit_record_digest") == audit_record_digest,
+        "expected_metrics_sha256": review.get("expected_metrics_sha256") == sha256_file(expected_path),
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise RuntimeError(f"Final review-manifest gate failed: {failed}")
+    return review
+
+
 def render_audit(audit: dict[str, Any]) -> str:
     lines = [
         "# MATH-500 strict boxed scorer V3 saved-generation audit",
@@ -550,8 +572,18 @@ def main() -> None:
         all_audit_rows.extend(audit_rows)
 
     projection = expected_projection(summaries)
+    audit_record_digest = sha256_bytes(
+        json.dumps(all_audit_rows, sort_keys=True, separators=(",", ":")).encode()
+    )
+    review: dict[str, Any] | None = None
     if args.mode == "final":
         validate_expected(summaries, args.expected_metrics)
+        review = validate_review(
+            args.review_manifest,
+            args.expected_metrics,
+            audit_record_digest,
+            len(STAGES) * args.expected,
+        )
         aggregate_status = "passed"
     else:
         atomic_text(
@@ -571,7 +603,7 @@ def main() -> None:
         "mode": args.mode,
         "expected_rows": len(STAGES) * args.expected,
         "rescored_rows": sum(item["total"] for item in summaries.values()),
-        "review_count": 0 if args.mode == "final" else None,
+        "review_count": int(review["unresolved_review_count"]) if review else None,
         "aggregate_gate_status": aggregate_status,
         "methodology": (
             "Every immutable source and generation hash was validated. The draft emits compact audit "
@@ -587,8 +619,20 @@ def main() -> None:
         "stages": summaries,
         "decision_changes_from_v2": all_changes,
         "audit_record_count": len(all_audit_rows),
-        "audit_record_digest": sha256_bytes(
-            json.dumps(all_audit_rows, sort_keys=True, separators=(",", ":")).encode()
+        "audit_record_digest": audit_record_digest,
+        "review_manifest": (
+            {
+                "path": str(args.review_manifest),
+                "sha256": sha256_file(args.review_manifest),
+                "draft_job_id": review["draft_job_id"],
+                "draft_launch_commit": review["draft_launch_commit"],
+                "reviewed_rows": review["reviewed_rows"],
+                "review_scope": review["review_scope"],
+                "findings": review["findings"],
+                "unresolved_review_count": review["unresolved_review_count"],
+            }
+            if review
+            else None
         ),
     }
     atomic_text(args.audit_json, json.dumps(audit, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
