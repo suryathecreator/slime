@@ -2,7 +2,7 @@
 #SBATCH --job-name=q8b-sft2k-prep
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:h200:1
 #SBATCH --mem=128G
 #SBATCH --time=04:00:00
