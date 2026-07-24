@@ -48,11 +48,15 @@ def main() -> None:
         raise ValueError("training contract drift")
     if contract["evaluation"]["stop_token_ids"] != [151643, 151645]:
         raise ValueError("evaluation must accept both endoftext and im_end")
-    base_summary = Path(
-        "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/math500/qwen3_8b_base/summary.json"
-    )
-    if sha256(base_summary) != contract["evaluation"]["base_summary_sha256"]:
-        raise ValueError("reused base MATH-500 summary hash mismatch")
+    if contract["evaluation"]["decoding"] != "greedy":
+        raise ValueError("MATH-500 decoding must be greedy")
+    if contract["evaluation"]["dynamic_response_budget"] != "32768 - rendered_prompt_tokens - 64":
+        raise ValueError("MATH-500 response budget drift")
+    source_root = Path(contract["recovery"]["source_root"])
+    for name, expected_hash in contract["recovery"]["source_artifacts"].items():
+        path = source_root / "data" / name
+        if sha256(path) != expected_hash:
+            raise ValueError(f"40K source artifact hash mismatch: {path}")
     model_root = Path("/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/models")
     for path in (
         model_root / "Qwen3-8B-Base/config.json",

@@ -1,44 +1,40 @@
-# Qwen3-8B OpenR1-Math 40K masked full SFT
+# Qwen3-8B OpenR1-Math 40K masked full-SFT completion
 
-This example uses Slime's existing fast OPD-adjacent SFT path to **train the
-model itself with full-parameter SFT**. Axolotl-Masked-SFT is a semantic
-reference for selection and inverse-margin weighting; Axolotl is not used as
-the trainer and is not modified.
+This example uses Slime's existing fast OPD-adjacent path to train
+`Qwen/Qwen3-8B-Base` itself with full-parameter SFT. Axolotl-Masked-SFT is the
+semantic reference for selection and inverse-margin weighting; it is not the
+trainer.
 
-The three serial variants each start independently from the pinned
-`Qwen/Qwen3-8B-Base` checkpoint and train for one 40,000-trace epoch (200
-updates at global batch 200):
+The three variants start independently from the pinned base and train for one
+40,000-trace epoch at global/rollout batch 200:
 
 1. `correct_only`: 40,000 unique correct traces.
-2. `weighted_tau_0p20`: the exact same ordered 20,000 correct + 20,000 wrong
-   examples as the unmasked run. Wrong-token margin is
-   `logp(answer-conditioned) - logp(unconditioned)` under the frozen base.
-   Its weight is 1 for nonnegative margin and
-   `1 / (1 + (-margin / 0.20))` otherwise.
-3. `unmasked`: the same mixed rows and order, with every assistant token at
-   weight 1.
+2. `weighted_tau_0p20`: the same ordered 20,000 correct + 20,000 wrong rows as
+   unmasked. Wrong-token margin is
+   `logp(answer-conditioned) - logp(unconditioned)`. Weight is 1 for
+   nonnegative margin and `1 / (1 + (-margin / 0.20))` otherwise.
+3. `unmasked`: the mixed rows with every assistant token at weight 1.
 
-Selection uses seed 42, the Axolotl correctness-field priority, one seeded
-trace per problem, the source `is_reasoning_complete` flag, and disjoint
-correct/wrong problem IDs. Every trace must contain exactly one nonempty
-`<think>...</think>` block plus a nonempty answer tail, contain no embedded
-chat controls, and fit the complete 32,768-token training target without
-truncation. Wrong traces must also fit the answer-conditioned scoring prompt.
+Training rows are pre-tokenized. All assistant tokens, including literal think
+tags, have positive weight. `<|im_end|>` has weight 1; template trailing
+whitespace has weight zero; no synthetic `<|endoftext|>` is appended.
+Fractional weight mass is encoded for Megatron's integer schedule counter with
+a fixed-point scale of 256. Numerator and denominator are scaled together, so
+the weighted mean is preserved and binary masks remain exact.
 
-Training rows are pre-tokenized to preserve exact token/weight alignment.
-Prompt/template-prefix weights are zero. All assistant tokens—including both
-think tags—have positive weight. `<|im_end|>` is supervised at weight 1;
-template trailing whitespace is zero-weight; no synthetic `<|endoftext|>` is
-appended. Slime's per-token SFT loss divides the weighted token-loss sum by the
-sum of weights.
+This completes the already-started run. Its trace preparation, base-model
+margin scores, and weighted dataset finished successfully and remain
+immutable under the original scratch contract. Training failed before the
+first optimizer step when Megatron tried to add a float loss-weight sum to an
+integer token counter. The completion chain reuses the hash-pinned data and
+writes checkpoints and evaluations under a new contract root.
 
-MATH-500 uses the existing full-reproduction vLLM evaluator and
-`math500_event_scorer_v1`: temperature 0.8, top-p 0.7, top-k -1, one sample,
-seed `1234 + row`, 16,384 max new tokens, and both terminal IDs 151643 and
-151645. The already completed and hash-pinned 8B-base result is reused rather
-than rerun.
+MATH-500 uses the latest borrowed OPD
+`math500_strict_boxed_scorer_v3`, greedy decoding, and the dynamic budget
+`32768 - rendered_prompt_tokens - 64`. Both stop IDs 151643 and 151645 are
+accepted. The base 8B evaluation is rerun once and shared with the 2K tables.
 
-Run `./submit_chain.sh` only from the clean, pushed
-`qwen3-8b-openr1-masked-sft-40k` branch. Large data, checkpoints, raw scores,
-and generations stay under the contract-hashed scratch root; the final compact
-results are copied back here and pushed after completion.
+The authoritative launcher is
+`../qwen3_8b_openr1_math220k_masked_sft_2k/submit_completion_chain.sh`. It
+serializes the base eval, every 40K train/eval pair, and the 2K suite with
+strict `afterok` dependencies and at most four GPUs active.

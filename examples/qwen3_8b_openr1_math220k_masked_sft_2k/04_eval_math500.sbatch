@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=q8b-masksft-eval
+#SBATCH --job-name=q8b-sft2k-eval
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
@@ -12,7 +12,7 @@
 #SBATCH --mail-type=END,FAIL
 
 set -euo pipefail
-SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_openr1_math220k_masked_sft_40k"
+SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_openr1_math220k_masked_sft_2k"
 EVAL_HELPER_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_32b_full_repro"
 source "${SCRIPT_DIR}/env.sh"
 : "${EVAL_STAGE:?Set EVAL_STAGE}"
@@ -25,7 +25,8 @@ source "${SCRIPT_DIR}/env.sh"
   echo "This experiment requires the dynamic 32K total-context budget." >&2
   exit 1
 }
-export TMPDIR="/tmp/${USER:-suryadv}/q8b-masksft-${SLURM_JOB_ID}"
+
+export TMPDIR="/tmp/${USER:-suryadv}/q8b-sft2k-${SLURM_JOB_ID}"
 export RAY_TMPDIR="${TMPDIR}/ray"
 EVAL_STAGE_DIR="${EVAL_OUTPUT_ROOT}/${EVAL_STAGE}"
 mkdir -p "${SLURM_LOG_DIR}" "${EVAL_STAGE_DIR}/problems" "${TMPDIR}"
@@ -41,7 +42,10 @@ requeue_eval() {
 }
 trap requeue_eval USR1
 
-[[ -f "${EVAL_MODEL_DIR}/config.json" ]] || { echo "Missing eval model ${EVAL_MODEL_DIR}" >&2; exit 1; }
+[[ -f "${EVAL_MODEL_DIR}/config.json" ]] || {
+  echo "Missing eval model ${EVAL_MODEL_DIR}" >&2
+  exit 1
+}
 unset LD_LIBRARY_PATH
 VLLM_TARGET_LIBS="$(find "${VLLM_EVAL_SITE}" -path '*/nvidia/*/lib' -type d -printf '%p:' 2>/dev/null || true)"
 export LD_LIBRARY_PATH="${VLLM_TARGET_LIBS}"
@@ -82,20 +86,16 @@ for shard in 0 1 2 3; do
 done
 wait
 
-AGGREGATE_ARGS=(aggregate --stage "${EVAL_STAGE}" --output-dir "${EVAL_STAGE_DIR}" --expected 500 --bootstrap-seed "${EVAL_SEED}")
-if [[ -n "${EVAL_COMPARE_TO:-}" ]]; then AGGREGATE_ARGS+=(--compare-to "${EVAL_COMPARE_TO}"); fi
-"${SCRIPT_DIR}/container_exec.sh" python3 "${EVAL_HELPER_DIR}/evaluate_math500.py" "${AGGREGATE_ARGS[@]}"
-sha256sum "${EVAL_STAGE_DIR}/summary.json" | awk '{print $1}' >"${EVAL_STAGE_DIR}/summary.sha256"
-
-if [[ "${BUILD_FINAL_REPORT:-0}" == "1" ]]; then
-  BASE_EVAL_SUMMARY_SHA256="$(<"${BASE_EVAL_SUMMARY_SHA256_FILE}")"
-  python3 "${SCRIPT_DIR}/report_results.py" \
-    --base "${BASE_EVAL_SUMMARY}" \
-    --base-sha256 "${BASE_EVAL_SUMMARY_SHA256}" \
-    --correct-only "${EVAL_OUTPUT_ROOT}/correct_only/summary.json" \
-    --weighted "${EVAL_OUTPUT_ROOT}/weighted_tau_0p20/summary.json" \
-    --unmasked "${EVAL_OUTPUT_ROOT}/unmasked/summary.json" \
-    --output-json "${EXPERIMENT_ROOT}/RESULTS.json" \
-    --output-md "${EXPERIMENT_ROOT}/RESULTS.md"
+aggregate_args=(
+  aggregate
+  --stage "${EVAL_STAGE}"
+  --output-dir "${EVAL_STAGE_DIR}"
+  --expected 500
+  --bootstrap-seed "${EVAL_SEED}"
+)
+if [[ -n "${EVAL_COMPARE_TO:-}" ]]; then
+  aggregate_args+=(--compare-to "${EVAL_COMPARE_TO}")
 fi
-echo "EVAL_COMPLETE stage=${EVAL_STAGE} summary=${EVAL_STAGE_DIR}/summary.json"
+"${SCRIPT_DIR}/container_exec.sh" python3 "${EVAL_HELPER_DIR}/evaluate_math500.py" "${aggregate_args[@]}"
+sha256sum "${EVAL_STAGE_DIR}/summary.json" | awk '{print $1}' >"${EVAL_STAGE_DIR}/summary.sha256"
+echo "EVAL_2K_COMPLETE stage=${EVAL_STAGE} summary=${EVAL_STAGE_DIR}/summary.json"

@@ -24,6 +24,8 @@ import pytest
 import torch
 
 from slime.backends.megatron_utils.cp_utils import (  # noqa: E402
+    TOKEN_WEIGHT_FIXED_POINT_SCALE,
+    get_fixed_point_token_normalizer,
     get_logits_and_tokens_offset_with_cp,
     get_sum_of_sample_mean,
 )
@@ -78,6 +80,36 @@ def test_per_token_loss_preserves_fractional_loss_weights():
     normalized = weighted_sum / loss_masks[0].sum()
     assert weighted_sum.item() == pytest.approx(3.0)
     assert normalized.item() == pytest.approx(3.0 / 1.75)
+
+
+@pytest.mark.unit
+def test_fixed_point_normalizer_preserves_fractional_weighted_mean():
+    loss_masks = [torch.tensor([0.25, 0.5, 1.0], dtype=torch.float32)]
+    mass, schedule_tokens = get_fixed_point_token_normalizer(loss_masks, [3])
+    weighted_sum = torch.tensor(3.0)
+    normalized = weighted_sum * TOKEN_WEIGHT_FIXED_POINT_SCALE / schedule_tokens
+    assert mass.item() == pytest.approx(1.75)
+    assert schedule_tokens.dtype == torch.int32
+    assert schedule_tokens.item() == 448
+    assert normalized.item() == pytest.approx(3.0 / 1.75)
+
+
+@pytest.mark.unit
+def test_fixed_point_normalizer_is_exact_for_binary_masks_and_32k_batch_safe():
+    masks = [torch.ones(32768, dtype=torch.float32) for _ in range(2)]
+    mass, schedule_tokens = get_fixed_point_token_normalizer(masks, [32768, 32768])
+    assert mass.item() == 65536
+    assert schedule_tokens.item() == 65536 * TOKEN_WEIGHT_FIXED_POINT_SCALE
+    assert 200 * 32768 * TOKEN_WEIGHT_FIXED_POINT_SCALE < torch.iinfo(torch.int32).max
+
+
+@pytest.mark.unit
+def test_fixed_point_normalizer_rejects_possible_int32_overflow():
+    with pytest.raises(ValueError, match="overflow int32"):
+        get_fixed_point_token_normalizer(
+            [torch.ones(1, dtype=torch.float32)],
+            [torch.iinfo(torch.int32).max],
+        )
 
 
 @pytest.mark.unit

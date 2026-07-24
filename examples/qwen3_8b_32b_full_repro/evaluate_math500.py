@@ -37,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     shard.add_argument("--top-p", type=float, default=0.7)
     shard.add_argument("--top-k", type=int, default=-1)
     shard.add_argument("--max-new-tokens", type=int, default=16384)
+    shard.add_argument("--target-context", type=int, default=32768)
     shard.add_argument("--safety-margin", type=int, default=64)
     shard.add_argument("--seed", type=int, default=1234)
     shard.add_argument("--gpu-memory-utilization", type=float, default=0.90)
@@ -110,7 +111,7 @@ def model_context(config: Any) -> int:
     return value
 
 
-def policy(args: argparse.Namespace, context: int) -> dict[str, Any]:
+def policy(args: argparse.Namespace, native_context: int) -> dict[str, Any]:
     return {
         "model": str(Path(args.model).resolve()),
         "dataset": args.dataset,
@@ -124,7 +125,9 @@ def policy(args: argparse.Namespace, context: int) -> dict[str, Any]:
         "n": 1,
         "seed": args.seed,
         "max_new_tokens": args.max_new_tokens,
-        "model_context": context,
+        "response_budget_mode": "min(configured_max_new_tokens, target_context - rendered_prompt_tokens - safety_margin)",
+        "target_total_context_tokens": args.target_context,
+        "model_native_context_tokens": native_context,
         "safety_margin": args.safety_margin,
         "stop_token_ids": sorted(set(args.stop_token_ids)),
         "scorer": SCORER_VERSION,
@@ -279,7 +282,11 @@ def run_shard(args: argparse.Namespace) -> None:
 
     rows = dataset_rows(args.dataset, args.revision, args.cache_dir)
     config = AutoConfig.from_pretrained(args.model, trust_remote_code=True)
-    context = model_context(config)
+    native_context = model_context(config)
+    if native_context < args.target_context:
+        raise RuntimeError(
+            f"Model native context {native_context} is below target context {args.target_context}"
+        )
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
     expected_tokens = {"<|endoftext|>": 151643, "<|im_end|>": 151645}
     for token, expected_id in expected_tokens.items():
@@ -288,7 +295,7 @@ def run_shard(args: argparse.Namespace) -> None:
             raise RuntimeError(f"Tokenizer mismatch for {token}: expected {expected_id}, found {actual}")
     if set(expected_tokens.values()) - set(args.stop_token_ids):
         raise RuntimeError("Evaluation stop IDs must include EOS and <|im_end|>")
-    generation_policy = policy(args, context)
+    generation_policy = policy(args, native_context)
     fingerprint = policy_hash(generation_policy)
     output_dir = Path(args.output_dir)
     assigned = [(idx, row) for idx, row in enumerate(rows) if idx % args.num_shards == args.shard_index]
@@ -308,8 +315,10 @@ def run_shard(args: argparse.Namespace) -> None:
             enable_thinking=True,
         )
         input_ids = tokenizer.encode(rendered, add_special_tokens=False)
-        available = context - len(input_ids) - args.safety_margin
-        effective_cap = max(1, min(args.max_new_tokens, available))
+        available = dynamic_response_budget(
+            len(input_ids), args.target_context, args.safety_margin
+        )
+        effective_cap = min(args.max_new_tokens, available)
         pending.append((index, row, input_ids, rendered, effective_cap))
     print(f"EVAL_SHARD stage={args.stage} shard={args.shard_index}/{args.num_shards} pending={len(pending)} policy={fingerprint}", flush=True)
     if not pending:
@@ -320,7 +329,7 @@ def run_shard(args: argparse.Namespace) -> None:
         trust_remote_code=True,
         tensor_parallel_size=1,
         dtype="bfloat16",
-        max_model_len=context,
+        max_model_len=args.target_context,
         gpu_memory_utilization=args.gpu_memory_utilization,
         max_num_seqs=args.max_num_seqs,
         max_num_batched_tokens=args.max_num_batched_tokens,

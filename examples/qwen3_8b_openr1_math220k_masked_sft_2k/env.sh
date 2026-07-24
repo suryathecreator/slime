@@ -5,19 +5,17 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   exit 2
 fi
 
-export MASKED_SFT_EXAMPLE_DIR
-MASKED_SFT_EXAMPLE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+export MASKED_SFT_2K_DIR
+MASKED_SFT_2K_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 export SLIME_REPO_ROOT
-SLIME_REPO_ROOT="$(cd -- "${MASKED_SFT_EXAMPLE_DIR}/../.." >/dev/null 2>&1 && pwd)"
+SLIME_REPO_ROOT="$(cd -- "${MASKED_SFT_2K_DIR}/../.." >/dev/null 2>&1 && pwd)"
 export PYTHONPATH="${SLIME_REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 
-export CONTRACT_FILE="${MASKED_SFT_EXAMPLE_DIR}/config/experiment_contract.json"
+export CONTRACT_FILE="${MASKED_SFT_2K_DIR}/config/experiment_contract.json"
 export CONTRACT_HASH
 CONTRACT_HASH="$(sha256sum "${CONTRACT_FILE}" | awk '{print substr($1,1,16)}')"
-export EXPERIMENT_ROOT="/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/${CONTRACT_HASH}"
-export SCRATCH_ROOT="${EXPERIMENT_ROOT}"
-export SOURCE_40K_ROOT="/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/18b67d8ec9f3ff18"
-export DATA_ROOT="${SOURCE_40K_ROOT}/data"
+export EXPERIMENT_ROOT="/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/${CONTRACT_HASH}"
+export DATA_ROOT="${EXPERIMENT_ROOT}/data"
 export OUTPUT_ROOT="${EXPERIMENT_ROOT}/outputs"
 export MANIFEST_ROOT="${EXPERIMENT_ROOT}/manifests"
 export SLURM_LOG_DIR="${EXPERIMENT_ROOT}/slurm_logs"
@@ -26,7 +24,11 @@ export RAY_TMPDIR="${RAY_TMPDIR:-${EXPERIMENT_ROOT}/ray_tmp}"
 export WANDB_DIR="${EXPERIMENT_ROOT}/wandb"
 export WANDB_MODE="${WANDB_MODE:-offline}"
 
-# Immutable model, dataset, container, and evaluator caches from the OPD path.
+export AXOLOTL_SOURCE_ROOT="/gpfs/scrubbed/suryadv/repos/axolotl-masked-sft/runs/2026-06-23_openr1_220k_2k_balanced_full_sft_axolotl_harp_vllm_prob_ratio_mask/unpaired/seed_42/datasets"
+export AXOLOTL_CORRECT_ONLY="${AXOLOTL_SOURCE_ROOT}/correct_only.jsonl"
+export AXOLOTL_MIXED_UNMASKED="${AXOLOTL_SOURCE_ROOT}/correct_wrong_unmasked.jsonl"
+export AXOLOTL_SOURCE_STATS="${AXOLOTL_SOURCE_ROOT}/stats.json"
+
 export LEGACY_CACHE_ROOT="/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd"
 export MODEL_ROOT="${LEGACY_CACHE_ROOT}/models"
 export HF_HOME="${LEGACY_CACHE_ROOT}/hf_home"
@@ -46,36 +48,38 @@ export STUDENT_HF_REPO="Qwen/Qwen3-8B-Base"
 export STUDENT_HF_REVISION="49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
 export STUDENT_HF_DIR="${MODEL_ROOT}/Qwen3-8B-Base"
 export STUDENT_TORCH_DIST_DIR="${MODEL_ROOT}/Qwen3-8B-Base_torch_dist"
-export OPENR1_DATASET="open-r1/OpenR1-Math-220k"
-export OPENR1_CONFIG="default"
-export OPENR1_SPLIT="train"
-export OPENR1_REVISION="dc748648036c1ed619b020e056dc4b603eb39817"
 export DATA_SEED=42
+export MASK_SEED=42
 export MAX_SEQUENCE_LENGTH=32768
-export CORRECT_ONLY_ROWS=40000
-export MIXED_CORRECT_ROWS=20000
-export MIXED_WRONG_ROWS=20000
-export WEIGHT_TAU=0.20
+export CORRECT_ONLY_ROWS=2000
+export MIXED_CORRECT_ROWS=1000
+export MIXED_WRONG_ROWS=1000
 
-export SELECTED_TRACES_JSONL="${DATA_ROOT}/selected_traces.jsonl"
+export SELECTED_TRACES_JSONL="${DATA_ROOT}/selected_trace_union.jsonl"
 export PREP_STATS_JSON="${DATA_ROOT}/selection_and_tokenization_stats.json"
-export CORRECT_ONLY_JSONL="${DATA_ROOT}/correct_only_40000.jsonl"
-export UNMASKED_JSONL="${DATA_ROOT}/correct_wrong_unmasked_40000.jsonl"
+export CORRECT_ONLY_JSONL="${DATA_ROOT}/correct_only_2000.jsonl"
+export UNMASKED_JSONL="${DATA_ROOT}/correct_wrong_unmasked_2000.jsonl"
 export MARGIN_SHARD_DIR="${DATA_ROOT}/margin_shards"
-export MARGIN_MERGED_JSONL="${DATA_ROOT}/wrong_margins_merged.jsonl"
-export MARGIN_STATS_JSON="${DATA_ROOT}/wrong_margins_stats.json"
-export WEIGHTED_JSONL="${DATA_ROOT}/correct_wrong_weighted_tau_0p20_40000.jsonl"
-export WEIGHTED_STATS_JSON="${DATA_ROOT}/weighted_tau_0p20_stats.json"
-export SPLIT_METADATA="${PREP_STATS_JSON}"
+export VARIANT_STATS_JSON="${DATA_ROOT}/variant_stats.json"
 
-export SFT_SIZE=40000
+export RANDOM_MASK_25_JSONL="${DATA_ROOT}/random_mask_25_2000.jsonl"
+export RANDOM_MASK_50_JSONL="${DATA_ROOT}/random_mask_50_2000.jsonl"
+export RANDOM_MASK_70_JSONL="${DATA_ROOT}/random_mask_70_2000.jsonl"
+export RANDOM_MASK_80_JSONL="${DATA_ROOT}/random_mask_80_2000.jsonl"
+export RANDOM_MASK_90_JSONL="${DATA_ROOT}/random_mask_90_2000.jsonl"
+export INVERSE_TAU_0P20_JSONL="${DATA_ROOT}/inverse_tau_0p20_2000.jsonl"
+export INVERSE_TAU_0P05_JSONL="${DATA_ROOT}/inverse_tau_0p05_2000.jsonl"
+export MARGIN_MASK_JSONL="${DATA_ROOT}/margin_mask_2000.jsonl"
+export PROB_RATIO_MASK_JSONL="${DATA_ROOT}/prob_ratio_mask_2000.jsonl"
+
+export SFT_SIZE=2000
 export SFT_NUM_EPOCH=1
 export SFT_ROLLOUT_BATCH_SIZE=200
 export SFT_GLOBAL_BATCH_SIZE=200
-export SFT_NUM_ROLLOUT=200
-export SFT_FINAL_ROLLOUT_ID=199
-export SFT_MILESTONE_ROLLOUT_IDS="49 99 149 199"
-export SFT_SAVE_INTERVAL=50
+export SFT_NUM_ROLLOUT=10
+export SFT_FINAL_ROLLOUT_ID=9
+export SFT_MILESTONE_ROLLOUT_IDS="9"
+export SFT_SAVE_INTERVAL=10
 export SFT_ACTOR_GPUS=4
 export SFT_TENSOR_MODEL_PARALLEL_SIZE=2
 export SFT_CONTEXT_PARALLEL_SIZE=1
@@ -96,14 +100,13 @@ export SFT_OPTIMIZER_CPU_OFFLOAD=1
 export SFT_RECOMPUTE_LOSS_FUNCTION=1
 export SFT_LR=1e-6
 export SFT_WANDB_PROJECT="slime-openr1-masked-sft"
-export SFT_WANDB_GROUP="qwen3-8b-full-sft-40k"
+export SFT_WANDB_GROUP="qwen3-8b-full-sft-2k"
 export CHECKPOINT_REPORT_DIR="${OUTPUT_ROOT}/checkpoint_reports"
 export CHECKPOINT_PRUNE_INTERVAL_SECONDS=60
+export SPLIT_METADATA="${PREP_STATS_JSON}"
 
-export QWEN3_ENABLE_THINKING=1
 export QWEN3_ENDOFTEXT_TOKEN_ID=151643
 export QWEN3_IM_END_TOKEN_ID=151645
-export QWEN3_STOP_TOKEN_IDS="151645 151643"
 export MATH500_DATASET="HuggingFaceH4/MATH-500"
 export MATH500_REVISION="6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be"
 export EVAL_OUTPUT_ROOT="${OUTPUT_ROOT}/math500"
@@ -115,13 +118,8 @@ export EVAL_TARGET_CONTEXT=32768
 export EVAL_SAFETY_MARGIN=64
 export EVAL_SEED=1234
 export EVAL_STOP_TOKEN_IDS="151645 151643"
-export EVAL_EXPECTED_SAMPLES=500
-export SHARED_2K_CONTRACT_FILE="${SLIME_REPO_ROOT}/examples/qwen3_8b_openr1_math220k_masked_sft_2k/config/experiment_contract.json"
-export SHARED_2K_CONTRACT_HASH
-SHARED_2K_CONTRACT_HASH="$(sha256sum "${SHARED_2K_CONTRACT_FILE}" | awk '{print substr($1,1,16)}')"
-export SHARED_BASE_EVAL_ROOT="/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/${SHARED_2K_CONTRACT_HASH}/outputs/math500/base_8b"
-export BASE_EVAL_SUMMARY="${SHARED_BASE_EVAL_ROOT}/summary.json"
-export BASE_EVAL_SUMMARY_SHA256_FILE="${SHARED_BASE_EVAL_ROOT}/summary.sha256"
+export BASE_EVAL_SUMMARY="${EVAL_OUTPUT_ROOT}/base_8b/summary.json"
+export BASE_EVAL_SUMMARY_SHA256_FILE="${EVAL_OUTPUT_ROOT}/base_8b/summary.sha256"
 
 export ACCOUNT="${ACCOUNT:-raivn}"
 export PARTITION="${PARTITION:-gpu-h200}"

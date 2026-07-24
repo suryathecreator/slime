@@ -1,340 +1,260 @@
 #!/usr/bin/env python3
-"""Versioned answer-event MATH-500 scorer using math_verify 0.9.0."""
+"""Strict boxed-answer MATH-500 scorer with cap-hit diagnostics."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import re
-import signal
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable
 
+from examples.qwen3_8b_32b_full_repro import math500_scorer_v1 as v1
+from examples.qwen3_8b_32b_full_repro import math500_scorer_v2 as v2
 
-SCORER_VERSION = "math500_event_scorer_v1"
+
+SCORER_VERSION = "math500_strict_boxed_scorer_v3"
+THINK_OPEN = "<think>"
 THINK_CLOSE = "</think>"
-SPECIAL_TOKENS = ("<|im_start|>", "<|im_end|>", "<|endoftext|>")
-ASSERTION_RE = re.compile(
-    r"(?im)\b(?:final\s+(?:answer|result)\s*(?:is|:|=)?|(?:the\s+)?answer\s+(?:is|equals)|answer\s*:|my\s+final\s+answer\s*(?:is|:|=)?)\s*"
+BOX_START_RE = re.compile(r"\\boxed\s*\{")
+ADJACENT_BOX_GAP_RE = re.compile(
+    r"(?is)^(?:\s|[,;:&/]|and\b|or\b|\\quad\b|\\qquad\b|\\[,;:]|\\\\)*$"
 )
-CONCLUSION_RE = re.compile(r"(?im)\b(?:therefore|hence|thus|consequently)\s*[,,:]?\s*")
-CORRECTION_RE = re.compile(r"(?i)\b(?:wait|actually|scratch\s+that|correction|instead)\b")
-RETRACTION_RE = re.compile(
-    r"(?i)\b(?:i\s+(?:was|am)\s+wrong|(?:that|this|the|my|our)\s+(?:answer|result)\s+is\s+(?:wrong|incorrect|false)|i\s+(?:retract|reject|discard)\b|scratch\s+that|not\s+(?:the\s+)?(?:answer|result))"
-)
-DOUBT_RE = re.compile(r"(?i)\b(?:maybe|perhaps|possibly|i\s+(?:think|guess)|not\s+sure|uncertain|doubt(?:ful)?)\b")
-NEGATION_RE = re.compile(r"(?i)\bnot\s+([^\n.;,]{1,128})")
-MATHISH_RE = re.compile(r"(?:\\[A-Za-z]+|\d|[=+\-*/^<>]|\$|\(|\)|\[|\]|\{|\})")
-
-
-class VerificationTimeout(TimeoutError):
-    pass
 
 
 @dataclass
-class AnswerEvent:
+class BoxEvent:
     event_id: str
-    event_type: str
     span: list[int]
     raw: str
     candidate: str | None
-    confidence: str
-    parseable: bool = False
-    parse_result: str | None = None
-    parser_exception: str | None = None
-    parser_timeout: bool = False
-    invalidated: bool = False
-    retracted: bool = False
-    doubtful: bool = False
-    superseded: bool = False
+    complete: bool
+    structurally_valid: bool
+    candidate_sha256: str
     invalidation_reasons: list[str] = field(default_factory=list)
-    candidate_sha256: str | None = None
+
+
+@dataclass
+class BoxGroup:
+    event_id: str
+    span: list[int]
+    raw: str
+    candidate: str
+    components: list[str]
+    source_event_ids: list[str]
+    candidate_sha256: str
 
 
 def clean_text(text: str | None) -> str:
-    value = str(text or "")
-    for token in SPECIAL_TOKENS:
-        value = value.replace(token, "")
-    return value
+    return v1.clean_text(text)
 
 
-def answer_region(text: str) -> tuple[str, int, str, bool]:
-    if THINK_CLOSE in text:
-        offset = text.rfind(THINK_CLOSE) + len(THINK_CLOSE)
-        return text[offset:], offset, "final_post_think_region", True
-    return text, 0, "unfinished_full_response", False
+def _sha256(value: str | None) -> str:
+    return hashlib.sha256(str(value or "").encode()).hexdigest()
 
 
-def balanced_boxes(text: str, offset: int) -> tuple[list[AnswerEvent], list[dict[str, Any]]]:
-    events: list[AnswerEvent] = []
+def _is_escaped(text: str, position: int) -> bool:
+    backslashes = 0
+    cursor = position - 1
+    while cursor >= 0 and text[cursor] == "\\":
+        backslashes += 1
+        cursor -= 1
+    return bool(backslashes % 2)
+
+
+def classify_think_tags(text: str) -> dict[str, Any]:
+    open_spans = [[match.start(), match.end()] for match in re.finditer(re.escape(THINK_OPEN), text)]
+    close_spans = [[match.start(), match.end()] for match in re.finditer(re.escape(THINK_CLOSE), text)]
+    if not open_spans and not close_spans:
+        state = "none"
+    elif len(open_spans) == 1 and len(close_spans) == 1 and open_spans[0][0] < close_spans[0][0]:
+        state = "complete"
+    elif open_spans and not close_spans:
+        state = "open_without_close"
+    elif close_spans and not open_spans:
+        state = "close_without_open"
+    else:
+        state = "malformed_or_repeated"
+    return {
+        "state": state,
+        "open_count": len(open_spans),
+        "close_count": len(close_spans),
+        "open_spans": open_spans,
+        "close_spans": close_spans,
+    }
+
+
+def answer_region(text: str) -> tuple[str, int, str, dict[str, Any]]:
+    think = classify_think_tags(text)
+    return text, 0, "whole_response_all_think_states", think
+
+
+def _balanced_boxes(text: str, offset: int) -> tuple[list[BoxEvent], list[dict[str, Any]]]:
+    boxes: list[BoxEvent] = []
     malformed: list[dict[str, Any]] = []
-    for match in re.finditer(r"\\boxed\s*\{", text):
+    for match in BOX_START_RE.finditer(text):
         cursor = match.end()
         depth = 1
         while cursor < len(text) and depth:
-            escaped = cursor > 0 and text[cursor - 1] == "\\"
-            if text[cursor] == "{" and not escaped:
+            if text[cursor] == "{" and not _is_escaped(text, cursor):
                 depth += 1
-            elif text[cursor] == "}" and not escaped:
+            elif text[cursor] == "}" and not _is_escaped(text, cursor):
                 depth -= 1
             cursor += 1
         if depth:
-            malformed.append({"span": [offset + match.start(), offset + len(text)], "raw": text[match.start() :]})
+            malformed.append(
+                {
+                    "span": [offset + match.start(), offset + len(text)],
+                    "raw": text[match.start() :],
+                    "reason": "unclosed_box",
+                }
+            )
             continue
         candidate = text[match.end() : cursor - 1].strip()
-        events.append(
-            AnswerEvent(
-                event_id="",
-                event_type="boxed",
+        reasons: list[str] = []
+        if not candidate:
+            reasons.append("empty_box")
+        elif v2.is_structural_only(candidate):
+            reasons.append("structural_only_box")
+        boxes.append(
+            BoxEvent(
+                event_id=f"box_{len(boxes):04d}",
                 span=[offset + match.start(), offset + cursor],
                 raw=text[match.start() : cursor],
                 candidate=candidate or None,
-                confidence="confident" if candidate else "invalid",
+                complete=True,
+                structurally_valid=not reasons,
+                candidate_sha256=_sha256(candidate),
+                invalidation_reasons=reasons,
             )
         )
-    return events, malformed
+    return boxes, malformed
 
 
-def candidate_tail(text: str, start: int) -> tuple[str | None, int]:
-    line_end = text.find("\n", start)
-    if line_end < 0:
-        line_end = len(text)
-    raw_tail = text[start:line_end]
-    tail = raw_tail.strip()
-    if not tail:
-        return None, start
-    box_events, _ = balanced_boxes(tail, 0)
-    if box_events and box_events[0].span[0] == 0:
-        return box_events[0].candidate, start + box_events[0].span[1]
-    tail = re.split(
-        r"(?i)(?:\.(?=\s|$)|;\s*|</think>|<\|(?:im_end|endoftext)\|>|\s+(?:because|since|which\s+means|as\s+required)\b|\b(?:wait|actually|scratch\s+that)\b)",
-        tail,
-        maxsplit=1,
-    )[0]
-    tail = tail.rstrip(" .,:;!`*")
-    if not tail or not MATHISH_RE.search(tail):
-        return None, start
-    relative = raw_tail.find(tail)
-    if relative < 0:
-        relative = len(raw_tail) - len(raw_tail.lstrip())
-    return tail, start + relative + len(tail)
+def _group_boxes(boxes: list[BoxEvent], region: str, offset: int) -> list[BoxGroup]:
+    valid = [box for box in boxes if box.structurally_valid and box.candidate is not None]
+    raw_groups: list[list[BoxEvent]] = []
+    current: list[BoxEvent] = []
+    for box in valid:
+        if current:
+            gap = region[current[-1].span[1] - offset : box.span[0] - offset]
+            display_boundary = bool(re.search(r"\\\]\s*\\\[|\$\$\s*\$\$", gap))
+            adjacent = len(gap) <= 80 and bool(ADJACENT_BOX_GAP_RE.fullmatch(gap))
+            if display_boundary or not adjacent:
+                raw_groups.append(current)
+                current = []
+        current.append(box)
+    if current:
+        raw_groups.append(current)
 
-
-def asserted_events(text: str, offset: int) -> list[AnswerEvent]:
-    events: list[AnswerEvent] = []
-    for event_type, pattern in (("explicit_assertion", ASSERTION_RE), ("conclusion", CONCLUSION_RE)):
-        for marker in pattern.finditer(text):
-            candidate, end = candidate_tail(text, marker.end())
-            if candidate is None:
-                continue
-            local = text[max(0, marker.start() - 32) : min(len(text), end + 32)]
-            doubtful = bool(DOUBT_RE.search(local))
-            events.append(
-                AnswerEvent(
-                    event_id="",
-                    event_type=event_type,
-                    span=[offset + marker.start(), offset + end],
-                    raw=text[marker.start() : end],
-                    candidate=candidate,
-                    confidence="doubtful" if doubtful else "confident",
-                    doubtful=doubtful,
-                )
+    groups: list[BoxGroup] = []
+    for members in raw_groups:
+        components = [str(member.candidate) for member in members]
+        candidate = ", ".join(components)
+        start, end = members[0].span[0], members[-1].span[1]
+        groups.append(
+            BoxGroup(
+                event_id=f"boxed_group_{len(groups):04d}",
+                span=[start, end],
+                raw=region[start - offset : end - offset],
+                candidate=candidate,
+                components=components,
+                source_event_ids=[member.event_id for member in members],
+                candidate_sha256=_sha256(candidate),
             )
-    return events
+        )
+    return groups
 
 
-def standalone_final_event(text: str, offset: int) -> AnswerEvent | None:
-    lines = list(re.finditer(r"(?m)^.*$", text))
-    nonempty = [line for line in lines if line.group(0).strip()]
-    if not nonempty:
-        return None
-    line = nonempty[-1]
-    candidate = line.group(0).strip().strip("$ ")
-    if len(candidate) > 512 or not MATHISH_RE.search(candidate):
-        return None
-    strongly_indicated = bool(re.fullmatch(r"(?:\\boxed\{.*\}|[\[\](){}\\A-Za-z0-9_.,+\-*/^=<>|: ]+)", candidate))
-    if not strongly_indicated:
-        return None
-    local = text[max(0, line.start() - 80) : line.end()]
-    doubtful = bool(DOUBT_RE.search(local))
-    return AnswerEvent(
-        event_id="",
-        event_type="standalone_final_math_line",
-        span=[offset + line.start(), offset + line.end()],
-        raw=line.group(0),
-        candidate=candidate,
-        confidence="doubtful" if doubtful else "confident",
-        doubtful=doubtful,
+def extract_last_boxed_group(
+    text: str,
+) -> tuple[BoxGroup | None, list[BoxEvent], list[BoxGroup], list[dict[str, Any]], dict[str, Any]]:
+    region, offset, region_name, think = answer_region(text)
+    boxes, malformed = _balanced_boxes(region, offset)
+    groups = _group_boxes(boxes, region, offset)
+    selected = groups[-1] if groups else None
+    region_info = {
+        "name": region_name,
+        "span": [offset, offset + len(region)],
+        "sha256": _sha256(region),
+        "think_tags": think,
+    }
+    return selected, boxes, groups, malformed, region_info
+
+
+def verify_equivalence(
+    candidate: str,
+    gold: str,
+    timeout_seconds: int = 15,
+    *,
+    verifier: Callable[[str, str], dict[str, Any]] | None = None,
+    force_scalar: bool = False,
+) -> dict[str, Any]:
+    return v2.verify_equivalence(
+        candidate,
+        gold,
+        timeout_seconds=timeout_seconds,
+        verifier=verifier,
+        force_scalar=force_scalar,
     )
 
 
-def parse_candidate(candidate: str | None, parse_fn: Callable[..., Any] | None = None) -> tuple[bool, str | None]:
-    if not candidate:
-        return False, None
-    try:
-        if parse_fn is None:
-            from math_verify import parse as parse_fn
-        parsed = parse_math(candidate, parse_fn=parse_fn, timeout_seconds=10)
-        if parsed is None or parsed == []:
-            return False, "unparseable_candidate"
-        return True, repr(parsed)
-    except Exception as exc:
-        return False, f"{type(exc).__name__}: {exc}"
+def _empty_verification(gold_answer: str) -> dict[str, Any]:
+    return {
+        "parse_success": False,
+        "gold_parsed": None,
+        "candidate_parsed": None,
+        "equivalent": False,
+        "exception": None,
+        "timeout": False,
+        "verification_type": None,
+        "candidate_components": [],
+        "gold_components": v2._split_top_level(gold_answer),
+        "cardinality_match": False,
+    }
 
 
-def extract_events(region: str, offset: int, parse_fn: Callable[..., Any] | None = None) -> tuple[list[AnswerEvent], list[dict[str, Any]]]:
-    boxes, malformed = balanced_boxes(region, offset)
-    events = boxes + asserted_events(region, offset)
-    weak = standalone_final_event(region, offset)
-    if weak is not None and not any(
-        event.span[0] < weak.span[1] and weak.span[0] < event.span[1] for event in events
-    ):
-        events.append(weak)
-    events.sort(key=lambda event: (event.span[0], event.span[1], event.event_type))
-    deduped: list[AnswerEvent] = []
-    seen: set[tuple[int, int, str | None]] = set()
-    for event in events:
-        key = (event.span[0], event.span[1], event.candidate)
-        if key in seen:
-            continue
-        seen.add(key)
-        event.event_id = f"answer_{len(deduped):04d}"
-        event.parseable, parse_detail = parse_candidate(event.candidate, parse_fn=parse_fn)
-        if event.parseable:
-            event.parse_result = parse_detail
-        else:
-            event.parser_exception = parse_detail
-            event.parser_timeout = bool(parse_detail and "timeout" in parse_detail.lower())
-        event.candidate_sha256 = hashlib.sha256(str(event.candidate or "").encode()).hexdigest()
-        deduped.append(event)
-    return deduped, malformed
-
-
-def apply_discourse(text: str, events: list[AnswerEvent]) -> tuple[AnswerEvent | None, list[dict[str, Any]]]:
-    controls: list[tuple[int, str, str]] = []
-    for pattern, kind in ((CORRECTION_RE, "correction"), (RETRACTION_RE, "retraction"), (DOUBT_RE, "doubt")):
-        controls.extend((match.start(), kind, match.group(0)) for match in pattern.finditer(text))
-    controls.extend((match.start(), "negation", match.group(0)) for match in NEGATION_RE.finditer(text))
-    controls.sort()
-    timeline: list[tuple[int, str, Any]] = [(event.span[0], "answer", event) for event in events]
-    timeline.extend((position, "control", (kind, raw)) for position, kind, raw in controls)
-    timeline.sort(key=lambda item: (item[0], 0 if item[1] == "control" else 1))
-    active: AnswerEvent | None = None
-    history: list[dict[str, Any]] = []
-    for position, kind, payload in timeline:
-        if kind == "control":
-            control, raw = payload
-            if active is None:
-                history.append({"action": f"ignored_{control}", "position": position, "raw": raw})
-                continue
-            if control == "doubt" and position <= active.span[1]:
-                active.doubtful = True
-                active.confidence = "doubtful"
-                history.append({"action": "candidate_marked_doubtful", "event_id": active.event_id, "raw": raw})
-            elif control == "doubt" and 0 <= position - active.span[1] <= 160:
-                active.doubtful = True
-                active.invalidated = True
-                active.confidence = "doubtful"
-                active.invalidation_reasons.append("later_tied_doubt")
-                history.append({"action": "candidate_invalidated_by_doubt", "event_id": active.event_id, "raw": raw})
-                active = None
-            elif control in {"correction", "retraction"} and position >= active.span[1]:
-                active.invalidated = True
-                active.retracted = control == "retraction"
-                active.invalidation_reasons.append(control)
-                history.append({"action": f"candidate_{control}", "event_id": active.event_id, "raw": raw})
-                active = None
-            elif control == "negation" and position >= active.span[1]:
-                normalized_candidate = re.sub(r"\s+", "", str(active.candidate or "")).lower().strip("$.")
-                normalized_negation = re.sub(r"\s+", "", raw[3:]).lower().strip("$.")
-                if normalized_candidate and normalized_negation.startswith(normalized_candidate):
-                    active.invalidated = True
-                    active.retracted = True
-                    active.invalidation_reasons.append("tied_negation")
-                    history.append({"action": "candidate_tied_negation", "event_id": active.event_id, "raw": raw})
-                    active = None
-            continue
-        event: AnswerEvent = payload
-        if event.doubtful or not event.parseable:
-            history.append({"action": "ignored_doubtful_or_unparseable", "event_id": event.event_id})
-            continue
-        if active is not None:
-            if active.candidate == event.candidate:
-                history.append({"action": "reaffirmation", "event_id": event.event_id, "previous_event_id": active.event_id})
-            else:
-                active.superseded = True
-                active.invalidated = True
-                active.invalidation_reasons.append("later_confident_replacement")
-                history.append({"action": "replacement", "event_id": event.event_id, "replaced_event_id": active.event_id})
-        else:
-            history.append({"action": "selection", "event_id": event.event_id})
-        active = event
-    if active is not None and (active.invalidated or active.doubtful or not active.parseable):
-        active = None
-    if active is None:
-        for event in reversed(events):
-            if event.parseable and not event.invalidated and not event.doubtful and event.confidence == "confident":
-                active = event
-                history.append({"action": "backward_last_confident_selection", "event_id": event.event_id})
-                break
-    return active, history
-
-
-def _timeout_handler(_signum: int, _frame: Any) -> None:
-    raise VerificationTimeout("math_verify timed out")
-
-
-def parse_math(value: str, *, parse_fn: Callable[..., Any], timeout_seconds: int) -> Any:
-    stripped = value.strip()
-    if stripped.startswith("$") and stripped.endswith("$"):
-        attempts = [stripped]
+def _counterfactual_box_score(
+    selected: BoxGroup | None,
+    boxes: list[BoxEvent],
+    malformed_boxes: list[dict[str, Any]],
+    gold_answer: str,
+    *,
+    parse_fn: Callable[..., Any] | None,
+    verifier: Callable[[str, str], dict[str, Any]] | None,
+) -> dict[str, Any]:
+    verification = _empty_verification(gold_answer)
+    parseable = False
+    parse_detail: str | None = None
+    decision_reason = "unscorable_no_box"
+    if selected is None:
+        if malformed_boxes or any(not box.structurally_valid for box in boxes):
+            decision_reason = "unscorable_malformed_or_empty_box"
     else:
-        # Raw math such as 2\sqrt{2} is otherwise often reduced to its first
-        # incidental number by the expression fallback. Prefer explicit LaTeX
-        # math delimiters, then retain the raw extraction as a fallback.
-        attempts = [f"${stripped}$", stripped]
-    last: Any = []
-    for attempt in attempts:
-        last = parse_fn(attempt, parsing_timeout=min(10, timeout_seconds), raise_on_error=True)
-        if last not in (None, []):
-            return last
-    return last
-
-
-def verify_equivalence(candidate: str, gold: str, timeout_seconds: int = 15) -> dict[str, Any]:
-    from math_verify import parse, verify
-
-    previous = signal.signal(signal.SIGALRM, _timeout_handler)
-    signal.setitimer(signal.ITIMER_REAL, timeout_seconds)
-    try:
-        parsed_gold = parse_math(gold, parse_fn=parse, timeout_seconds=timeout_seconds)
-        parsed_candidate = parse_math(candidate, parse_fn=parse, timeout_seconds=timeout_seconds)
-        if parsed_gold in (None, []) or parsed_candidate in (None, []):
-            raise ValueError(f"unparseable math: gold={parsed_gold!r} candidate={parsed_candidate!r}")
-        equivalent = bool(verify(parsed_gold, parsed_candidate))
-        return {
-            "parse_success": True,
-            "gold_parsed": repr(parsed_gold),
-            "candidate_parsed": repr(parsed_candidate),
-            "equivalent": equivalent,
-            "exception": None,
-            "timeout": False,
-        }
-    except VerificationTimeout as exc:
-        return {"parse_success": False, "gold_parsed": None, "candidate_parsed": None, "equivalent": False, "exception": str(exc), "timeout": True}
-    except Exception as exc:
-        return {"parse_success": False, "gold_parsed": None, "candidate_parsed": None, "equivalent": False, "exception": f"{type(exc).__name__}: {exc}", "timeout": False}
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous)
-
-
-def diagnostic_candidate(text: str, parse_fn: Callable[..., Any] | None = None) -> str | None:
-    events, _ = extract_events(text, 0, parse_fn=parse_fn)
-    for event in reversed(events):
-        if event.parseable and not event.doubtful:
-            return event.candidate
-    return None
+        parseable, parse_detail = v1.parse_candidate(selected.candidate, parse_fn=parse_fn)
+        if not parseable:
+            decision_reason = "unscorable_parse_failure"
+            verification["exception"] = parse_detail
+        else:
+            verification = verify_equivalence(selected.candidate, gold_answer, verifier=verifier)
+            if not verification.get("parse_success"):
+                decision_reason = "unscorable_verifier_failure"
+            elif verification.get("equivalent"):
+                decision_reason = "correct"
+            else:
+                decision_reason = "incorrect_math"
+    is_scorable = bool(selected is not None and parseable and verification.get("parse_success"))
+    return {
+        "candidate": selected.candidate if selected else None,
+        "candidate_sha256": _sha256(selected.candidate if selected else None),
+        "selected_box_group_id": selected.event_id if selected else None,
+        "parseable": parseable,
+        "parse_result": parse_detail,
+        "is_scorable": is_scorable,
+        "is_correct": bool(is_scorable and verification.get("equivalent")),
+        "decision_reason": decision_reason,
+        "verification": verification,
+    }
 
 
 def score_response(
@@ -349,53 +269,90 @@ def score_response(
     verifier: Callable[[str, str], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     text = clean_text(generated_text)
-    region, offset, region_name, think_closed = answer_region(text)
-    events, malformed_boxes = extract_events(region, offset, parse_fn=parse_fn)
-    selected, history = apply_discourse(text, events)
-    candidate = selected.candidate if selected is not None else None
-    boxed = next((event.candidate for event in reversed(events) if event.event_type == "boxed" and event.parseable), None)
-    last_confident = next((event.candidate for event in reversed(events) if event.parseable and not event.invalidated and not event.doubtful), None)
-    anywhere = diagnostic_candidate(text, parse_fn=parse_fn)
-    verification = {
-        "parse_success": False,
-        "gold_parsed": None,
-        "candidate_parsed": None,
-        "equivalent": False,
-        "exception": None,
-        "timeout": False,
-    }
-    if candidate is not None:
-        verification = (verifier or verify_equivalence)(candidate, gold_answer)
-    event_exception = next((event.parser_exception for event in reversed(events) if event.parser_exception), None)
+    selected, boxes, groups, malformed_boxes, region = extract_last_boxed_group(text)
+    counterfactual = _counterfactual_box_score(
+        selected,
+        boxes,
+        malformed_boxes,
+        gold_answer,
+        parse_fn=parse_fn,
+        verifier=verifier,
+    )
+    if cap_hit:
+        official_candidate = None
+        official_is_scorable = False
+        official_is_correct = False
+        official_reason = "cap_hit"
+    else:
+        official_candidate = counterfactual["candidate"]
+        official_is_scorable = bool(counterfactual["is_scorable"])
+        official_is_correct = bool(counterfactual["is_correct"])
+        official_reason = str(counterfactual["decision_reason"])
+
+    selected_history = (
+        [
+            {
+                "action": "selected_chronologically_last_complete_boxed_group",
+                "event_id": selected.event_id,
+                "ignored_later_reasoning": True,
+            }
+        ]
+        if selected
+        else [{"action": "no_complete_boxed_group"}]
+    )
+    verification = counterfactual["verification"]
     return {
         "scorer_version": SCORER_VERSION,
+        "trace_schema_version": "math500_strict_boxed_trace_v3",
         "problem_id": str(problem_id),
-        "official_extracted_candidate": candidate,
-        "official_candidate_sha256": hashlib.sha256(str(candidate or "").encode()).hexdigest(),
-        "extraction_region": region_name,
-        "extraction_rule": selected.event_type if selected is not None else "no_confident_unretracted_candidate",
-        "candidate_event_history": [asdict(event) for event in events],
-        "selection_history": history,
-        "invalidation_flags": {
-            "any_retraction": any(event.retracted for event in events),
-            "any_doubt": any(event.doubtful for event in events),
-            "any_replacement": any(event.superseded for event in events),
-            "malformed_boxes": malformed_boxes,
+        "official_extracted_candidate": official_candidate,
+        "official_candidate_sha256": _sha256(official_candidate),
+        "is_scorable": official_is_scorable,
+        "official_decision_reason": official_reason,
+        "is_correct": official_is_correct,
+        "extraction_region": region["name"],
+        "extraction_region_span": region["span"],
+        "extraction_region_sha256": region["sha256"],
+        "extraction_rule": (
+            "last_adjacent_boxed_group"
+            if selected and len(selected.components) > 1
+            else "last_complete_box"
+            if selected
+            else "no_complete_box"
+        ),
+        "think_tag_state": region["think_tags"]["state"],
+        "think_tag_counts": {
+            "open": region["think_tags"]["open_count"],
+            "close": region["think_tags"]["close_count"],
         },
-        "boxed_answer_candidate": boxed,
-        "last_confident_answer_candidate": last_confident,
-        "answer_anywhere_diagnostic": anywhere,
-        "parse_result": verification.get("candidate_parsed"),
-        "math_verify_result": bool(verification.get("equivalent")),
-        "is_correct": bool(verification.get("equivalent")),
+        "think_tag_spans": {
+            "open": region["think_tags"]["open_spans"],
+            "close": region["think_tags"]["close_spans"],
+        },
+        "think_closure": region["think_tags"]["state"] == "complete",
+        "box_events": [asdict(box) for box in boxes],
+        "boxed_groups": [asdict(group) for group in groups],
+        "selected_box_group": asdict(selected) if selected else None,
+        "selected_event_ids": [selected.event_id] if selected else [],
+        "selection_history": selected_history,
+        "candidate_event_history": [asdict(group) for group in groups],
+        "invalidation_flags": {"malformed_boxes": malformed_boxes},
+        "boxed_answer_candidate": selected.candidate if selected else None,
+        "last_confident_answer_candidate": selected.candidate if selected else None,
+        "answer_anywhere_diagnostic": selected.candidate if selected else None,
+        "cap_counterfactual_diagnostic": counterfactual if cap_hit else None,
+        "typed_verifier_evidence": verification,
+        "parse_result": counterfactual["parse_result"],
+        "math_verify_result": official_is_correct,
         "finish_reason": finish_reason,
         "stop_token_observed": stop_token_id,
         "cap_status": bool(cap_hit),
-        "think_closure": think_closed,
-        "answer_replacement_count": sum(1 for event in events if event.superseded),
-        "parser_verifier_exception": verification.get("exception") or event_exception,
-        "parser_verifier_timeout": bool(verification.get("timeout")) or any(event.parser_timeout for event in events),
-        "generated_text_sha256": hashlib.sha256(str(generated_text).encode()).hexdigest(),
+        "answer_replacement_count": max(0, len(groups) - 1),
+        "partial_cap_suppression_count": 0,
+        "structural_candidate_rejection_count": sum(not box.structurally_valid for box in boxes),
+        "parser_verifier_exception": verification.get("exception"),
+        "parser_verifier_timeout": bool(verification.get("timeout")),
+        "generated_text_sha256": _sha256(generated_text),
     }
 
 
@@ -406,8 +363,21 @@ def main() -> None:
     parser.add_argument("--response", required=True)
     parser.add_argument("--gold", required=True)
     parser.add_argument("--problem-id", default="manual")
+    parser.add_argument("--cap-hit", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(score_response(args.response, args.gold, finish_reason=None, stop_token_id=None, cap_hit=False, problem_id=args.problem_id), indent=2))
+    print(
+        json.dumps(
+            score_response(
+                args.response,
+                args.gold,
+                finish_reason="length" if args.cap_hit else "stop",
+                stop_token_id=None,
+                cap_hit=args.cap_hit,
+                problem_id=args.problem_id,
+            ),
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from examples.qwen3_8b_32b_full_repro.math500_scorer import SCORER_VERSION
 from examples.qwen3_8b_openr1_math220k_masked_sft_40k.data_utils import atomic_json, sha256_file
 
 
@@ -29,6 +30,8 @@ def summary_row(label: str, path: str, base_accuracy: float) -> dict[str, Any]:
     summary = json.loads(Path(path).read_text(encoding="utf-8"))
     if len(summary.get("per_problem", [])) != 500:
         raise ValueError(f"summary is not a complete MATH-500 evaluation: {path}")
+    if summary.get("scorer_version") != SCORER_VERSION:
+        raise ValueError(f"unexpected scorer for {path}: {summary.get('scorer_version')}")
     accuracy = float(summary["pass_at_1"])
     return {
         "accuracy": accuracy,
@@ -58,9 +61,9 @@ def main() -> None:
         summary_row("Post-SFT unmasked", args.unmasked, base_accuracy),
     ]
     value = {
-        "base_reused_not_rerun": True,
+        "base_reused_not_rerun": False,
         "eval_set": "HuggingFaceH4/MATH-500@6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
-        "scorer": "math500_event_scorer_v1",
+        "scorer": SCORER_VERSION,
         "rows": rows,
     }
     atomic_json(args.output_json, value)
