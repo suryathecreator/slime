@@ -79,7 +79,7 @@ def main() -> None:
     for path, needle in dtype_checks.items():
         if needle not in path.read_text(encoding="utf-8"):
             raise ValueError(f"fractional loss-mask transport is not enabled in {path}")
-    for script in sorted(example.glob("*.sbatch")) + [example / "submit_chain.sh", example / "container_exec.sh"]:
+    for script in sorted(example.glob("*.sbatch")) + sorted(example.glob("*.sh")):
         subprocess.run(["bash", "-n", str(script)], check=True)
     if args.require_pushed_clean:
         if git("branch", "--show-current") != BRANCH:

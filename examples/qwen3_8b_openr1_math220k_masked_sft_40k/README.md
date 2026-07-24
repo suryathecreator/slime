@@ -38,3 +38,11 @@ The authoritative launcher is
 `../qwen3_8b_openr1_math220k_masked_sft_2k/submit_completion_chain.sh`. It
 serializes the base eval, every 40K train/eval pair, and the 2K suite with
 strict `afterok` dependencies and at most four GPUs active.
+
+Operational recovery: job 185501 completed 49 training steps but failed while
+creating its first async torch_dist checkpoint because Python's AF_UNIX
+manager socket inherited the long GPFS contract `TMPDIR`. The partial
+checkpoint has no `latest_checkpointed_iteration.txt` and is not resumable.
+`resubmit_after_tmpdir.sh` preserves that attempt, restarts correct-only from
+the pinned 8B base with a short node-local temp path, and rewires the existing
+eval 185502 so the already-submitted downstream chain is reused.

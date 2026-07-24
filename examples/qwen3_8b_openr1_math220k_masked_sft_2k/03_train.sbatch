@@ -13,6 +13,15 @@ set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_openr1_math220k_masked_sft_2k"
 source "${SCRIPT_DIR}/env.sh"
 : "${SFT_VARIANT:?Set SFT_VARIANT}"
+: "${SLURM_JOB_ID:?Training must run under Slurm}"
+
+# The shared Megatron checkpoint path creates multiprocessing AF_UNIX sockets.
+# Use a short node-local path for every 2K variant as well as the 40K recovery.
+export TMPDIR="/tmp/${USER:-suryadv}/q8b-sft2k-train-${SLURM_JOB_ID}"
+export RAY_TMPDIR="${TMPDIR}/ray"
+mkdir -p "${TMPDIR}" "${RAY_TMPDIR}"
+"${SCRIPT_DIR}/container_exec.sh" python3 \
+  "${SCRIPT_DIR}/../qwen3_8b_openr1_math220k_masked_sft_40k/check_train_tmpdir.py"
 
 case "${SFT_VARIANT}" in
   correct_only) SFT_PARQUET="${CORRECT_ONLY_JSONL}" ;;

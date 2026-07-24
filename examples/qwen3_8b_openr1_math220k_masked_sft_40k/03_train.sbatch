@@ -13,6 +13,15 @@ set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_openr1_math220k_masked_sft_40k"
 source "${SCRIPT_DIR}/env.sh"
 : "${SFT_VARIANT:?Set SFT_VARIANT}"
+: "${SLURM_JOB_ID:?Training must run under Slurm}"
+
+# Python multiprocessing.Manager uses an AF_UNIX socket while Megatron creates
+# async torch_dist checkpoints. Keep that socket off the long contract path.
+export TMPDIR="/tmp/${USER:-suryadv}/q8b-masksft-train-${SLURM_JOB_ID}"
+export RAY_TMPDIR="${TMPDIR}/ray"
+mkdir -p "${TMPDIR}" "${RAY_TMPDIR}"
+"${SCRIPT_DIR}/container_exec.sh" python3 \
+  "${SCRIPT_DIR}/check_train_tmpdir.py"
 
 case "${SFT_VARIANT}" in
   correct_only) SFT_PARQUET="${CORRECT_ONLY_JSONL}" ;;
