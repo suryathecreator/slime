@@ -1,15 +1,17 @@
 # Qwen3 8B -> 32B reproduction results
 
-The primary results use `math500_event_scorer_v2`; the original V1 scores are retained for provenance.
+The primary results use `math500_strict_boxed_scorer_v3`; V1 and audited V2 remain immutable provenance.
 
-| Stage | V1 before audit | V2 corrected |
-|---|---:|---:|
-| qwen3_8b_base | 235/500 (47.00%) | 373/500 (74.60%) |
-| qwen3_32b_teacher | 476/500 (95.20%) | 482/500 (96.40%) |
-| sft_200000 | 304/500 (60.80%) | 434/500 (86.80%) |
-| opd_100pct | 429/500 (85.80%) | 440/500 (88.00%) |
+| Stage | V1 generation-time | V2 event scorer | V3 strict boxed | Cap hits wrong | Non-cap unscorable |
+|---|---:|---:|---:|---:|---:|
+| qwen3_8b_base | 235/500 (47.00%) | 373/500 (74.60%) | 371/500 (74.20%) | 11 | 5 |
+| qwen3_32b_teacher | 476/500 (95.20%) | 482/500 (96.40%) | 480/500 (96.00%) | 14 | 0 |
+| sft_200000 | 304/500 (60.80%) | 434/500 (86.80%) | 403/500 (80.60%) | 87 | 0 |
+| opd_100pct | 429/500 (85.80%) | 440/500 (88.00%) | 428/500 (85.60%) | 58 | 0 |
 
-All 2,000 saved generations were rescored without new inference. See `MATH500_SCORER_AUDIT.md` for row-level changes and bug categories.
+All 2,000 saved generations were rescored without new inference. See `MATH500_SCORER_V3_AUDIT.md` for row-level decisions and diagnostics.
+
+Think-tag counts describe formatting, not reasoning quality. The model is still learning consistent tag behavior while reasoning improves, and substantially more instruction-tuning data is likely needed to teach consistent formatting.
 
 ## OPD learning dynamics
 
@@ -36,6 +38,6 @@ A fresh 32K evaluation can be run later as an explicit ablation, alongside other
 
 Remaining jobs were cancelled: `183040` (sft_200000_32k_proxy), `183041` (qwen3_32b_teacher_32k_proxy), `183042` (qwen3_8b_base_32k_proxy).
 
-Observed OPD gain: 1.20 points. Public targets were 76% SFT and 94% OPD; they were not used to choose row-level scorer decisions.
+Observed OPD gain: 5.00 points. Public targets were 76% SFT and 94% OPD; they were not used to choose row-level scorer decisions.
 
 Primary reproduction criteria use only the completed fixed-16K-output evaluations above. No incomplete 32K attempt is included in any metric.
