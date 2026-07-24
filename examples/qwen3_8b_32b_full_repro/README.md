@@ -16,7 +16,7 @@ OpenThoughts3 raw rows
   -> final 100% OPD MATH-500 evaluation
   -> failed-closed 32K replay attempt on OPD cap hits (no score)
   -> results and stopping audit
-  -> immutable saved-generation rescore with scorer V2
+  -> immutable V2 audit and whole-response strict-box V3 rescore
   -> corrected results and scorer audit
 ```
 

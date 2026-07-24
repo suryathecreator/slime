@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from examples.qwen3_8b_32b_full_repro.math500_scorer import (
+from examples.qwen3_8b_32b_full_repro.math500_scorer_v2 import (
     SCORER_VERSION,
     score_response,
     verify_equivalence,

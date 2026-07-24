@@ -90,16 +90,26 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--eval-root", type=Path, default=Path(os.environ["EVAL_OUTPUT_ROOT"]))
     parser.add_argument("--historical-eval-root", type=Path)
+    parser.add_argument("--v1-eval-root", type=Path)
+    parser.add_argument("--v2-eval-root", type=Path)
     parser.add_argument("--scorer-audit", type=Path)
     args = parser.parse_args()
     eval_root = args.eval_root
     report_root = Path(os.environ["OUTPUT_ROOT"]) / "final_report"
     values = {stage: load_stage(eval_root, stage) for stage in STAGES}
-    historical_values = (
-        {stage: load_stage(args.historical_eval_root, stage) for stage in STAGES}
-        if args.historical_eval_root
+    v1_root = args.v1_eval_root or args.historical_eval_root
+    v1_values = (
+        {stage: load_stage(v1_root, stage) for stage in STAGES}
+        if v1_root
         else None
     )
+    v2_values = (
+        {stage: load_stage(args.v2_eval_root, stage) for stage in STAGES}
+        if args.v2_eval_root
+        else None
+    )
+    if v2_values and not v1_values:
+        raise SystemExit("--v2-eval-root requires --v1-eval-root")
     scorer_audit = json.loads(args.scorer_audit.read_text()) if args.scorer_audit else None
     scorer_audit_reference = None
     if scorer_audit:
@@ -109,15 +119,23 @@ def main() -> None:
             if int(scorer_audit["stages"][stage]["correct"]) != int(values[stage]["correct"]):
                 raise SystemExit(f"Scorer audit/result mismatch for {stage}")
         stage_keys = (
-            "source_correct",
+            "v1_correct",
+            "v2_correct",
             "correct",
             "total",
             "pass_at_1",
-            "incorrect_to_correct",
-            "correct_to_incorrect",
-            "cap_hits",
+            "v2_incorrect_to_correct",
+            "v2_correct_to_incorrect",
+            "cap_hits_marked_wrong",
+            "cap_hit_counterfactual_scorable",
+            "cap_hit_counterfactual_correct",
+            "non_cap_unscorable",
+            "non_cap_unscorable_breakdown",
+            "scorable_non_cap",
+            "think_tag_states",
+            "official_decision_reasons",
             "eligible_final_answers",
-            "partial_cap_suppressions",
+            "decision_digest",
         )
         scorer_audit_reference = {
             "schema_version": scorer_audit["schema_version"],
@@ -135,9 +153,11 @@ def main() -> None:
                 for stage in STAGES
             },
             "decision_change_counts": {
-                stage: len(scorer_audit["decision_changes"][stage]) for stage in STAGES
+                stage: len(scorer_audit["decision_changes_from_v2"][stage]) for stage in STAGES
             },
-            "spot_checks": scorer_audit["spot_checks"],
+            "audit_record_count": scorer_audit["audit_record_count"],
+            "audit_record_digest": scorer_audit["audit_record_digest"],
+            "think_tag_interpretation": scorer_audit["think_tag_interpretation"],
         }
     learning_path = report_root / "opd_learning_dynamics.json"
     attempt_32k_path = report_root / "CAP_HIT_32K_ATTEMPT.json"
@@ -164,10 +184,11 @@ def main() -> None:
     }
     audit = stopping_audit(report_root)
     result = {
-        "schema_version": 2 if historical_values else 1,
+        "schema_version": 3 if v2_values else (2 if v1_values else 1),
         "contract_sha256": sha256_file(Path(os.environ["CONTRACT_FILE"])),
         "evaluations": values,
-        "historical_evaluations": historical_values,
+        "historical_evaluations": v1_values,
+        "prior_scorer_evaluations": v2_values,
         "scorer_audit": scorer_audit_reference,
         "cap_hit_32k_context_evaluation": attempt_32k,
         "reproduction_criteria": criteria,
@@ -176,28 +197,49 @@ def main() -> None:
     }
     atomic_text(report_root / "results.json", json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
     lines = ["# Qwen3 8B -> 32B reproduction results", ""]
-    if historical_values:
+    if v1_values and v2_values:
         lines.extend(
             [
-                "The primary results use `math500_event_scorer_v2`; the original V1 scores are retained for provenance.",
+                "The primary results use `math500_strict_boxed_scorer_v3`; V1 and audited V2 remain immutable provenance.",
                 "",
-                "| Stage | V1 before audit | V2 corrected |",
+                "| Stage | V1 generation-time | V2 event scorer | V3 strict boxed | Cap hits wrong | Non-cap unscorable |",
+                "|---|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for stage in STAGES:
+            v1 = v1_values[stage]
+            v2 = v2_values[stage]
+            v3 = values[stage]
+            lines.append(
+                f"| {stage} | {v1['correct']}/500 ({100 * v1['pass_at_1']:.2f}%) | "
+                f"{v2['correct']}/500 ({100 * v2['pass_at_1']:.2f}%) | "
+                f"{v3['correct']}/500 ({100 * v3['pass_at_1']:.2f}%) | "
+                f"{v3['cap_hits_marked_wrong']} | {v3['non_cap_unscorable']} |"
+            )
+        lines.extend(
+            [
+                "",
+                "All 2,000 saved generations were rescored without new inference. See `MATH500_SCORER_V3_AUDIT.md` for row-level decisions and diagnostics.",
+                "",
+                "Think-tag counts describe formatting, not reasoning quality. The model is still learning consistent tag behavior while reasoning improves, and substantially more instruction-tuning data is likely needed to teach consistent formatting.",
+            ]
+        )
+    elif v1_values:
+        lines.extend(
+            [
+                "The primary results use the current scorer; the original scores are retained for provenance.",
+                "",
+                "| Stage | Historical | Current |",
                 "|---|---:|---:|",
             ]
         )
         for stage in STAGES:
-            before = historical_values[stage]
+            before = v1_values[stage]
             after = values[stage]
             lines.append(
                 f"| {stage} | {before['correct']}/500 ({100 * before['pass_at_1']:.2f}%) | "
                 f"{after['correct']}/500 ({100 * after['pass_at_1']:.2f}%) |"
             )
-        lines.extend(
-            [
-                "",
-                "All 2,000 saved generations were rescored without new inference. See `MATH500_SCORER_AUDIT.md` for row-level changes and bug categories.",
-            ]
-        )
     else:
         for stage in STAGES:
             value = values[stage]

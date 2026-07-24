@@ -40,37 +40,38 @@ def test_submission_is_fail_closed_and_cancels_partial_chain() -> None:
     assert 'raw="$(sbatch' not in text
 
 
-def test_scorer_resubmit_is_one_gpu_fail_closed_and_remote_matched() -> None:
+def test_scorer_v3_resubmit_is_one_gpu_fail_closed_and_remote_matched() -> None:
     submitter = (ROOT / "submit_rescore.sh").read_text()
     assert "git diff --quiet && git diff --cached --quiet" in submitter
     assert 'git rev-parse "origin/${expected_branch}"' in submitter
     assert '[[ "${head_sha}" == "${remote_sha}" ]]' in submitter
     assert submitter.count("sbatch --parsable") == 1
-    assert "scorer_v2_rescore_submission.json" in submitter
+    assert "scorer_v3_${mode}_submission.json" in submitter
     assert 'scancel "${job_id}"' in submitter
+    assert "RESCORE_MODE=${mode}" in submitter
+    assert "EXPECTED_LAUNCH_COMMIT=${head_sha}" in submitter
 
     job = (ROOT / "06_rescore_math500.sbatch").read_text()
     assert "#SBATCH --gres=gpu:h200:1" in job
     assert "rescore_math500.py" in job
-    assert "--historical-eval-root" in job
+    assert "--v1-eval-root" in job
+    assert "--v2-eval-root" in job
     assert "--scorer-audit" in job
+    assert "--mode \"${RESCORE_MODE}\"" in job
 
 
-def test_rescore_has_exact_audit_gate_and_preserves_v1() -> None:
+def test_rescore_has_exact_audit_gate_and_preserves_v1_v2() -> None:
     scorer_v1 = (ROOT / "math500_scorer_v1.py").read_text()
-    scorer_v2 = (ROOT / "math500_scorer.py").read_text()
+    scorer_v2 = (ROOT / "math500_scorer_v2.py").read_text()
+    scorer_v3 = (ROOT / "math500_scorer.py").read_text()
     driver = (ROOT / "rescore_math500.py").read_text()
     assert 'SCORER_VERSION = "math500_event_scorer_v1"' in scorer_v1
     assert 'SCORER_VERSION = "math500_event_scorer_v2"' in scorer_v2
-    for expected in (
-        '"qwen3_8b_base": {"correct": 373, "up": 138, "down": 0}',
-        '"qwen3_32b_teacher": {"correct": 482, "up": 6, "down": 0}',
-        '"sft_200000": {"correct": 434, "up": 131, "down": 1}',
-        '"opd_100pct": {"correct": 440, "up": 11, "down": 0}',
-    ):
-        assert expected in driver
-    assert '"review_count": 0' in driver
-    assert "Audit gate mismatch" in driver
+    assert 'SCORER_VERSION = "math500_strict_boxed_scorer_v3"' in scorer_v3
+    assert "EXPECTED_TAG_COUNTS" in driver
+    assert "suggested_expected_metrics.json" in driver
+    assert "Final aggregate/decision gate mismatch" in driver
+    assert '"review_count": 0 if args.mode == "final" else None' in driver
 
 
 def test_base_eval_recovery_is_fail_closed_and_records_superseded_jobs() -> None:

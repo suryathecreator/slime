@@ -1,50 +1,51 @@
 # MATH-500 scorer specification
 
-`math500_scorer_v1.py` preserves the exact scorer used at generation time as
-`math500_event_scorer_v1`. It is retained unchanged for provenance.
-`math500_scorer.py` is the audited `math500_event_scorer_v2`. Both use the
-pinned `math_verify==0.9.0`; V2 changes extraction, event selection, and
-collection verification, not the saved generations.
+`math500_scorer_v1.py` preserves the generation-time
+`math500_event_scorer_v1`. `math500_scorer_v2.py` preserves the audited
+`math500_event_scorer_v2`. The active `math500_scorer.py` implements
+`math500_strict_boxed_scorer_v3`. All three use pinned `math_verify==0.9.0`,
+and no saved generation is modified or continued during rescoring.
 
-## Eligible answer region
+## Extraction
 
-When `</think>` is present, only the final post-`</think>` region is eligible.
-For a cap hit without a closed think region, V2 scans the unfinished trace only
-for balanced boxes and explicit final-answer assertions. Natural conclusions
-and standalone-line fallbacks are excluded from cap-hit scoring.
+V3 always searches the entire assistant response, regardless of think tags.
+Think-tag shape is recorded only as a formatting diagnostic. The scorer finds
+complete balanced `\boxed{...}` expressions, groups adjacent boxes as one
+multipart answer, and selects the chronologically last complete boxed group.
 
-For natural stops, the chronologically last complete strong answer event wins.
-Adjacent boxes are grouped as one multipart event. A concise standalone final
-line is allowed only when no complete box or explicit assertion exists.
-Structural display delimiters, empty boxes, malformed boxes, incidental
-numbers, and hypothetical/example boxes are not answers.
+The selection is purely structural. Later reasoning, doubt, retractions,
+examples, assertions, conclusions, and prose do not alter it. Unboxed answers,
+standalone final lines, arbitrary terminal numbers, empty boxes, and malformed
+boxes are never fallbacks. If the selected box cannot be parsed or verified,
+the row is unscorable and remains incorrect in the fixed 500-row denominator.
 
-## Replacement and cap policy
+## Cap policy and diagnostics
 
-A later distinct complete event replaces the active answer. An equivalent
-repeat is a reaffirmation. Doubt and checking language alone do not erase a
-complete answer. Only an explicit, local, unreplaced rejection makes the active
-answer unresolved and incorrect.
+Every generation marked as a cap hit is officially incorrect. V3 still runs
+the same whole-response last-box extraction and typed verifier and stores that
+counterfactual result as a diagnostic. The diagnostic never changes official
+correctness.
 
-At a generation cap, a terminal strict prefix of the previous complete scalar
-or multipart answer is recorded as a truncated repetition and suppressed. This
-is why a final `5` does not replace a prior complete `59`, and why a partial
-repetition does not replace a complete multipart answer. V2 never uses an
-arbitrary last-number fallback.
+Reports include cap hits marked wrong, cap-hit diagnostic correctness,
+non-cap unscorable rows, official decision reasons, and these think-tag
+formatting categories: complete, none, open without close, close without open,
+and malformed or repeated.
 
-## Verification and publication
+Think-tag counts are not reasoning-quality measurements. The model is still
+learning consistent formatting while its reasoning improves, and substantially
+more instruction-tuning data is likely needed to teach stable tag behavior.
 
-Scalar and ordered expressions are passed to the pinned mathematical verifier.
-Collections are split only at top-level separators, compared component by
-component with exact cardinality, and matched without order. A failed parse is
-never equivalent to another failed parse. Standalone natural-language answer
-sentences are verified as scalar evidence rather than being split at prose
-commas.
+## Typed verification and publication
 
-Every rescored row records its immutable source hash, response hash, selected
-candidate, all answer-event spans and candidates, grouping, invalidations,
-replacement/reaffirmation/retraction decisions, typed-verifier evidence,
-finish/cap/think state, parse failures, and timeouts. The rescore report refuses
-publication unless every source artifact validates, all 2,000 rows are
-decided, review count is zero, and the audited aggregate transition gate
-passes.
+Scalar and ordered expressions use the pinned mathematical verifier.
+Collections split only at top-level separators, require exact cardinality, and
+match components without order. Ordered tuples, intervals, matrices, equations,
+fractions, radicals, complex values, text answers, degrees, `\pm`, and adjacent
+multipart boxes retain their appropriate structure.
+
+Every rescored row records immutable source and response hashes, think-tag
+statistics, all complete boxes and groups, the selected span and candidate,
+typed-verifier evidence, official decision reason, cap diagnostic, failures,
+and timeouts. Draft output cannot publish. Final publication additionally
+requires exact 2,000-row validation, a locked aggregate and row-decision digest,
+zero unresolved reviews, and matching compact artifact hashes.
