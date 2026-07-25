@@ -29,15 +29,26 @@ first optimizer step when Megatron tried to add a float loss-weight sum to an
 integer token counter. The completion chain reuses the hash-pinned data and
 writes checkpoints and evaluations under a new contract root.
 
-MATH-500 uses the latest borrowed OPD
-`math500_strict_boxed_scorer_v3`, greedy decoding, and the dynamic budget
+The active Tillicum completion launch is training-only. The finished 40K
+correct-only checkpoint is retained; after every 2K checkpoint is trained,
+the chain trains only `weighted_tau_0p20` and `unmasked`. Each training job
+records a content-addressed manifest for its final Hugging Face checkpoint.
+The exact paths are in
+`../qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_sources.json`.
+
+MATH-500 is deliberately deferred for transfer to another system. The frozen
+handoff uses the latest borrowed OPD `math500_strict_boxed_scorer_v3`, greedy
+decoding, and the dynamic budget
 `32768 - rendered_prompt_tokens - 64`. Both stop IDs 151643 and 151645 are
 accepted. The base 8B evaluation is rerun once and shared with the 2K tables.
+The one-H200, per-example resumable wrapper and result importer are documented
+in `../qwen3_8b_openr1_math220k_masked_sft_eval_handoff/README.md`.
 
 The authoritative launcher is
-`../qwen3_8b_openr1_math220k_masked_sft_2k/submit_completion_chain.sh`. It
-serializes the base eval, every 40K train/eval pair, and the 2K suite with
-strict `afterok` dependencies and at most four GPUs active.
+`../qwen3_8b_openr1_math220k_masked_sft_2k/submit_training_only.sh`. It
+serializes 2K preparation, scoring, and all 11 2K full-SFT runs before the two
+remaining 40K full-SFT runs, using strict `afterok` dependencies and at most
+four GPUs active. It schedules no evaluation or report jobs.
 
 Operational recovery: job 185501 completed 49 training steps but failed while
 creating its first async torch_dist checkpoint because Python's AF_UNIX
@@ -45,4 +56,6 @@ manager socket inherited the long GPFS contract `TMPDIR`. The partial
 checkpoint has no `latest_checkpointed_iteration.txt` and is not resumable.
 `resubmit_after_tmpdir.sh` preserves that attempt, restarts correct-only from
 the pinned 8B base with a short node-local temp path, and rewires the existing
-eval 185502 so the already-submitted downstream chain is reused.
+eval 185502 so the already-submitted downstream chain was reused. That
+historical eval chain is now superseded by the training-only launch; its
+records remain as provenance.

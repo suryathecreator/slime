@@ -11,6 +11,7 @@
 
 set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_openr1_math220k_masked_sft_40k"
+HANDOFF_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff"
 source "${SCRIPT_DIR}/env.sh"
 : "${SFT_VARIANT:?Set SFT_VARIANT}"
 : "${SLURM_JOB_ID:?Training must run under Slurm}"
@@ -44,4 +45,13 @@ mkdir -p "${SLURM_LOG_DIR}" "${OUTPUT_ROOT}/training/${SFT_VARIANT}"
 
 echo "TRAIN_VARIANT=${SFT_VARIANT} initialization=${STUDENT_TORCH_DIST_DIR} full_sft=1"
 bash "${SLIME_REPO_ROOT}/examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch"
+python3 "${HANDOFF_DIR}/checkpoint_manifest.py" record \
+  --checkpoint "${SFT_FINAL_HF_DIR}" \
+  --output "${EXPERIMENT_ROOT}/handoff/checkpoints/${SFT_VARIANT}.json" \
+  --family 40k \
+  --variant "${SFT_VARIANT}" \
+  --final-iteration "${SFT_FINAL_ROLLOUT_ID}" \
+  --contract-hash "${CONTRACT_HASH}" \
+  --repo-root "${SLIME_REPO_ROOT}" \
+  --full-sft
 echo "TRAIN_JOB_COMPLETE variant=${SFT_VARIANT} at=$(date -Is)"

@@ -1,0 +1,173 @@
+{
+  "artifact_schema_version": 1,
+  "base_model": {
+    "hf_repo": "Qwen/Qwen3-8B-Base",
+    "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
+  },
+  "checkpoints": [
+    {
+      "family": "shared",
+      "final_iteration": null,
+      "full_sft": false,
+      "id": "base_8b",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/base_8b",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/models/Qwen3-8B-Base",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/base_8b.json",
+      "variant": "base_8b"
+    },
+    {
+      "family": "40k",
+      "final_iteration": 199,
+      "full_sft": true,
+      "id": "40k_correct_only",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_40k/results/correct_only",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/outputs/training/correct_only/weights/iter_0000199",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/handoff/checkpoints/correct_only.json",
+      "variant": "correct_only"
+    },
+    {
+      "family": "40k",
+      "final_iteration": 199,
+      "full_sft": true,
+      "id": "40k_weighted_tau_0p20",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_40k/results/weighted_tau_0p20",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/outputs/training/weighted_tau_0p20/weights/iter_0000199",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/handoff/checkpoints/weighted_tau_0p20.json",
+      "variant": "weighted_tau_0p20"
+    },
+    {
+      "family": "40k",
+      "final_iteration": 199,
+      "full_sft": true,
+      "id": "40k_unmasked",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_40k/results/unmasked",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/outputs/training/unmasked/weights/iter_0000199",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/handoff/checkpoints/unmasked.json",
+      "variant": "unmasked"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_correct_only",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/correct_only",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/correct_only/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/correct_only.json",
+      "variant": "correct_only"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_unmasked",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/unmasked",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/unmasked/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/unmasked.json",
+      "variant": "unmasked"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_70",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_70",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/random_mask_70/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_70.json",
+      "variant": "random_mask_70"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_inverse_tau_0p20",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/inverse_tau_0p20",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/inverse_tau_0p20/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/inverse_tau_0p20.json",
+      "variant": "inverse_tau_0p20"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_inverse_tau_0p05",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/inverse_tau_0p05",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/inverse_tau_0p05/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/inverse_tau_0p05.json",
+      "variant": "inverse_tau_0p05"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_25",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_25",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/random_mask_25/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_25.json",
+      "variant": "random_mask_25"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_50",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_50",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/random_mask_50/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_50.json",
+      "variant": "random_mask_50"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_80",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_80",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/random_mask_80/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_80.json",
+      "variant": "random_mask_80"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_90",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_90",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/random_mask_90/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_90.json",
+      "variant": "random_mask_90"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_margin_mask",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/margin_mask",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/margin_mask/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/margin_mask.json",
+      "variant": "margin_mask"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_prob_ratio_mask",
+      "result_dir": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/prob_ratio_mask",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training/prob_ratio_mask/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/prob_ratio_mask.json",
+      "variant": "prob_ratio_mask"
+    }
+  ],
+  "contracts": {
+    "40k": "6ea372402facbc5e",
+    "2k": "5c3230a293f7acb2"
+  },
+  "evaluation": {
+    "evaluate_each_checkpoint_once": true,
+    "policy_file": "eval_policy.json",
+    "reuse_2k_results": [
+      "base_8b",
+      "2k_correct_only",
+      "2k_unmasked"
+    ]
+  },
+  "recommended_destination_root": "/gscratch/scrubbed/suryadv/Axolotl-Masked-SFT/checkpoints"
+}

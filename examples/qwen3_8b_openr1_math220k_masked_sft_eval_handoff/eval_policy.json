@@ -1,0 +1,61 @@
+{
+  "artifact_schema_version": 1,
+  "dataset": {
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "row_order": "original_500",
+    "split": "test"
+  },
+  "decoding": {
+    "ignore_eos": true,
+    "n": 1,
+    "per_problem_seed": "1234 + eval_index",
+    "seed": 1234,
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "temperature": 0.0,
+    "top_k": -1,
+    "top_p": 1.0
+  },
+  "engine": {
+    "dtype": "bfloat16",
+    "enable_chunked_prefill": true,
+    "enable_prefix_caching": true,
+    "gpu_memory_utilization": 0.9,
+    "max_model_len": 32768,
+    "max_num_batched_tokens": 16384,
+    "max_num_seqs": 24,
+    "safetensors_load_strategy": "prefetch",
+    "speculative_decoding": false,
+    "tensor_parallel_size": 1,
+    "vllm_version": "0.24.0"
+  },
+  "persistence": {
+    "atomic_file_replace": true,
+    "commit_unit": "one_completed_problem",
+    "directory_fsync": true,
+    "file_fsync": true,
+    "resume_requires_matching_policy_and_stage": true,
+    "shards": 1
+  },
+  "prompt": {
+    "add_generation_prompt": true,
+    "enable_thinking": true,
+    "instruction": "Please reason step by step, and put your final answer within \\boxed{}.",
+    "user_content": "problem.rstrip() + \"\\n\\n\" + instruction"
+  },
+  "response_budget": {
+    "configured_max_new_tokens": 32768,
+    "formula": "32768 - rendered_prompt_tokens - 64",
+    "safety_margin": 64,
+    "target_total_context_tokens": 32768
+  },
+  "scoring": {
+    "cap_hits": "incorrect",
+    "candidate_selection": "last_complete_balanced_boxed_answer_across_whole_response",
+    "scorer": "math500_strict_boxed_scorer_v3",
+    "think_tags": "diagnostic_only"
+  }
+}

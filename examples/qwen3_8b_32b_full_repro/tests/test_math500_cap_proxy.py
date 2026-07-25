@@ -159,10 +159,16 @@ def test_primary_policy_records_dynamic_target_context() -> None:
         target_context=32768,
         safety_margin=64,
         stop_token_ids=[151645, 151643],
+        gpu_memory_utilization=0.90,
+        max_num_batched_tokens=16384,
+        max_num_seqs=24,
     )
-    policy = evaluator.policy(args, 40960)
+    checkpoint_identity = "a" * 64
+    policy = evaluator.policy(args, 40960, checkpoint_identity)
     assert policy["target_total_context_tokens"] == 32768
     assert policy["model_native_context_tokens"] == 40960
+    assert policy["model_checkpoint_manifest_sha256"] == checkpoint_identity
+    assert "model" not in policy
     assert policy["temperature"] == 0.0
     assert policy["stop_token_ids"] == [151643, 151645]
     assert "target_context - rendered_prompt_tokens" in policy[

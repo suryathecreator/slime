@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write provenance for the serialized 40K recovery plus 2K suite."""
+"""Write provenance for the serialized training-only completion chain."""
 
 from __future__ import annotations
 
@@ -17,6 +17,12 @@ def main() -> None:
     parser.add_argument("--output", required=True)
     parser.add_argument("--contract-40k", required=True)
     parser.add_argument("--contract-2k", required=True)
+    parser.add_argument(
+        "--reused-checkpoint",
+        action="append",
+        default=[],
+        help="NAME=PATH checkpoint preserved instead of resubmitted",
+    )
     parser.add_argument("jobs", nargs="+")
     args = parser.parse_args()
     ordered_jobs: list[dict[str, str]] = []
@@ -25,6 +31,12 @@ def main() -> None:
         if separator != "=" or not name or not job_id.isdigit():
             raise ValueError(f"invalid job record: {item}")
         ordered_jobs.append({"name": name, "job_id": job_id})
+    reused_checkpoints: list[dict[str, str]] = []
+    for item in args.reused_checkpoint:
+        name, separator, path = item.partition("=")
+        if separator != "=" or not name or not path.startswith("/"):
+            raise ValueError(f"invalid reused checkpoint record: {item}")
+        reused_checkpoints.append({"name": name, "path": path})
     atomic_json(
         args.output,
         {
@@ -41,15 +53,18 @@ def main() -> None:
             "resource_policy": {
                 "dependency": "strict linear afterok chain",
                 "maximum_concurrent_gpus": 4,
-                "train_eval_adjacency": "each training job is followed immediately by its evaluation",
+                "launch_scope": "data preparation, margin scoring, and full-SFT training only",
+                "order": "all 2K jobs first, then remaining 40K training",
             },
             "evaluation_policy": {
+                "execution": "deferred_to_another_system",
                 "dataset": "MATH-500",
                 "decoding": "greedy",
                 "dynamic_response_budget": "32768 - rendered_prompt_tokens - 64",
                 "scorer": "math500_strict_boxed_scorer_v3",
                 "stop_token_ids": [151643, 151645],
             },
+            "reused_completed_checkpoints": reused_checkpoints,
             "jobs_in_dependency_order": ordered_jobs,
         },
     )

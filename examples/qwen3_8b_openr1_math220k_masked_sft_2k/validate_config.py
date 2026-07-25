@@ -130,8 +130,7 @@ def main() -> None:
         / "slime/backends/megatron_utils/cp_utils.py": "TOKEN_WEIGHT_FIXED_POINT_SCALE = 256",
         repo
         / "slime/backends/megatron_utils/loss.py": "get_fixed_point_token_normalizer",
-        repo
-        / "examples/qwen3_8b_32b_full_repro/evaluate_math500.py": "--target-context",
+        repo / "examples/qwen3_8b_32b_full_repro/evaluate_math500.py": "AsyncLLM",
         repo
         / "examples/qwen3_8b_32b_full_repro/math500_scorer.py": 'SCORER_VERSION = "math500_strict_boxed_scorer_v3"',
     }
@@ -141,6 +140,46 @@ def main() -> None:
     scripts = sorted(example.glob("*.sbatch")) + sorted(example.glob("*.sh"))
     for script in scripts:
         subprocess.run(["bash", "-n", str(script)], check=True)
+    handoff = (
+        repo
+        / "examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff"
+    )
+    subprocess.run(
+        ["bash", "-n", str(handoff / "run_one_h200.sbatch")], check=True
+    )
+    policy = json.loads((handoff / "eval_policy.json").read_text())
+    if (
+        policy["decoding"]["temperature"] != 0.0
+        or policy["decoding"]["top_p"] != 1.0
+        or policy["decoding"]["top_k"] != -1
+        or policy["decoding"]["stop_token_ids"] != [151643, 151645]
+        or policy["response_budget"]["formula"]
+        != "32768 - rendered_prompt_tokens - 64"
+        or policy["persistence"]["commit_unit"]
+        != "one_completed_problem"
+        or policy["persistence"]["shards"] != 1
+    ):
+        raise ValueError("portable MATH-500 handoff policy drift")
+    inventory = json.loads((handoff / "checkpoint_sources.json").read_text())
+    if (
+        len(inventory["checkpoints"]) != 15
+        or sum(
+            item["full_sft"] is True
+            for item in inventory["checkpoints"]
+        )
+        != 14
+    ):
+        raise ValueError("checkpoint handoff inventory drift")
+    training_launcher = (example / "submit_training_only.sh").read_text()
+    if (
+        "04_eval_math500.sbatch" in training_launcher
+        or "05_report.sbatch" in training_launcher
+        or training_launcher.index("submit_serial prepare_2k_traces")
+        > training_launcher.index(
+            "submit_serial train_40k_weighted_tau_0p20"
+        )
+    ):
+        raise ValueError("training-only launch scope or order drift")
 
     if args.require_pushed_clean:
         if git(repo, "branch", "--show-current") != BRANCH:

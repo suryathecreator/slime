@@ -31,9 +31,19 @@ MATH-500 uses the latest borrowed OPD strict boxed scorer, greedy decoding,
 and a per-prompt generation budget of
 `32768 - rendered_prompt_tokens - 64`. Both `<|im_end|>` and
 `<|endoftext|>` stop IDs are accepted. Base, correct-only, and mixed-unmasked
-are evaluated once and reused verbatim in each result table.
+will be evaluated once and reused verbatim in each result table.
 
-The submission script deliberately serializes every 4-GPU job and places each
-evaluation immediately after its training job. Priority after the two control
-trains is random 70%, inverse-margin tau 0.20, inverse-margin tau 0.05, then
-the remaining variants.
+The active Tillicum launcher is `submit_training_only.sh`. It submits no eval
+or report jobs: it serializes trace preparation, margin scoring, and all 11
+2K full-SFT jobs before either remaining 40K job. Priority after the two
+control trains is random 70%, inverse-margin tau 0.20, inverse-margin tau
+0.05, then the remaining variants. The same ordered traces are reused across
+every mixed variant, and strict `afterok` dependencies keep the maximum
+concurrent allocation at four H200s.
+
+Each completed train writes a portable checkpoint manifest under
+`/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/`.
+The final checkpoints, their exact source paths, the one-H200 resumable eval
+wrapper, all frozen eval settings, and the fail-closed result importer are in
+`../qwen3_8b_openr1_math220k_masked_sft_eval_handoff/`. Evaluation is planned
+on a different system after checkpoint transfer.
