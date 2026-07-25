@@ -24,6 +24,7 @@ PYTHON_BIN="${PYTHON_BIN:-$AXOLOTL_ROOT/.venv/bin/python}"
 VLLM_PYTHON_BIN="${VLLM_PYTHON_BIN:-$AXOLOTL_ROOT/.venv-vllm/bin/python}"
 CONTROL_ROOT="$("$PYTHON_BIN" "$CONTROL" --repo-root "$REPO_ROOT" path --field control_root)"
 MODEL_DIR="$("$PYTHON_BIN" "$CONTROL" --repo-root "$REPO_ROOT" path --field model --variant correct_only)"
+TOKENIZER_DIR="$("$PYTHON_BIN" "$CONTROL" --repo-root "$REPO_ROOT" path --field tokenizer)"
 SMOKE_FILE="$CONTROL_ROOT/eval_benchmarks/smoke.jsonl"
 SMOKE_OUTPUT="$CONTROL_ROOT/smoke"
 VERIFY_STATUS="$CONTROL_ROOT/checkpoint_verification.json"
@@ -84,7 +85,7 @@ if [[ ! -f "$SMOKE_OUTPUT/metrics.json" ]]; then
     --eval_file "$SMOKE_FILE" \
     --output_dir "$SMOKE_OUTPUT" \
     --variant preflight_correct_only \
-    --model_name "$MODEL_DIR" \
+    --model_name "$TOKENIZER_DIR" \
     --adapter_or_model_dir "$MODEL_DIR" \
     --max_tokens 1 \
     --max_model_len 32768 \

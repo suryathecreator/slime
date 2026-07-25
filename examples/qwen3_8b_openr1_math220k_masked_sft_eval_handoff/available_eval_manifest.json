@@ -7,7 +7,12 @@
   },
   "base_model": {
     "hf_repo": "Qwen/Qwen3-8B-Base",
-    "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
+    "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
+    "tokenizer_files": {
+      "chat_template.jinja": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5",
+      "tokenizer.json": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506",
+      "tokenizer_config.json": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    }
   },
   "checkpoints": [
     {

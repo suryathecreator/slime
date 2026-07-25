@@ -40,6 +40,17 @@ plus `<|im_end|>` stopping. It renders Axolotl's established OpenR1 prompt,
 extracts the final answer with `common.extract_final_answer`, and grades it
 with `math_verify`.
 
+Every transferred checkpoint contains the same three tokenizer artifacts from
+the pinned base revision, and their hashes are frozen in
+`available_eval_manifest.json`. Transformers 4.57.6 cannot initialize their
+list-form `extra_special_tokens` field, so preparation creates a verified
+runtime overlay: `tokenizer.json` and `chat_template.jinja` remain byte-exact,
+while only that metadata field is converted to the empty mapping that produces
+the same tokenizer as the tested `extra_special_tokens={}` load override.
+`TOKENIZER_PROVENANCE.json` records both source and runtime hashes. The direct
+Axolotl evaluator receives this overlay as `--model_name`; model weights still
+load from the independently verified checkpoint directory.
+
 Each checkpoint is split into four contiguous 125-problem jobs. The evaluator
 flushes every returned row to `predictions.jsonl` and
 `raw_generations.jsonl`; on requeue it reads existing problem IDs and skips

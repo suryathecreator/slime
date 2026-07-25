@@ -32,6 +32,7 @@ SHARD_INDEX="${SLURM_ARRAY_TASK_ID:?Run this worker as the 0-3 shard array}"
 CONTROL_ROOT="$("$PYTHON_BIN" "$CONTROL" --repo-root "$REPO_ROOT" path --field control_root)"
 MODEL_DIR="$("$PYTHON_BIN" "$CONTROL" --repo-root "$REPO_ROOT" path --field model --variant "$EVAL_VARIANT")"
 MODEL_MANIFEST="$("$PYTHON_BIN" "$CONTROL" --repo-root "$REPO_ROOT" path --field manifest --variant "$EVAL_VARIANT")"
+TOKENIZER_DIR="$("$PYTHON_BIN" "$CONTROL" --repo-root "$REPO_ROOT" path --field tokenizer)"
 VARIANT_OUTPUT="$("$PYTHON_BIN" "$CONTROL" --repo-root "$REPO_ROOT" path --field output --variant "$EVAL_VARIANT")"
 EVAL_FILE="$("$PYTHON_BIN" "$CONTROL" --repo-root "$REPO_ROOT" path --field shard --shard-index "$SHARD_INDEX")"
 SHARD_OUTPUT="$VARIANT_OUTPUT/shards/shard_$(printf '%02d' "$SHARD_INDEX")"
@@ -85,7 +86,7 @@ trap requeue_eval USR1
   --eval_file "$EVAL_FILE" \
   --output_dir "$SHARD_OUTPUT" \
   --variant "$EVAL_VARIANT" \
-  --model_name "$MODEL_DIR" \
+  --model_name "$TOKENIZER_DIR" \
   --adapter_or_model_dir "$MODEL_DIR" \
   --max_tokens 32768 \
   --max_model_len 32768 \

@@ -116,10 +116,13 @@ def test_one_h200_wrapper_keeps_exact_eval_policy() -> None:
 
 def test_available_axolotl_inventory_is_exactly_the_eleven_local_2k_runs() -> None:
     inventory = json.loads((HANDOFF / "available_eval_manifest.json").read_text())
-    assert inventory["base_model"] == {
-        "hf_repo": "Qwen/Qwen3-8B-Base",
-        "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
-    }
+    assert inventory["base_model"]["hf_repo"] == "Qwen/Qwen3-8B-Base"
+    assert inventory["base_model"]["revision"] == (
+        "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
+    )
+    assert inventory["base_model"]["tokenizer_files"] == (
+        axolotl_math500_eval.EXPECTED_BASE_TOKENIZER_FILES
+    )
     assert inventory["axolotl"] == {
         "commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
         "evaluator": "scripts/openr1_axolotl/evaluate_math_vllm.py",
@@ -154,6 +157,8 @@ def test_axolotl_worker_uses_direct_fast_checkpointable_path() -> None:
     assert "--max_num_seqs 8" in worker
     assert "--gpu_memory_utilization 0.92" in worker
     assert "--require_math_verify" in worker
+    assert 'path --field tokenizer' in worker
+    assert '--model_name "$TOKENIZER_DIR"' in worker
     assert "check-preflight" in worker
     assert "repair-shard" in worker
     assert "#SBATCH --gpus=h200:1" in worker

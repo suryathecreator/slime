@@ -39,6 +39,17 @@ EXPECTED_VARIANTS = {
     "margin_mask",
     "prob_ratio_mask",
 }
+EXPECTED_BASE_TOKENIZER_FILES = {
+    "chat_template.jinja": (
+        "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+    ),
+    "tokenizer.json": (
+        "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+    ),
+    "tokenizer_config.json": (
+        "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    ),
+}
 DEFAULT_AXOLOTL_MATH500 = Path(
     "../Axolotl-Masked-SFT/runs/"
     "2026-06-23_openr1_220k_2k_balanced_full_sft_axolotl_harp_vllm/"
@@ -80,6 +91,26 @@ def atomic_text(path: Path, value: str) -> None:
         with tempfile.NamedTemporaryFile(
             "w", encoding="utf-8", dir=path.parent, delete=False
         ) as handle:
+            handle.write(value)
+            handle.flush()
+            os.fsync(handle.fileno())
+            temp = Path(handle.name)
+        temp.replace(path)
+        directory_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temp is not None and temp.exists():
+            temp.unlink()
+
+
+def atomic_bytes(path: Path, value: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile("wb", dir=path.parent, delete=False) as handle:
             handle.write(value)
             handle.flush()
             os.fsync(handle.fileno())
@@ -152,6 +183,10 @@ def load_inventory(
         "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
     ):
         raise RuntimeError("base model revision is not the approved pin")
+    if value["base_model"].get("tokenizer_files") != (
+        EXPECTED_BASE_TOKENIZER_FILES
+    ):
+        raise RuntimeError("base tokenizer hashes are not the approved pin")
     if value["dataset"]["revision"] != (
         "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be"
     ):
@@ -213,6 +248,11 @@ def control_root(repo_root: Path, inventory: dict[str, Any]) -> Path:
     return eval_root(repo_root, inventory) / "_control"
 
 
+def tokenizer_root(repo_root: Path, inventory: dict[str, Any]) -> Path:
+    revision = inventory["base_model"]["revision"]
+    return control_root(repo_root, inventory) / f"tokenizer_{revision}"
+
+
 def benchmark_paths(
     repo_root: Path, inventory: dict[str, Any]
 ) -> tuple[Path, list[Path], Path]:
@@ -257,6 +297,105 @@ def normalize_source_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if len(set(identifiers)) != EXPECTED_TOTAL:
         raise RuntimeError("MATH-500 source contains duplicate problem IDs")
     return normalized
+
+
+def prepare_tokenizer_overlay(
+    repo_root: Path, inventory: dict[str, Any]
+) -> Path:
+    source_item = item_for_variant(inventory, "correct_only")
+    source_paths = absolute_item_paths(repo_root, source_item)
+    source = source_paths["model"]
+    manifest = load_json(source_paths["manifest"])
+    expected_hashes = inventory["base_model"]["tokenizer_files"]
+    manifest_hashes = {
+        item["name"]: item["sha256"] for item in manifest["files"]
+    }
+    if {
+        name: manifest_hashes.get(name) for name in expected_hashes
+    } != expected_hashes:
+        raise RuntimeError("checkpoint tokenizer hashes differ from the base pin")
+    for item in inventory["checkpoints"]:
+        item_manifest = load_json(
+            absolute_item_paths(repo_root, item)["manifest"]
+        )
+        item_hashes = {
+            entry["name"]: entry["sha256"]
+            for entry in item_manifest["files"]
+        }
+        if {
+            name: item_hashes.get(name) for name in expected_hashes
+        } != expected_hashes:
+            raise RuntimeError(
+                f"tokenizer differs across checkpoints: {item['variant']}"
+            )
+    for name, expected_hash in expected_hashes.items():
+        actual_hash = sha256_file(source / name)
+        if actual_hash != expected_hash:
+            raise RuntimeError(
+                f"base tokenizer file mismatch: {name} "
+                f"expected={expected_hash} actual={actual_hash}"
+            )
+
+    original_config = load_json(source / "tokenizer_config.json")
+    extra_tokens = original_config.get("extra_special_tokens")
+    if not isinstance(extra_tokens, list) or not all(
+        isinstance(value, str) for value in extra_tokens
+    ):
+        raise RuntimeError(
+            "expected the transferred tokenizer's list-form "
+            "extra_special_tokens compatibility issue"
+        )
+    compatible_config = dict(original_config)
+    compatible_config["extra_special_tokens"] = {}
+    destination = tokenizer_root(repo_root, inventory)
+    atomic_bytes(
+        destination / "tokenizer.json",
+        (source / "tokenizer.json").read_bytes(),
+    )
+    atomic_bytes(
+        destination / "chat_template.jinja",
+        (source / "chat_template.jinja").read_bytes(),
+    )
+    atomic_text(
+        destination / "tokenizer_config.json",
+        canonical_json(compatible_config),
+    )
+    provenance = {
+        "artifact_schema_version": 1,
+        "base_model": {
+            "hf_repo": inventory["base_model"]["hf_repo"],
+            "revision": inventory["base_model"]["revision"],
+        },
+        "compatibility_transform": {
+            "field": "extra_special_tokens",
+            "from": extra_tokens,
+            "reason": (
+                "Transformers 4.57.6 requires a mapping; an empty mapping "
+                "is identical to passing extra_special_tokens={} to "
+                "AutoTokenizer.from_pretrained and does not change "
+                "tokenizer.json, token IDs, or the chat template."
+            ),
+            "to": {},
+        },
+        "files": {
+            name: {
+                "destination_sha256": sha256_file(destination / name),
+                "source_sha256": expected_hash,
+            }
+            for name, expected_hash in expected_hashes.items()
+        },
+        "source_checkpoint_manifest_sha256": manifest[
+            "checkpoint_manifest_sha256"
+        ],
+        "source_files": {
+            name: str(source / name) for name in expected_hashes
+        },
+    }
+    atomic_text(
+        destination / "TOKENIZER_PROVENANCE.json",
+        canonical_json(provenance),
+    )
+    return destination
 
 
 def prepare(args: argparse.Namespace) -> None:
@@ -316,9 +455,10 @@ def prepare(args: argparse.Namespace) -> None:
         },
     }
     atomic_text(metadata_path, canonical_json(metadata))
+    tokenizer = prepare_tokenizer_overlay(repo_root, inventory)
     print(
         f"AXOLOTL_MATH500_SHARDS_PREPARED rows=500 "
-        f"sha256={actual_hash} root={full.parent}",
+        f"sha256={actual_hash} root={full.parent} tokenizer={tokenizer}",
         flush=True,
     )
 
@@ -659,6 +799,13 @@ def merge(args: argparse.Namespace) -> None:
         "policy_sha256": policy_sha,
         "raw_results": str(merged),
         "stage": stage,
+        "tokenizer": {
+            "directory": str(tokenizer_root(repo_root, inventory)),
+            "provenance_sha256": sha256_file(
+                tokenizer_root(repo_root, inventory)
+                / "TOKENIZER_PROVENANCE.json"
+            ),
+        },
     }
     atomic_text(merged / "provenance.json", canonical_json(provenance))
     expected = expected_compact_files(
@@ -732,6 +879,11 @@ def mark_preflight(args: argparse.Namespace) -> None:
     verification_path = (
         control_root(repo_root, inventory) / "checkpoint_verification.json"
     )
+    tokenizer_provenance = (
+        tokenizer_root(repo_root, inventory) / "TOKENIZER_PROVENANCE.json"
+    )
+    if not tokenizer_provenance.is_file():
+        raise RuntimeError("preflight requires prepared tokenizer provenance")
     verification = load_json(verification_path)
     if verification.get("full_hash_verification") is not True:
         raise RuntimeError("preflight requires full checkpoint hash verification")
@@ -753,6 +905,7 @@ def mark_preflight(args: argparse.Namespace) -> None:
         "ready_at": now_iso(),
         "runtime": versions,
         "status": "ready",
+        "tokenizer_provenance_sha256": sha256_file(tokenizer_provenance),
     }
     output = control_root(repo_root, inventory) / "PREFLIGHT_READY.json"
     atomic_text(output, canonical_json(value))
@@ -765,6 +918,9 @@ def check_preflight(args: argparse.Namespace) -> None:
     root = control_root(repo_root, inventory)
     ready_path = root / "PREFLIGHT_READY.json"
     verification_path = root / "checkpoint_verification.json"
+    tokenizer_provenance = (
+        tokenizer_root(repo_root, inventory) / "TOKENIZER_PROVENANCE.json"
+    )
     ready = load_json(ready_path)
     if ready.get("status") != "ready":
         raise RuntimeError(f"preflight is not ready: {ready_path}")
@@ -776,6 +932,10 @@ def check_preflight(args: argparse.Namespace) -> None:
         verification_path
     ):
         raise RuntimeError("preflight checkpoint verification is stale")
+    if ready.get("tokenizer_provenance_sha256") != sha256_file(
+        tokenizer_provenance
+    ):
+        raise RuntimeError("preflight tokenizer provenance is stale")
     verification = load_json(verification_path)
     if verification.get("full_hash_verification") is not True:
         raise RuntimeError("preflight did not fully hash checkpoints")
@@ -830,11 +990,15 @@ def record_submission(args: argparse.Namespace) -> None:
 def print_path(args: argparse.Namespace) -> None:
     repo_root = repo_root_from_args(args)
     inventory = load_inventory(repo_root, args.manifest)
-    if args.field in {"eval_root", "control_root"}:
+    if args.field in {"eval_root", "control_root", "tokenizer"}:
         path = (
             eval_root(repo_root, inventory)
             if args.field == "eval_root"
-            else control_root(repo_root, inventory)
+            else (
+                control_root(repo_root, inventory)
+                if args.field == "control_root"
+                else tokenizer_root(repo_root, inventory)
+            )
         )
     elif args.field == "benchmark":
         path = benchmark_paths(repo_root, inventory)[0]
@@ -901,6 +1065,7 @@ def build_parser() -> argparse.ArgumentParser:
             "result",
             "eval_root",
             "control_root",
+            "tokenizer",
             "benchmark",
             "shard",
         ],
