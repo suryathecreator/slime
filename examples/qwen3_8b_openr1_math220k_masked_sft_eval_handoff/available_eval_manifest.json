@@ -1,0 +1,126 @@
+{
+  "artifact_schema_version": 1,
+  "axolotl": {
+    "commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
+    "evaluator": "scripts/openr1_axolotl/evaluate_math_vllm.py",
+    "repository": "../Axolotl-Masked-SFT"
+  },
+  "base_model": {
+    "hf_repo": "Qwen/Qwen3-8B-Base",
+    "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
+  },
+  "checkpoints": [
+    {
+      "id": "2k_correct_only",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/correct_only.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/correct_only/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/correct_only",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/correct_only",
+      "variant": "correct_only"
+    },
+    {
+      "id": "2k_unmasked",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/unmasked.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/unmasked/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/unmasked",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/unmasked",
+      "variant": "unmasked"
+    },
+    {
+      "id": "2k_random_mask_25",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_25.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/random_mask_25/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/random_mask_25",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_25",
+      "variant": "random_mask_25"
+    },
+    {
+      "id": "2k_random_mask_50",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_50.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/random_mask_50/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/random_mask_50",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_50",
+      "variant": "random_mask_50"
+    },
+    {
+      "id": "2k_random_mask_70",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_70.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/random_mask_70/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/random_mask_70",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_70",
+      "variant": "random_mask_70"
+    },
+    {
+      "id": "2k_random_mask_80",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_80.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/random_mask_80/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/random_mask_80",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_80",
+      "variant": "random_mask_80"
+    },
+    {
+      "id": "2k_random_mask_90",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/random_mask_90.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/random_mask_90/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/random_mask_90",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_90",
+      "variant": "random_mask_90"
+    },
+    {
+      "id": "2k_inverse_tau_0p20",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/inverse_tau_0p20.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/inverse_tau_0p20/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/inverse_tau_0p20",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/inverse_tau_0p20",
+      "variant": "inverse_tau_0p20"
+    },
+    {
+      "id": "2k_inverse_tau_0p05",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/inverse_tau_0p05.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/inverse_tau_0p05/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/inverse_tau_0p05",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/inverse_tau_0p05",
+      "variant": "inverse_tau_0p05"
+    },
+    {
+      "id": "2k_margin_mask",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/margin_mask.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/margin_mask/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/margin_mask",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/margin_mask",
+      "variant": "margin_mask"
+    },
+    {
+      "id": "2k_prob_ratio_mask",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/prob_ratio_mask.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/training/prob_ratio_mask/weights/iter_0000009",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/prob_ratio_mask",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/prob_ratio_mask",
+      "variant": "prob_ratio_mask"
+    }
+  ],
+  "dataset": {
+    "axolotl_canonical_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "split": "test"
+  },
+  "deferred": [
+    "base_8b",
+    "40k_correct_only",
+    "40k_weighted_tau_0p20",
+    "40k_unmasked"
+  ],
+  "runtime": {
+    "math_verify": "0.9.0",
+    "torch": "2.8.0",
+    "transformers": "4.57.6",
+    "vllm": "0.10.2"
+  },
+  "sharding": {
+    "chunk_size": 32,
+    "count": 4,
+    "layout": "contiguous",
+    "problems_per_shard": 125
+  }
+}

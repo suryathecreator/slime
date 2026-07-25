@@ -6,11 +6,13 @@ import json
 import hashlib
 import shutil
 import sys
+from argparse import Namespace
 from pathlib import Path
 
 import pytest
 
 from examples.qwen3_8b_openr1_math220k_masked_sft_eval_handoff import (
+    axolotl_math500_eval,
     build_result_bundle,
     checkpoint_manifest as manifests,
     import_result_bundle,
@@ -110,6 +112,182 @@ def test_one_h200_wrapper_keeps_exact_eval_policy() -> None:
     assert "--safety-margin 64" in text
     assert "--stop-token-ids 151643 151645" in text
     assert "--resume" in text
+
+
+def test_available_axolotl_inventory_is_exactly_the_eleven_local_2k_runs() -> None:
+    inventory = json.loads((HANDOFF / "available_eval_manifest.json").read_text())
+    assert inventory["base_model"] == {
+        "hf_repo": "Qwen/Qwen3-8B-Base",
+        "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
+    }
+    assert inventory["axolotl"] == {
+        "commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
+        "evaluator": "scripts/openr1_axolotl/evaluate_math_vllm.py",
+        "repository": "../Axolotl-Masked-SFT",
+    }
+    assert inventory["sharding"] == {
+        "chunk_size": 32,
+        "count": 4,
+        "layout": "contiguous",
+        "problems_per_shard": 125,
+    }
+    assert {item["variant"] for item in inventory["checkpoints"]} == (
+        axolotl_math500_eval.EXPECTED_VARIANTS
+    )
+    assert len(inventory["checkpoints"]) == 11
+    assert all(
+        item["model"].endswith(
+            f"/outputs/training/{item['variant']}/weights/iter_0000009"
+        )
+        for item in inventory["checkpoints"]
+    )
+
+
+def test_axolotl_worker_uses_direct_fast_checkpointable_path() -> None:
+    worker = (HANDOFF / "run_axolotl_h200.sbatch").read_text()
+    submitter = (HANDOFF / "submit_available_axolotl.sh").read_text()
+    policy = json.loads((HANDOFF / "axolotl_eval_policy.json").read_text())
+    assert "scripts/openr1_axolotl/evaluate_math_vllm.py" in worker
+    assert "--max_tokens 32768" in worker
+    assert "--max_model_len 32768" in worker
+    assert "--chunk_size 32" in worker
+    assert "--max_num_seqs 8" in worker
+    assert "--gpu_memory_utilization 0.92" in worker
+    assert "--require_math_verify" in worker
+    assert "check-preflight" in worker
+    assert "repair-shard" in worker
+    assert "#SBATCH --gpus=h200:1" in worker
+    assert "#SBATCH --requeue" in worker
+    assert "#SBATCH --signal=B:USR1@600" in worker
+    assert "#SBATCH --mail-user=suryadv@cs.washington.edu" in worker
+    assert "#SBATCH --mail-type=END,FAIL" in worker
+    assert "--array=0-3" in submitter
+    assert "--array=0-3%" not in submitter
+    assert policy["engine"]["enforce_eager"] is False
+    assert policy["persistence"]["layout"] == (
+        "four_contiguous_125_problem_shards"
+    )
+
+
+def test_repair_shard_retains_only_paired_completed_rows(tmp_path: Path) -> None:
+    eval_file = tmp_path / "eval.jsonl"
+    output = tmp_path / "output"
+    output.mkdir()
+    expected = [
+        {
+            "problem_id": f"p{index:03d}",
+            "problem": f"problem {index}",
+            "correct_answer": str(index),
+        }
+        for index in range(125)
+    ]
+    eval_file.write_text(axolotl_math500_eval.jsonl_text(expected))
+    predictions = [
+        {"problem_id": f"p{index:03d}", "value": f"pred-{index}"}
+        for index in range(5)
+    ]
+    predictions.append({"problem_id": "not-in-this-shard", "value": "ignore"})
+    raw = [
+        {"problem_id": f"p{index:03d}", "value": f"raw-{index}"}
+        for index in range(3)
+    ]
+    raw.append({"problem_id": "p004", "value": "orphan"})
+    (output / "predictions.jsonl").write_text(
+        axolotl_math500_eval.jsonl_text(predictions)
+    )
+    (output / "raw_generations.jsonl").write_text(
+        axolotl_math500_eval.jsonl_text(raw)
+    )
+    axolotl_math500_eval.repair_shard(
+        Namespace(eval_file=str(eval_file), output_dir=str(output))
+    )
+    assert [
+        row["problem_id"]
+        for row in axolotl_math500_eval.read_jsonl(
+            output / "predictions.jsonl"
+        )
+    ] == ["p000", "p001", "p002", "p004"]
+    assert [
+        row["problem_id"]
+        for row in axolotl_math500_eval.read_jsonl(
+            output / "raw_generations.jsonl"
+        )
+    ] == ["p000", "p001", "p002", "p004"]
+
+
+def test_native_shard_validator_recomputes_axolotl_metrics(
+    tmp_path: Path,
+) -> None:
+    eval_file = tmp_path / "eval.jsonl"
+    output = tmp_path / "output"
+    output.mkdir()
+    eval_rows = [
+        {
+            "problem_id": f"p{index:03d}",
+            "problem": f"problem {index}",
+            "correct_answer": str(index),
+        }
+        for index in range(125)
+    ]
+    eval_file.write_text(axolotl_math500_eval.jsonl_text(eval_rows))
+    predictions = [
+        {
+            "cap_hit": index % 10 == 0,
+            "correct_answer": str(index),
+            "finish_reason": "length" if index % 10 == 0 else "stop",
+            "generated_token_count": index + 1,
+            "is_correct": index % 2 == 0,
+            "predicted_answer": None if index % 25 == 0 else str(index),
+            "problem_id": f"p{index:03d}",
+            "variant": "correct_only",
+        }
+        for index in range(125)
+    ]
+    raw = [
+        {
+            "generation": f"answer {index}",
+            "problem_id": f"p{index:03d}",
+            "variant": "correct_only",
+        }
+        for index in range(125)
+    ]
+    correct = sum(row["is_correct"] for row in predictions)
+    cap_hits = sum(row["cap_hit"] for row in predictions)
+    parse_failures = sum(
+        row["predicted_answer"] is None for row in predictions
+    )
+    tokens = sum(row["generated_token_count"] for row in predictions)
+    (output / "predictions.jsonl").write_text(
+        axolotl_math500_eval.jsonl_text(predictions)
+    )
+    (output / "raw_generations.jsonl").write_text(
+        axolotl_math500_eval.jsonl_text(raw)
+    )
+    (output / "metrics.json").write_text(
+        json.dumps(
+            {
+                "accuracy": correct / 125,
+                "average_generated_length": tokens / 125,
+                "benchmark": "math500",
+                "cap_hit_rate": cap_hits / 125,
+                "eval_file": str(eval_file),
+                "evaluator": "vllm",
+                "load_mode": "full_sft",
+                "num_eval_problems": 125,
+                "parse_failure_rate": parse_failures / 125,
+                "variant": "correct_only",
+            }
+        )
+    )
+    validated_predictions, validated_raw, _ = (
+        axolotl_math500_eval.validate_native_shard(
+            eval_file=eval_file,
+            output_dir=output,
+            variant="correct_only",
+        )
+    )
+    assert len(validated_predictions) == 125
+    assert len(validated_raw) == 125
 
 
 def test_bundle_round_trip_writes_compact_repo_result(
