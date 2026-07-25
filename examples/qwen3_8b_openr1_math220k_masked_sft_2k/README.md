@@ -47,3 +47,7 @@ The final checkpoints, their exact source paths, the one-H200 resumable eval
 wrapper, all frozen eval settings, and the fail-closed result importer are in
 `../qwen3_8b_openr1_math220k_masked_sft_eval_handoff/`. Evaluation is planned
 on a different system after checkpoint transfer.
+
+All 11 2K full-SFT jobs completed successfully. `TRAINING_STATUS.json`
+records their Slurm completion times, final iteration, and content-addressed
+checkpoint identities.
