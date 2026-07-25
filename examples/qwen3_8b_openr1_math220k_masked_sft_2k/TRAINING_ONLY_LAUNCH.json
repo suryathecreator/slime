@@ -1,0 +1,145 @@
+{
+  "artifact_schema_version": 1,
+  "branch": "qwen3-8b-openr1-masked-sft-40k",
+  "checkpoint_handoff": {
+    "base_8b": {
+      "checkpoint_manifest_sha256": "401f62fead5dfc0398939cbaddf96dbffd14ddb53d07a220fe5c54546be9e1a5",
+      "manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/handoff/checkpoints/base_8b.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/models/Qwen3-8B-Base"
+    },
+    "completed_40k_correct_only": {
+      "checkpoint_manifest_sha256": "0b5de1262df560c926fd619a039aedb612daa60a1076438200b2fea57dd19b6f",
+      "completed_train_job": 185708,
+      "final_iteration": 199,
+      "manifest": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/handoff/checkpoints/correct_only.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/outputs/training/correct_only/weights/iter_0000199"
+    },
+    "inventory": "../qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_sources.json"
+  },
+  "commit_submitted": "f58494e8270f77d094ac7477cf463a220aaea655",
+  "completion_note": "Completes the already-started Axolotl-masked-SFT work by training the 2K suite first, preserving completed checkpoints, and deferring all MATH-500 evaluation to another system.",
+  "contracts": {
+    "40k": "6ea372402facbc5e",
+    "2k": "5c3230a293f7acb2"
+  },
+  "jobs_in_dependency_order": [
+    {
+      "job_id": 186616,
+      "name": "prepare_2k_traces"
+    },
+    {
+      "job_id": 186617,
+      "name": "score_2k_margins_and_build_variants"
+    },
+    {
+      "job_id": 186618,
+      "name": "train_2k_correct_only"
+    },
+    {
+      "job_id": 186619,
+      "name": "train_2k_unmasked"
+    },
+    {
+      "job_id": 186620,
+      "name": "train_2k_random_mask_70"
+    },
+    {
+      "job_id": 186621,
+      "name": "train_2k_inverse_tau_0p20"
+    },
+    {
+      "job_id": 186622,
+      "name": "train_2k_inverse_tau_0p05"
+    },
+    {
+      "job_id": 186623,
+      "name": "train_2k_random_mask_25"
+    },
+    {
+      "job_id": 186624,
+      "name": "train_2k_random_mask_50"
+    },
+    {
+      "job_id": 186625,
+      "name": "train_2k_random_mask_80"
+    },
+    {
+      "job_id": 186626,
+      "name": "train_2k_random_mask_90"
+    },
+    {
+      "job_id": 186627,
+      "name": "train_2k_margin_mask"
+    },
+    {
+      "job_id": 186628,
+      "name": "train_2k_prob_ratio_mask"
+    },
+    {
+      "job_id": 186629,
+      "name": "train_40k_weighted_tau_0p20"
+    },
+    {
+      "job_id": 186630,
+      "name": "train_40k_unmasked"
+    }
+  ],
+  "resource_policy": {
+    "dependency": "strict serial afterok",
+    "first_job_gpus": 1,
+    "maximum_concurrent_gpus": 4,
+    "no_eval_or_report_jobs_submitted": true,
+    "score_and_train_gpus": 4
+  },
+  "scratch_submission_manifest": {
+    "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/manifests/training_only_chain.json",
+    "sha256": "f5dbe0e3bb6dec2f715cdfb56006d15d88e538c91fd6a2755abaa7c93cdc2735"
+  },
+  "startup_check": {
+    "first_job": 186616,
+    "node": "g010",
+    "requested_cpus": 8,
+    "requested_gpus": 1,
+    "started_at": "2026-07-24T23:03:09-07:00",
+    "state": "RUNNING",
+    "verified_at": "2026-07-24T23:04:18-07:00"
+  },
+  "submitted_at": "2026-07-24T23:03:08-07:00",
+  "superseded_chain": {
+    "canceled_at": "2026-07-24T23:02:18-07:00",
+    "canceled_jobs": [
+      185502,
+      185503,
+      185504,
+      185505,
+      185506,
+      185507,
+      185508,
+      185509,
+      185510,
+      185511,
+      185512,
+      185513,
+      185514,
+      185515,
+      185516,
+      185517,
+      185518,
+      185519,
+      185520,
+      185521,
+      185522,
+      185523,
+      185524,
+      185525,
+      185526,
+      185527,
+      185528,
+      185529,
+      185530,
+      185531
+    ],
+    "preserved_artifacts": true,
+    "reason": "replace interleaved train/eval chain with 2K-first training-only chain"
+  }
+}
