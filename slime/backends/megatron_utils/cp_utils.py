@@ -6,6 +6,45 @@ import torch.nn.functional as F
 from megatron.core import mpu
 
 
+TOKEN_WEIGHT_FIXED_POINT_SCALE = 256
+
+
+def get_fixed_point_token_normalizer(
+    loss_masks: list[torch.Tensor],
+    response_lengths: list[int],
+    *,
+    scale: int = TOKEN_WEIGHT_FIXED_POINT_SCALE,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Encode fractional token mass for Megatron's int32 schedule accumulator.
+
+    Megatron accumulates ``num_tokens`` in an int32 CUDA tensor. Continuous
+    SFT weights therefore cannot be returned directly even though both the
+    weighted loss numerator and its denominator must retain their fractional
+    semantics. We use a fixed-point representation: callers multiply the loss
+    and logging numerators by ``scale`` and Megatron divides by the rounded
+    ``scale * weight_mass`` integer.
+
+    Binary masks are represented exactly. With the default scale, a complete
+    200-sample, 32K-token global batch is bounded by 1,677,721,600 and cannot
+    overflow int32.
+    """
+    if scale <= 0:
+        raise ValueError(f"fixed-point scale must be positive, found {scale}")
+    if len(loss_masks) != len(response_lengths):
+        raise ValueError(
+            f"loss mask/response length mismatch: {len(loss_masks)} != {len(response_lengths)}"
+        )
+    max_scaled_tokens = sum(int(length) for length in response_lengths) * scale
+    if max_scaled_tokens > torch.iinfo(torch.int32).max:
+        raise ValueError(
+            "fixed-point token normalizer can overflow int32: "
+            f"max_scaled_tokens={max_scaled_tokens}"
+        )
+    weight_mass = sum(torch.clamp_min(loss_mask.sum(), 1) for loss_mask in loss_masks)
+    schedule_tokens = torch.round(weight_mass * scale).to(dtype=torch.int32)
+    return weight_mass, schedule_tokens
+
+
 def get_logits_and_tokens_offset_with_cp(
     total_length: int,
     response_length: int,

@@ -1,0 +1,164 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-2k/v1/5c3230a293f7acb2/outputs/training",
+  "contract_hash": "5c3230a293f7acb2",
+  "data_jobs": [
+    {
+      "elapsed": "00:03:35",
+      "ended_at": "2026-07-24T23:06:44-07:00",
+      "exit_code": "0:0",
+      "job_id": 186616,
+      "name": "prepare_2k_traces",
+      "state": "COMPLETED"
+    },
+    {
+      "elapsed": "00:13:27",
+      "ended_at": "2026-07-25T00:22:28-07:00",
+      "exit_code": "0:0",
+      "job_id": 186617,
+      "name": "score_2k_margins_and_build_variants",
+      "state": "COMPLETED"
+    }
+  ],
+  "evaluation": {
+    "execution": "deferred_to_another_system",
+    "jobs_submitted": 0,
+    "policy": "../qwen3_8b_openr1_math220k_masked_sft_eval_handoff/eval_policy.json"
+  },
+  "full_sft": true,
+  "related_40k_snapshot": {
+    "unmasked": {
+      "elapsed_at_snapshot": "00:09:12",
+      "job_id": 186630,
+      "started_at": "2026-07-25T05:46:09-07:00",
+      "state": "RUNNING"
+    },
+    "weighted_tau_0p20": {
+      "checkpoint_manifest_sha256": "208d776d3205f97721efa2b85aa68d4f62961400d3560f9a28e16640368492ff",
+      "elapsed": "02:21:57",
+      "ended_at": "2026-07-25T05:45:59-07:00",
+      "exit_code": "0:0",
+      "job_id": 186629,
+      "state": "COMPLETED"
+    }
+  },
+  "snapshot_at": "2026-07-25T05:55:34-07:00",
+  "summary": {
+    "checkpoints_with_final_hf_weights_and_manifests": 11,
+    "failed_training_jobs": 0,
+    "finished_at": "2026-07-25T03:23:36-07:00",
+    "successful_training_jobs": 11
+  },
+  "training_jobs": [
+    {
+      "checkpoint_manifest_sha256": "7095d4d9d0556fe4bc89abecbdfc413ed6d31f152927a6e142ded068db0ec429",
+      "elapsed": "00:10:12",
+      "ended_at": "2026-07-25T00:50:51-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186618,
+      "state": "COMPLETED",
+      "variant": "correct_only"
+    },
+    {
+      "checkpoint_manifest_sha256": "d6a8af4a6374ac3b28670eea4024ff689988c1ec01cc440764e43080a14b1520",
+      "elapsed": "00:10:01",
+      "ended_at": "2026-07-25T01:49:40-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186619,
+      "state": "COMPLETED",
+      "variant": "unmasked"
+    },
+    {
+      "checkpoint_manifest_sha256": "bb588693b00139925bb80e153e5d3ef76a3a352521ed74823fb19cd0b7dac470",
+      "elapsed": "00:09:56",
+      "ended_at": "2026-07-25T01:59:58-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186620,
+      "state": "COMPLETED",
+      "variant": "random_mask_70"
+    },
+    {
+      "checkpoint_manifest_sha256": "fca9c957d0f8f64f6f39f348c525deddffe3459b08857df1ebedc8a6aae6d2ce",
+      "elapsed": "00:09:58",
+      "ended_at": "2026-07-25T02:10:07-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186621,
+      "state": "COMPLETED",
+      "variant": "inverse_tau_0p20"
+    },
+    {
+      "checkpoint_manifest_sha256": "8bcdfac36f9c71bd592952d121f99517e6f77b858e8c638f8154f0071a7becb8",
+      "elapsed": "00:09:58",
+      "ended_at": "2026-07-25T02:20:37-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186622,
+      "state": "COMPLETED",
+      "variant": "inverse_tau_0p05"
+    },
+    {
+      "checkpoint_manifest_sha256": "c5a8fd2491779acf3394ec39d71bda51265825c69c9c4543f1bc8ae947e152f8",
+      "elapsed": "00:10:00",
+      "ended_at": "2026-07-25T02:31:02-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186623,
+      "state": "COMPLETED",
+      "variant": "random_mask_25"
+    },
+    {
+      "checkpoint_manifest_sha256": "ba858edc58658855384583ff3d53f257a3870762d4314e0bb35dce4d3acc31b8",
+      "elapsed": "00:09:59",
+      "ended_at": "2026-07-25T02:41:38-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186624,
+      "state": "COMPLETED",
+      "variant": "random_mask_50"
+    },
+    {
+      "checkpoint_manifest_sha256": "f6800a02d7e218d5d29de27e34cd21d852df292b4c67625b9335f18d321e83c0",
+      "elapsed": "00:09:58",
+      "ended_at": "2026-07-25T02:52:00-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186625,
+      "state": "COMPLETED",
+      "variant": "random_mask_80"
+    },
+    {
+      "checkpoint_manifest_sha256": "0d5133bf6e2e254b5f8d028da69cdf68b54403812a6506908eee431beb5dfe1c",
+      "elapsed": "00:09:59",
+      "ended_at": "2026-07-25T03:02:38-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186626,
+      "state": "COMPLETED",
+      "variant": "random_mask_90"
+    },
+    {
+      "checkpoint_manifest_sha256": "911cd3d71195e80950810e790723eb9fee53e5525f38f747a113783958f3acb4",
+      "elapsed": "00:09:59",
+      "ended_at": "2026-07-25T03:13:01-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186627,
+      "state": "COMPLETED",
+      "variant": "margin_mask"
+    },
+    {
+      "checkpoint_manifest_sha256": "a7a54a3654a5a68a88787654bfbf7e7afcb607e0ffe6ff109e6bff7c03886db1",
+      "elapsed": "00:09:57",
+      "ended_at": "2026-07-25T03:23:36-07:00",
+      "exit_code": "0:0",
+      "final_iteration": 9,
+      "job_id": 186628,
+      "state": "COMPLETED",
+      "variant": "prob_ratio_mask"
+    }
+  ]
+}

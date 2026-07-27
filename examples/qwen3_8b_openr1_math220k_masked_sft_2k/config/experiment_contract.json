@@ -1,0 +1,70 @@
+{
+  "base_model": {
+    "hf_repo": "Qwen/Qwen3-8B-Base",
+    "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
+  },
+  "evaluation": {
+    "base_evaluation": "rerun_once_and_reuse_in_every_table",
+    "dataset": "HuggingFaceH4/MATH-500",
+    "decoding": "greedy",
+    "dynamic_response_budget": "32768 - rendered_prompt_tokens - 64",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "scorer": "math500_strict_boxed_scorer_v3",
+    "scorer_source_commit": "2df62be",
+    "stop_token_ids": [151643, 151645]
+  },
+  "masking": {
+    "correct_tokens": "weight_1",
+    "inverse_margin_taus": [0.2, 0.05],
+    "margin_definition": "logp_answer_conditioned_minus_logp_unconditioned",
+    "probability_ratio_mask": "mask_probability=min(1,exp(-margin));keep=stable_draw>=mask_probability",
+    "random_mask_probabilities": [0.25, 0.5, 0.7, 0.8, 0.9],
+    "regular_margin_mask": "keep_iff_margin>0",
+    "seed": 42,
+    "terminal_policy": "preserve_canonical_tag_anomalies;every_present_literal_think_tag_and_im_end_weight_1;no_synthetic_endoftext;template_newline_weight_0"
+  },
+  "selection": {
+    "correct_only_rows": 2000,
+    "correct_only_trace_order_sha256": "95c199c745005797627f210b39078058161f3e27531b7af91db5ba4a6cc1bd94",
+    "mixed_correct_rows": 1000,
+    "mixed_trace_order_sha256": "a6020e731bc64f93114d398e4d868f92f0505e7942f52d19fb26aa93b302f46d",
+    "mixed_wrong_rows": 1000,
+    "mode": "canonical_axolotl_unpaired_seed_42",
+    "source_correct_only_sha256": "3219becadaf38337b5fc3b692912a4110679ff763d81abae50b19fe345889315",
+    "source_correct_wrong_unmasked_sha256": "8f888746d48510f601413f83eec0286f7b87d4c8795ee42de56bd4de0b039dbe",
+    "source_stats_sha256": "051feaaad99eb69c38e366f3bbe34373010936432ea0f93a59e93096f9830a49",
+    "source_repository_commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
+    "source_structure": {
+      "correct_only_duplicate_close": 0,
+      "correct_only_missing_close": 1,
+      "mixed_duplicate_close": 1,
+      "mixed_missing_close": 56
+    }
+  },
+  "training": {
+    "attention_dropout": 0.0,
+    "full_sft": true,
+    "global_batch_size": 200,
+    "hidden_dropout": 0.0,
+    "learning_rate": 1e-06,
+    "lr_schedule": "constant",
+    "max_sequence_length": 32768,
+    "num_epochs": 1,
+    "optimizer": "adam",
+    "rollout_batch_size": 200,
+    "weight_decay": 0.1
+  },
+  "variants": [
+    "correct_only",
+    "unmasked",
+    "random_mask_70",
+    "inverse_tau_0p20",
+    "inverse_tau_0p05",
+    "random_mask_25",
+    "random_mask_50",
+    "random_mask_80",
+    "random_mask_90",
+    "margin_mask",
+    "prob_ratio_mask"
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "base_model": {
+    "hf_repo": "Qwen/Qwen3-8B-Base",
+    "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
+  },
+  "data": {
+    "config": "default",
+    "dataset": "open-r1/OpenR1-Math-220k",
+    "revision": "dc748648036c1ed619b020e056dc4b603eb39817",
+    "seed": 42,
+    "split": "train"
+  },
+  "evaluation": {
+    "base_evaluation": "rerun_under_identical_policy",
+    "dataset": "HuggingFaceH4/MATH-500",
+    "decoding": "greedy",
+    "dynamic_response_budget": "32768 - rendered_prompt_tokens - 64",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "scorer": "math500_strict_boxed_scorer_v3",
+    "scorer_source_commit": "2df62be",
+    "seed": 1234,
+    "stop_token_ids": [151643, 151645]
+  },
+  "selection": {
+    "correct_only_rows": 40000,
+    "mixed_correct_rows": 20000,
+    "mixed_wrong_rows": 20000,
+    "mode": "unpaired_disjoint_problem_ids"
+  },
+  "training": {
+    "full_sft": true,
+    "global_batch_size": 200,
+    "learning_rate": 1e-06,
+    "max_sequence_length": 32768,
+    "num_epochs": 1,
+    "tau": 0.2,
+    "variants": ["correct_only", "weighted_tau_0p20", "unmasked"]
+  },
+  "recovery": {
+    "reason": "complete_already_started_40k_run_after_fractional_loss_counter_failure",
+    "source_artifacts": {
+      "correct_only_40000.jsonl": "cfa5372218eef2aaed0e10b0473ee69d1f5b322c9c3dc2cf33af7f98c4cee057",
+      "correct_wrong_unmasked_40000.jsonl": "b4c98c23ae111876e2718d2d6cbf8f65215b08662c119cd65a52b1cb02813c74",
+      "correct_wrong_weighted_tau_0p20_40000.jsonl": "37341b60162d68612fc8fd64e12c425b2bc5ea0b2940a1fd95d64bb97d62053e",
+      "selected_traces.jsonl": "ddec4e086122302c032e69313f16072eb568e450bb53fc11723d39cda55df777",
+      "selection_and_tokenization_stats.json": "fbf5bf05559b3e7b51a73dd8ae5033ae61aa2ebaf023b242270b18d5578e5ac0",
+      "weighted_tau_0p20_stats.json": "be5da28dc5f6a76d6a8a064ca5889b9441f9d6cd1e846b523f2e0935c6f145ae",
+      "wrong_margins_merged.jsonl": "54aa68820dbda0754071f0289531779fee682a2bf65832dfbc276e88ce5b8299"
+    },
+    "source_root": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/18b67d8ec9f3ff18"
+  }
+}

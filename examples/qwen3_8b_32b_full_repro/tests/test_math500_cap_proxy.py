@@ -146,6 +146,36 @@ def test_dynamic_budget_and_prefix_gate() -> None:
         evaluator.require_exact_prefix([1, 2], [1, 9, 3], index=7)
 
 
+def test_primary_policy_records_dynamic_target_context() -> None:
+    args = SimpleNamespace(
+        model="/tmp/model",
+        dataset="MATH-500",
+        revision="revision",
+        temperature=0.0,
+        top_p=1.0,
+        top_k=-1,
+        seed=1234,
+        max_new_tokens=32768,
+        target_context=32768,
+        safety_margin=64,
+        stop_token_ids=[151645, 151643],
+        gpu_memory_utilization=0.90,
+        max_num_batched_tokens=16384,
+        max_num_seqs=24,
+    )
+    checkpoint_identity = "a" * 64
+    policy = evaluator.policy(args, 40960, checkpoint_identity)
+    assert policy["target_total_context_tokens"] == 32768
+    assert policy["model_native_context_tokens"] == 40960
+    assert policy["model_checkpoint_manifest_sha256"] == checkpoint_identity
+    assert "model" not in policy
+    assert policy["temperature"] == 0.0
+    assert policy["stop_token_ids"] == [151643, 151645]
+    assert "target_context - rendered_prompt_tokens" in policy[
+        "response_budget_mode"
+    ]
+
+
 def test_cap_proxy_reuses_natural_stops_and_publishes_after_exact_prefixes(tmp_path: Path) -> None:
     source_dir, model, rows = write_source(tmp_path)
     output_dir = tmp_path / "proxy"

@@ -1,0 +1,92 @@
+{
+  "branch": "qwen3-8b-openr1-masked-sft-40k",
+  "commit_submitted": "8bebf98fd4f775964f15cfd28c6165cda1ee1307",
+  "completion_note": "Completes the already-started Axolotl-masked-SFT work after repairing fractional loss accounting and the MATH-500 path.",
+  "contracts": {
+    "recovery_40k": "6ea372402facbc5e",
+    "suite_2k": "5c3230a293f7acb2"
+  },
+  "evaluation_policy": {
+    "dataset": "MATH-500",
+    "decoding": "greedy",
+    "dynamic_response_budget": "32768 - rendered_prompt_tokens - 64",
+    "scorer": "math500_strict_boxed_scorer_v3",
+    "startup_policy_sha256": "223cee5efe82e2998ca48e9575c769cc726231e4471ec8a72dc613f9a3c9efaf",
+    "stop_token_ids": [151643, 151645]
+  },
+  "failed_closed_submission_attempts": [
+    {
+      "canceled_jobs": [185477, 185478, 185479, 185480, 185481, 185482, 185483],
+      "reason": "gpu-h200 rejects zero-GPU jobs"
+    },
+    {
+      "canceled_jobs": [185486, 185487, 185488, 185489, 185490, 185491, 185492],
+      "reason": "gpu-h200 permits at most eight CPUs per requested GPU"
+    }
+  ],
+  "dependency_repairs": [
+    {
+      "archived_failed_attempt": {
+        "bytes": 2789729992,
+        "file_count": 250,
+        "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/outputs/failed_attempts/correct_only_job_185501",
+        "partial_checkpoint_sha256": "45293c33720b41de9a57463bede3b6247896ef566428bc73be79f110eecc23b2",
+        "resumable": false
+      },
+      "cause": "multiprocessing.Manager AF_UNIX path too long during the first async torch_dist checkpoint",
+      "commit_submitted": "3964758c74dc94bb262a2808fe9298aa62849a2e",
+      "failed_train": 185501,
+      "preserved_downstream_anchor": 185503,
+      "replacement_train": 185708,
+      "reused_base_eval": 185500,
+      "rewired_eval": 185502,
+      "submitted_at": "2026-07-24T07:34:17.451596+00:00"
+    }
+  ],
+  "jobs_in_dependency_order": [
+    ["base_8b_eval", 185500],
+    ["train_40k_correct_only", 185501],
+    ["eval_40k_correct_only", 185502],
+    ["train_40k_weighted_tau_0p20", 185503],
+    ["eval_40k_weighted_tau_0p20", 185504],
+    ["train_40k_unmasked", 185505],
+    ["eval_40k_unmasked_and_report", 185506],
+    ["prepare_2k_traces", 185507],
+    ["score_2k_margins_and_build_variants", 185508],
+    ["train_2k_correct_only", 185509],
+    ["eval_2k_correct_only", 185510],
+    ["train_2k_unmasked", 185511],
+    ["eval_2k_unmasked", 185512],
+    ["train_2k_random_mask_70", 185513],
+    ["eval_2k_random_mask_70", 185514],
+    ["train_2k_inverse_tau_0p20", 185515],
+    ["eval_2k_inverse_tau_0p20", 185516],
+    ["train_2k_inverse_tau_0p05", 185517],
+    ["eval_2k_inverse_tau_0p05", 185518],
+    ["train_2k_random_mask_25", 185519],
+    ["eval_2k_random_mask_25", 185520],
+    ["train_2k_random_mask_50", 185521],
+    ["eval_2k_random_mask_50", 185522],
+    ["train_2k_random_mask_80", 185523],
+    ["eval_2k_random_mask_80", 185524],
+    ["train_2k_random_mask_90", 185525],
+    ["eval_2k_random_mask_90", 185526],
+    ["train_2k_margin_mask", 185527],
+    ["eval_2k_margin_mask", 185528],
+    ["train_2k_prob_ratio_mask", 185529],
+    ["eval_2k_prob_ratio_mask", 185530],
+    ["report_2k_tables", 185531]
+  ],
+  "resource_policy": {
+    "dependency": "strict linear afterok chain",
+    "maximum_concurrent_gpus": 4,
+    "train_eval_adjacency": "each training job is followed immediately by its evaluation"
+  },
+  "startup_check": {
+    "first_job": 185500,
+    "node": "g018",
+    "shards": 4,
+    "state": "RUNNING",
+    "submitted_at": "2026-07-24T04:25:24.508675+00:00"
+  }
+}

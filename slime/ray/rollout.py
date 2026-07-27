@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 _ROLLOUT_DATA_TENSOR_DTYPES = {
     "tokens": torch.long,
-    "loss_masks": torch.int,
+    "loss_masks": torch.float32,
     "rollout_log_probs": torch.float32,
     "rollout_top_p_token_ids": torch.int32,
     "rollout_top_p_token_offsets": torch.int32,
@@ -792,7 +792,7 @@ class RolloutManager:
         #   token-weighted mean per rollout.
         rollout_id_list = train_data["rollout_ids"]
         mask_sums_per_sample = [sum(m) for m in loss_masks]
-        rollout_total_mask: dict[int, int] = {}
+        rollout_total_mask: dict[int, float] = {}
         for rid, ms in zip(rollout_id_list, mask_sums_per_sample, strict=True):
             rollout_total_mask[rid] = rollout_total_mask.get(rid, 0) + ms
         train_data["rollout_mask_sums"] = [rollout_total_mask[rid] for rid in rollout_id_list]

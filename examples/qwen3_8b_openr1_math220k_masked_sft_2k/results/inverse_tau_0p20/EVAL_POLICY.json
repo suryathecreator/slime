@@ -1,0 +1,59 @@
+{
+  "artifact_schema_version": 1,
+  "dataset": {
+    "axolotl_canonical_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "row_order": "original_500",
+    "split": "test"
+  },
+  "decoding": {
+    "max_tokens": 32768,
+    "n": 1,
+    "stop": [
+      "<|im_end|>"
+    ],
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "temperature": 0.0
+  },
+  "engine": {
+    "dtype": "bfloat16",
+    "enable_prefix_caching": true,
+    "enforce_eager": false,
+    "evaluator": "Axolotl-Masked-SFT/scripts/openr1_axolotl/evaluate_math_vllm.py",
+    "gpu_memory_utilization": 0.92,
+    "max_model_len": 32768,
+    "max_num_seqs": 8,
+    "tensor_parallel_size": 1,
+    "tokenizer": {
+      "compatibility_transform": "extra_special_tokens list to empty mapping",
+      "source": "verified tokenizer files embedded in every transferred full-SFT checkpoint",
+      "source_base_model": "Qwen/Qwen3-8B-Base",
+      "source_base_revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
+    },
+    "torch_version": "2.8.0",
+    "transformers_version": "4.57.6",
+    "vllm_version": "0.10.2"
+  },
+  "persistence": {
+    "chunk_size": 32,
+    "completed_problem_ids_are_resumed": true,
+    "jsonl_flush_after_each_row": true,
+    "layout": "four_contiguous_125_problem_shards",
+    "slurm_requeue": true
+  },
+  "prompt": {
+    "add_generation_prompt": true,
+    "instruction": "Please reason step by step, and put your final answer within \\boxed{}.",
+    "user_content": "instruction + \"\\n\\nProblem:\\n\" + problem"
+  },
+  "scoring": {
+    "answer_extraction": "Axolotl common.extract_final_answer",
+    "grader": "Axolotl evaluate_math_vllm.grade_math_answer",
+    "math_verify_version": "0.9.0",
+    "parse_or_checker_failures": "incorrect"
+  }
+}

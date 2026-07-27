@@ -233,7 +233,7 @@ class MegatronTrainRayActor(TrainRayActor):
             t.to(device=device, dtype=torch.long, non_blocking=True) for t in rollout_data["tokens"]
         ]
         rollout_data["loss_masks"] = [
-            t.to(device=device, dtype=torch.int, non_blocking=True) for t in rollout_data["loss_masks"]
+            t.to(device=device, dtype=torch.float32, non_blocking=True) for t in rollout_data["loss_masks"]
         ]
         if "rollout_mask_sums" in rollout_data:
             # Promote precomputed per-rollout mask totals to GPU tensors here

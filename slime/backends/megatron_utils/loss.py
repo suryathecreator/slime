@@ -25,7 +25,9 @@ from slime.utils.ppo_utils import (
 from slime.utils.types import RolloutBatch
 
 from .cp_utils import (
+    TOKEN_WEIGHT_FIXED_POINT_SCALE,
     all_gather_with_cp,
+    get_fixed_point_token_normalizer,
     get_logits_and_tokens_offset_with_cp,
     get_sum_of_sample_mean,
     slice_log_prob_with_cp,
@@ -1250,7 +1252,10 @@ def loss_function(
         - `logging_dict` has keys "keys" (list of str metric names) and
           "values" (1D tensor: [count, metric1, metric2, ...]).
     """
-    num_tokens = sum([torch.clamp_min(loss_mask.sum(), 1) for loss_mask in batch["loss_masks"]])
+    _weight_mass, schedule_num_tokens = get_fixed_point_token_normalizer(
+        batch["loss_masks"],
+        batch["response_lengths"],
+    )
 
     sum_of_sample_mean = get_sum_of_sample_mean(
         batch["total_lengths"],
@@ -1294,11 +1299,26 @@ def loss_function(
             * mpu.get_data_parallel_world_size(with_context_parallel=True)
         )
     else:
-        loss = loss * mpu.get_context_parallel_world_size()
+        # Megatron's schedule accumulates token counts in int32. Scale both
+        # numerator and denominator so continuous loss weights retain their
+        # weighted-token normalization without a float->int cast failure.
+        loss = (
+            loss
+            * mpu.get_context_parallel_world_size()
+            * TOKEN_WEIGHT_FIXED_POINT_SCALE
+        )
+        log = {
+            key: value * TOKEN_WEIGHT_FIXED_POINT_SCALE
+            for key, value in log.items()
+        }
 
     return (
         loss,
-        (num_tokens if args.calculate_per_token_loss else torch.tensor(1, device=logits.device)),
+        (
+            schedule_num_tokens
+            if args.calculate_per_token_loss
+            else torch.tensor(1, dtype=torch.int32, device=logits.device)
+        ),
         {
             "keys": list(log.keys()),
             # values[0] is the consumer's reporting denominator after
@@ -1310,7 +1330,7 @@ def loss_function(
             # per-mb fractions.
             "values": torch.tensor(
                 [
-                    num_tokens if args.calculate_per_token_loss else 0,
+                    schedule_num_tokens if args.calculate_per_token_loss else 0,
                 ]
                 + list(log.values()),
                 device=logits.device,

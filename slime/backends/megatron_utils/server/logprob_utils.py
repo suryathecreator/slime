@@ -230,7 +230,7 @@ def _prepare_rollout_data(rollout_data_ref):
     rollout_data = ray.get(rollout_data_ref[0].inner)
 
     rollout_data["tokens"] = _to_cuda_tensors(rollout_data["tokens"], torch.long)
-    rollout_data["loss_masks"] = _to_cuda_tensors(rollout_data["loss_masks"], torch.int)
+    rollout_data["loss_masks"] = _to_cuda_tensors(rollout_data["loss_masks"], torch.float32)
     if rollout_data.get("label_token_ids") is not None:
         rollout_data["label_token_ids"] = _to_cuda_tensors(rollout_data["label_token_ids"], torch.long)
         for idx, tensor in enumerate(rollout_data["label_token_ids"]):
