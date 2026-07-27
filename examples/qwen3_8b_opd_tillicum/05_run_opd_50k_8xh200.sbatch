@@ -32,7 +32,6 @@ for required_path in \
   "${STUDENT_HF_DIR}" \
   "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" \
   "${TEACHER_HF_DIR}" \
-  "${SFT_FINAL_HF_DIR}" \
   "${OPD_REF_LOAD_DIR}"; do
   if [[ ! -e "${required_path}" ]]; then
     echo "Missing required path: ${required_path}" >&2
@@ -49,6 +48,8 @@ echo "OPD rollout batch/global batch/samples per prompt: ${OPD_ROLLOUT_BATCH_SIZ
 echo "OPD rollout ids: 0-${OPD_FINAL_ROLLOUT_ID}"
 echo "OPD max response len: ${OPD_MAX_RESPONSE_LEN}"
 echo "OPD rollout max context len: ${OPD_ROLLOUT_MAX_CONTEXT_LEN}"
+echo "Qwen3 thinking enabled: ${QWEN3_ENABLE_THINKING}"
+echo "OPD rollout stop token ids: ${OPD_ROLLOUT_STOP_TOKEN_IDS} (im_end=${QWEN3_IM_END_TOKEN_ID}, endoftext=${QWEN3_ENDOFTEXT_TOKEN_ID})"
 echo "OPD actor/rollout/teacher GPU counts: ${OPD_ACTOR_GPUS}/${OPD_ROLLOUT_GPUS}/1"
 echo "OPD Ray GPUs: ${OPD_RAY_GPUS}"
 echo "OPD TP/CP/seq length/max tokens per GPU: ${OPD_TENSOR_MODEL_PARALLEL_SIZE}/${OPD_CONTEXT_PARALLEL_SIZE}/${OPD_SEQ_LENGTH}/${OPD_MAX_TOKENS_PER_GPU}"
@@ -64,6 +65,8 @@ echo "OPD SGLang rl-on-policy target: ${OPD_SGLANG_RL_ON_POLICY_TARGET:-<none>}"
 echo "PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF}"
 echo "SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF=${SLIME_SGLANG_PYTORCH_CUDA_ALLOC_CONF}"
 echo "Teacher: ${TEACHER_HF_DIR} on physical GPU ${OPD_TEACHER_GPU}"
+echo "Teacher chunked/max prefill tokens: ${OPD_TEACHER_CHUNKED_PREFILL_SIZE}/${OPD_TEACHER_MAX_PREFILL_TOKENS}"
+echo "Teacher memory fraction: ${OPD_TEACHER_MEM_FRACTION}"
 echo "Ray GPUs: 0-$((OPD_RAY_GPUS - 1))"
 echo "Save dir: ${OPD_SAVE_DIR}"
 echo "HF eval snapshots: ${OPD_HF_SNAPSHOT_DIR}"
@@ -74,7 +77,7 @@ echo "OPD reference load dir for logged KL: ${OPD_REF_LOAD_DIR}"
 echo "OPD allow opt-param scheduler mismatch: ${OPD_ALLOW_OPT_PARAM_SCHEDULER_MISMATCH}"
 echo "OPD skip rollout data-state load: ${OPD_SKIP_ROLLOUT_DATA_STATE_LOAD}"
 echo "OPD already-trained samples before this run: ${OPD_ALREADY_TRAINED_SAMPLES}"
-echo "SFT full checkpoint dir: ${SFT_FINAL_FULL_CKPT_DIR}"
+echo "Initial/reference policy checkpoint: ${OPD_INITIAL_LOAD_DIR} / ${OPD_REF_LOAD_DIR}"
 echo "OPD optimizer CPU offload: ${OPD_OPTIMIZER_CPU_OFFLOAD}"
 echo "OPD sanity guard: enabled=${OPD_SANITY_CHECK_ENABLED}, fail=${OPD_SANITY_FAIL_ON_COLLAPSE}, max rollout=${OPD_SANITY_MAX_ROLLOUT_ID}, max cap-hit=${OPD_SANITY_MAX_CAP_HIT_RATE}, max avg tokens=${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}, min final-answer=${OPD_SANITY_MIN_FINAL_ANSWER_RATE}"
 echo "OPD sanity reports: ${OPD_SANITY_REPORT_DIR}"
@@ -103,6 +106,21 @@ trap cleanup_pruner EXIT
 set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
 
+if [[ -n "${CC:-}" ]]; then
+  [[ -x "${CC}" ]] || { echo "OPD compiler is not executable: ${CC}" >&2; exit 1; }
+  [[ -n "${CPATH:-}" ]] || { echo "OPD compiler CPATH is empty." >&2; exit 1; }
+  echo "OPD_TORCH_COMPILER_READY cc=${CC} cpath=${CPATH}"
+fi
+
+if [[ "${QWEN3_ENABLE_THINKING}" != "1" ]]; then
+  echo "This Qwen3 OPD run requires QWEN3_ENABLE_THINKING=1." >&2
+  exit 2
+fi
+python3 examples/qwen3_8b_opd_tillicum/validate_qwen3_generation.py \
+  --tokenizer "${STUDENT_HF_DIR}" \
+  --im-end-token-id "${QWEN3_IM_END_TOKEN_ID}" \
+  --endoftext-token-id "${QWEN3_ENDOFTEXT_TOKEN_ID}"
+
 ray stop --force >/dev/null 2>&1 || true
 
 TEACHER_IP="127.0.0.1"
@@ -114,7 +132,8 @@ TEACHER_SGLANG_ARGS=(
   --host 0.0.0.0 \
   --port "${TEACHER_PORT}" \
   --tp 1 \
-  --chunked-prefill-size 4096 \
+  --chunked-prefill-size "${OPD_TEACHER_CHUNKED_PREFILL_SIZE}" \
+  --max-prefill-tokens "${OPD_TEACHER_MAX_PREFILL_TOKENS}" \
   --mem-fraction-static "${OPD_TEACHER_MEM_FRACTION}"
 )
 if [[ "${OPD_DISABLE_CUDA_GRAPH}" == "1" ]]; then
@@ -159,7 +178,7 @@ else
 fi
 echo "HAS_NVLINK=${HAS_NVLINK} (detected ${NVLINK_COUNT} NVLink references)"
 
-source scripts/models/qwen3-8B.sh
+source "${STUDENT_MODEL_ARGS_SCRIPT}"
 
 comma_range() {
   local n="$1"
@@ -185,7 +204,7 @@ validate_megatron_load_dir() {
   local latest_iter
   local iter_dir
 
-  if [[ "${load_dir}" == "${SFT_FINAL_HF_DIR}" ]] || [[ -f "${load_dir}/config.json" && ! -f "${load_dir}/.metadata" ]]; then
+  if [[ -f "${load_dir}/config.json" && ! -f "${load_dir}/.metadata" ]]; then
     echo "${label} load dir appears to be an HF snapshot, not a Megatron checkpoint: ${load_dir}" >&2
     exit 1
   fi
@@ -239,16 +258,16 @@ else
   case "${OPD_INITIAL_LOAD_MODE}" in
     megatron)
       OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
-      OPD_LOAD_KIND="sft_full_optim_initial"
+      OPD_LOAD_KIND="initial_full_optim"
       echo "Starting OPD from full Megatron optimizer checkpoint ${OPD_LOAD_DIR}"
       validate_megatron_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
       ;;
     hf)
       OPD_LOAD_DIR="${OPD_INITIAL_LOAD_DIR}"
-      OPD_LOAD_KIND="sft_hf_weights_initial"
+      OPD_LOAD_KIND="initial_hf_weights"
       CKPT_HF_CHECKPOINT="${OPD_LOAD_DIR}"
-      echo "Starting OPD from SFT HF weights snapshot ${OPD_LOAD_DIR}"
-      echo "Fresh OPD optimizer will be initialized because SFT full optimizer checkpoint TP layout is incompatible with this actor layout."
+      echo "Starting OPD from HF weights snapshot ${OPD_LOAD_DIR}"
+      echo "A fresh OPD optimizer will be initialized for this HF starting checkpoint."
       validate_hf_load_dir "${OPD_LOAD_KIND}" "${OPD_LOAD_DIR}"
       ;;
     *)
@@ -280,14 +299,18 @@ ROLLOUT_ARGS=(
   --prompt-data "${OPD_JSONL}"
   --input-key prompt
   --apply-chat-template
+  --apply-chat-template-kwargs "{\"enable_thinking\": true}"
   --rollout-shuffle
+  --rollout-seed "${DATA_SEED}"
   --num-rollout "${OPD_NUM_ROLLOUT}"
   --rollout-batch-size "${OPD_ROLLOUT_BATCH_SIZE}"
   --n-samples-per-prompt "${OPD_N_SAMPLES_PER_PROMPT}"
   --rollout-max-response-len "${OPD_MAX_RESPONSE_LEN}"
   --rollout-max-context-len "${OPD_ROLLOUT_MAX_CONTEXT_LEN}"
-  --rollout-temperature 1
-  --rollout-top-p 1
+  --rollout-stop-token-ids ${OPD_ROLLOUT_STOP_TOKEN_IDS}
+  --rollout-temperature "${OPD_ROLLOUT_TEMPERATURE}"
+  --rollout-top-p "${OPD_ROLLOUT_TOP_P}"
+  --rollout-top-k "${OPD_ROLLOUT_TOP_K}"
   --global-batch-size "${OPD_GLOBAL_BATCH_SIZE}"
   --balance-data
   --save-debug-rollout-data "${OPD_ROLLOUT_LOG_DIR}/rollout_{rollout_id}.pt"
@@ -352,7 +375,7 @@ fi
 
 WANDB_ARGS=()
 if [[ "${WANDB_MODE}" != "disabled" ]]; then
-  WANDB_ARGS+=(--wandb-project slime-tillicum --wandb-group "qwen3-8b-opd-${OPD_RUN_LABEL}")
+  WANDB_ARGS+=(--wandb-project slime-tillicum --wandb-group "${OPD_WANDB_GROUP_PREFIX}-opd-${OPD_RUN_LABEL}")
 fi
 
 SGLANG_ARGS=(
@@ -367,6 +390,7 @@ if [[ -n "${OPD_SGLANG_RL_ON_POLICY_TARGET}" ]]; then
 fi
 
 MISC_ARGS=(
+  --seed "${DATA_SEED}"
   --attention-dropout 0.0
   --hidden-dropout 0.0
   --accumulate-allreduce-grads-in-fp32
@@ -399,6 +423,12 @@ SLIME_SGLANG_PATCH_SITE=0 CUDA_VISIBLE_DEVICES="${RAY_VISIBLE_DEVICES}" ray star
   --num-gpus "${OPD_RAY_GPUS}" \
   --disable-usage-stats --dashboard-host=0.0.0.0 --dashboard-port=8265
 
+COMPILER_RUNTIME_ENV=""
+if [[ -n "${CC:-}" ]]; then
+  COMPILER_RUNTIME_ENV=",
+    \"CC\": \"${CC}\",
+    \"CPATH\": \"${CPATH}\""
+fi
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
     \"PYTHONPATH\": \"/root/Megatron-LM:${SLIME_REPO_ROOT}\",
@@ -416,7 +446,7 @@ RUNTIME_ENV_JSON="{
     \"OPD_SANITY_MAX_CAP_HIT_RATE\": \"${OPD_SANITY_MAX_CAP_HIT_RATE}\",
     \"OPD_SANITY_MAX_AVG_RESPONSE_TOKENS\": \"${OPD_SANITY_MAX_AVG_RESPONSE_TOKENS}\",
     \"OPD_SANITY_MIN_FINAL_ANSWER_RATE\": \"${OPD_SANITY_MIN_FINAL_ANSWER_RATE}\",
-    \"OPD_SANITY_REPORT_DIR\": \"${OPD_SANITY_REPORT_DIR}\"
+    \"OPD_SANITY_REPORT_DIR\": \"${OPD_SANITY_REPORT_DIR}\"${COMPILER_RUNTIME_ENV}
   }
 }"
 
@@ -513,7 +543,9 @@ manifest = {
     "resume_from_full_optim_checkpoint": str(save_dir / f"iter_{final_rollout_id:07d}"),
     "initial_load_mode": os.environ.get("OPD_INITIAL_LOAD_MODE"),
     "initial_load_dir": os.environ.get("OPD_INITIAL_LOAD_DIR"),
+    "initial_full_checkpoint_dir": os.environ.get("SFT_FINAL_FULL_CKPT_DIR"),
     "sft_full_checkpoint_dir": os.environ.get("SFT_FINAL_FULL_CKPT_DIR"),
+    "prompt_contract_version": os.environ.get("OPD_PROMPT_CONTRACT_VERSION"),
     "resume_from_hf_snapshot": str(hf_dir),
     "rollout_dataset_state": str(dataset_state),
     "trained_rows": rows,
@@ -531,6 +563,32 @@ fi
 if [[ -f "${SPLIT_METADATA}" ]]; then
   cp -f "${SPLIT_METADATA}" "${OPD_SAVE_DIR}/split_metadata.json"
   cp -f "${SPLIT_METADATA}" "${OPD_FINAL_HF_DIR}/split_metadata.json"
+fi
+
+if [[ -n "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR:-}" ]]; then
+  if [[ "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR}" == "${OPD_SAVE_DIR}" ]]; then
+    echo "Refusing to retire the active OPD save dir: ${OPD_SAVE_DIR}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${OPD_FINAL_HF_DIR}/config.json" ]]; then
+    echo "Cannot retire previous full checkpoint before current HF snapshot is validated: ${OPD_FINAL_HF_DIR}" >&2
+    exit 1
+  fi
+  if [[ -z "${OPD_RETIRE_PREVIOUS_HF_DIR:-}" || ! -f "${OPD_RETIRE_PREVIOUS_HF_DIR}/config.json" ]]; then
+    echo "Cannot retire previous full checkpoint without its retained HF snapshot: ${OPD_RETIRE_PREVIOUS_HF_DIR:-<unset>}" >&2
+    exit 1
+  fi
+  incomplete_previous="$(find "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR}" -maxdepth 1 -type d -name 'iter_*' ! -exec test -f '{}/.metadata' \; -print -quit)"
+  if [[ -n "${incomplete_previous}" ]]; then
+    echo "Refusing to retire previous save dir with incomplete checkpoint: ${incomplete_previous}" >&2
+    exit 1
+  fi
+  while IFS= read -r previous_iter; do
+    [[ -n "${previous_iter}" ]] || continue
+    echo "CHECKPOINT_RETIRE_FULL previous=${previous_iter} retained_hf=${OPD_RETIRE_PREVIOUS_HF_DIR}"
+    rm -rf -- "${previous_iter}"
+  done < <(find "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR}" -maxdepth 1 -type d -name 'iter_*' -print)
+  rm -f -- "${OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR}/latest_checkpointed_iteration.txt"
 fi
 
 echo "Finished OPD at $(date)"

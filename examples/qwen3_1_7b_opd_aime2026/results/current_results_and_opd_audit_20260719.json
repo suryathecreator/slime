@@ -1,0 +1,120 @@
+{
+  "snapshot_date": "2026-07-19",
+  "official_scorer": "aime_answer_v2",
+  "completed_evaluations": {
+    "qwen3_1_7b_base_480": {
+      "num_generations": 480,
+      "average_generated_length": 17417.741666666665,
+      "cap_hit_count": 50,
+      "v1": {
+        "correct": 183,
+        "score": 0.38125,
+        "predictions_sha256": "87c35e234b1eea9c9f7792736f653f29dc78ec311d501fa0d73fbbc57a034ab7",
+        "metrics_sha256": "e7b0c6790c0fc6fae9e49375b404fef7ef6fa11c1fa341b67a1c19031d8d9376"
+      },
+      "v2": {
+        "correct": 184,
+        "score": 0.38333333333333336,
+        "predictions_sha256": "526c7c1917eb8f814dcc2b824f67c8547075beec5a9f3b30c230177a88009d9b",
+        "metrics_sha256": "1bd06320be301614a81a8a2aa71150e2df96f5b32cd729d3f0412c0fbab4b9a2"
+      },
+      "grade_flip": {
+        "problem_id": "aime_2026_21",
+        "sample_index": 2,
+        "flat_index": 322,
+        "candidate": "41 + 9 = 50"
+      }
+    },
+    "qwen3_8b_teacher_single_30": {
+      "num_generations": 30,
+      "average_generated_length": 15410.733333333334,
+      "cap_hit_count": 1,
+      "v1": {
+        "correct": 21,
+        "score": 0.7,
+        "predictions_sha256": "400ca96007f318fab53f8f6dfc10cb222ade54981f45bf323784479a770b75ac",
+        "metrics_sha256": "5b28e27b747969dff753d695b957abff9b54ed3e635d7640529696017eb082fe"
+      },
+      "v2": {
+        "correct": 21,
+        "score": 0.7,
+        "predictions_sha256": "151fc11108d4d2963b6b253dbd2015d4c2b4bca6c8419fbce76bb069daf3e856",
+        "metrics_sha256": "18a59a7d19cc77e7a2cfd67e8d2c5e361c1bc7af9c6dac82a89a062ae357546c"
+      }
+    },
+    "qwen3_1_7b_opd_002048_single_30": {
+      "checkpoint_iteration": 15,
+      "num_generations": 30,
+      "correct": 11,
+      "score": 0.36666666666666664,
+      "average_generated_length": 21886.1,
+      "cap_hit_count": 7,
+      "scorer_version": "aime_answer_v2",
+      "predictions_sha256": "2ea9a40ccfaf0a57d4618b5e33713883c1203c62486c86a533481bb6db63146c",
+      "metrics_sha256": "84521486ed04021cf17ebc9204fd7dbabf5aa16c2eaffe862d93a419ccf7375c",
+      "problem_12_diagnostic": {
+        "gold_integer": 161,
+        "generated_token_count": 31744,
+        "finish_reason": "length",
+        "region_policy": "final_post_think_region",
+        "decision_reason": "no_eligible_answer_event",
+        "correct_box_before_last_think_close": true,
+        "answer_anywhere_diagnostic_correct": 12,
+        "official_correct_unchanged": 11,
+        "generated_text_sha256": "4a5c458aeb1a1d1f1dd73efd82cfe9fb8b5d533b73a4f759441d4d70b2dc6e85"
+      }
+    }
+  },
+  "opd_objective_audit": {
+    "checkpoint_rollout_files": 16,
+    "samples": 2048,
+    "teacher_forced_response_target_positions": 22372735,
+    "completed_with_stop_target": 2015,
+    "capped_without_synthetic_stop_target": 33,
+    "response_targets_masked_out": 0,
+    "stop_targets_masked_out": 0,
+    "stop_targets_with_nonfinite_teacher_logprob": 0,
+    "teacher_target_alignment_mismatches": 0,
+    "samples_with_think_close": 2022,
+    "think_close_targets_masked_out": 0,
+    "capped_before_think_close": 26,
+    "capped_after_think_close": 7,
+    "post_think_target_fraction": 0.1136,
+    "artificial_second_assistant_segments": 0,
+    "approx_single_stop_or_close_objective_fraction": 0.000156,
+    "finding": "Stopping tokens are present and unmasked, but supervision is weak and capped boundaries are censored."
+  },
+  "failed_continuation": {
+    "job_id": 179552,
+    "rollouts": {
+      "16": {
+        "samples": 128,
+        "average_response_tokens": 12909.65625,
+        "cap_hit_rate": 0.0078125,
+        "actor_update_completed": true,
+        "sha256": "793d6fc337183974002841c617a4c418f50d697743d7b6a0c5e89c038931de97"
+      },
+      "17": {
+        "samples": 128,
+        "average_response_tokens": 13401.7890625,
+        "cap_hit_rate": 0.0625,
+        "teacher_scoring_completed": true,
+        "actor_update_completed": false,
+        "sha256": "17371b42fc67f60fd42139eea7100326bd6e9832670974a008056ac71ee02cba"
+      }
+    },
+    "saved_samples": 256,
+    "completed_samples": 247,
+    "capped_samples": 9,
+    "capped_samples_with_think_close": 0,
+    "response_targets_masked_out": 0,
+    "teacher_target_alignment_mismatches": 0,
+    "oom_requested_mib": 580.0,
+    "oom_free_mib": 463.56,
+    "process_memory_in_use_gib": 138.42,
+    "log_sha256": "d0436f7ecc08f7fa44bd7990d7d2ef779d88c055c5721aac2be2444cbb511a9c"
+  },
+  "obsolete_jobs": [179553, 179554],
+  "scorer_changed": false,
+  "raw_artifacts_committed": false
+}

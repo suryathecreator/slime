@@ -52,7 +52,7 @@ if [[ -f "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" ]]; then
   exit 0
 fi
 
-source scripts/models/qwen3-8B.sh
+source "${STUDENT_MODEL_ARGS_SCRIPT}"
 mkdir -p "${STUDENT_TORCH_DIST_DIR}"
 PYTHONPATH="/root/Megatron-LM:${SLIME_REPO_ROOT}:${PYTHONPATH:-}" \
 torchrun --nproc_per_node="${CONVERT_NPROC:-8}" tools/convert_hf_to_torch_dist.py \

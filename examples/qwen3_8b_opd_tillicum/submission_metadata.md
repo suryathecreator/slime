@@ -1,5 +1,145 @@
 # Tillicum Qwen3 OPD Submission Metadata
 
+## 2026-07-13 OpenThoughts pause and OpenR1 direction change
+
+- Strict-language setup `168162` completed in `00:02:00`.
+- Strict cleaner `168163` timed out at `24:00:20` after 390,000 rows. The broken Lingua microspan rule marked all 390,000 rows non-English, so its zero-valid output is invalid and cannot seed training.
+- Pending dispatcher `168164` was canceled on 2026-07-13. No strict cleaner shard, prior checkpoint, eval chunk, or script was deleted.
+- All valid full MATH-500 summaries, val100 diagnostics, and invalid/incomplete run status are frozen under `results/status_through_2026-07-13/` before the OpenR1-Math-220k replacement is implemented.
+
+## 2026-07-13 OpenR1-Math-220k implementation
+
+- New isolated label: `openr1_math220k_default_sft50k_opd5120`.
+- Data contract: pinned OpenR1 `default` revision, seed `1234`, 50,000 SFT
+  prompts, 1,024 first-phase OPD prompts, and 4,096 additional OPD prompts.
+- Trace selection trusts only supplied reasoning-complete and Math Verify/Llama
+  correctness flags. One eligible trace per prompt is chosen deterministically;
+  no new verifier, language filter, or quality heuristic is used.
+- SFT and OPD are disjoint by source row, UUID, and prompt hash. The selected
+  correct OPD trace is stored for provenance but is not an OPD target.
+- SFT starts from Qwen3-8B-Base and uses 4 H200s, TP2/CP1/DP2, Megatron's
+  distributed optimizer, Qwen3 loss masking, one epoch, batch 250, and LR
+  `1e-6`.
+- OPD uses the validated four-H200 colocated layout, first for 1,024 prompts and
+  then as four serialized 1,024-prompt continuation jobs. Only SFT, OPD-1k,
+  and cumulative OPD-5,120 receive full MATH-500 evals.
+- Checkpoint rotation retains every model snapshot while keeping only the newest
+  completed full optimizer checkpoint. The old full state is never removed
+  until the replacement checkpoint and its HF snapshot validate successfully.
+- Base evaluation is reused from job `165035`. The full implementation contract
+  and timing estimates are in `results/openr1_math220k_reproduction.md`.
+- Archived status commit: `d39d67e` (`Archive experiment results before OpenR1
+  pivot`). Implementation commit: `dca4022` (`Add OpenR1 50k SFT and OPD
+  reproduction`). Both were pushed to `origin/opd-reproduction` before
+  submission.
+- Submission time: `2026-07-13T00:33:53-07:00`. Scratch submission log:
+  `outputs/slurm_logs/submit_openr1_math220k_20260713_003352.txt`.
+- Strict serialized jobs:
+  - data `170071`: 1 H200, 8 CPUs, `06:00:00`, no dependency;
+  - SFT-50k `170072`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170071`;
+  - SFT MATH-500 `170073`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170072`;
+  - OPD-1,024 `170074`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170073`;
+  - OPD-1,024 MATH-500 `170075`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170074`;
+  - OPD endpoints 2,048/3,072/4,096/5,120: `170076`/`170077`/`170078`/`170079`,
+    each 4 H200s, 32 CPUs, `24:00:00`, chained in that order;
+  - OPD-5,120 MATH-500 `170080`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170079`;
+  - final report `170081`: 1 H200, 8 CPUs, `06:00:00`, `afterok:170080`.
+- Scheduler validation found no `DependencyNeverSatisfied`. Every job has
+  `MailUser=suryadv@cs.washington.edu`, `MailType=END,FAIL`, and no job requests
+  more than four H200s.
+- Output roots:
+  - data: `data/openr1_math220k_default_sft50k_opd5120`;
+  - SFT optimizer/snapshots:
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_sft_full_optim` and
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_sft_eval_snapshots`;
+  - OPD-1k optimizer/snapshots:
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_opd1k_full_optim` and
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_opd1k_eval_snapshots`;
+  - continuation optimizer/snapshots:
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_opd_continue_full_optim`
+    and
+    `outputs/qwen3_8b_openr1_math220k_default_sft50k_opd5120_opd_continue_eval_snapshots`;
+  - eval/report roots begin with
+    `outputs/math500_eval_openr1_math220k_default_sft50k_opd5120_`.
+- Runtime validation targets: exact 50,000/1,024/4,096 data counts; zero
+  source-ID/UUID/prompt-hash overlap; Qwen3 target snippets containing complete
+  thinking tags and terminal `151645`; SFT `iter_0000199`; OPD iterations
+  `7/15/23/31/39`; exactly 500 records in each of the three new MATH-500
+  summaries; and successful model-only/full-optimizer rotation.
+
+### Data-preflight failure `170071`
+
+- Data job `170071` failed after `00:03:21`, before writing any experiment
+  JSONL, metadata, checkpoint, or training state.
+- The pinned dataset download and all ten generated Arrow cache shards are
+  complete and preserved under `HF_HOME`; the empty isolated data directory is
+  safe to reuse.
+- Root cause was validation code, not OpenR1 data: this Transformers version
+  returns a `BatchEncoding` from `apply_chat_template()`, and the Qwen3 template
+  renders the assistant ending as `<|im_end|>\n`, token IDs `151645, 198`.
+  The old check treated the return value as a flat list and required its final
+  entry to be exactly `151645`.
+- The replacement normalizes `BatchEncoding`/legacy list returns and accepts
+  only whitespace after the final semantic `<|im_end|>`. The same correction is
+  applied to the SFT loss-mask preflight so it cannot fail on token `198` next.
+- Patch commit `f6f082b` (`Fix OpenR1 Qwen3 terminal preflight`) was pushed to
+  `origin/opd-reproduction` before resubmission. Host tests, the full container
+  dry check, and an actual Qwen3 tokenizer/loss-mask probe all passed; the
+  container probe observed the expected terminal tail `151645, 198` and decoded
+  the trailing token as only `\n`.
+- Stale dependent jobs `170072`-`170081` were canceled. No selected data,
+  checkpoint, eval, or training artifact from `170071` was used as progress.
+- Replacement submission time: `2026-07-13T11:31:09-07:00`. Scratch submission
+  log: `outputs/slurm_logs/submit_openr1_math220k_20260713_113109.txt`.
+- Replacement strict `afterok` chain:
+  - data `170454`: 1 H200, 8 CPUs, `06:00:00`, no dependency;
+  - SFT-50k `170455`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170454`;
+  - SFT MATH-500 `170456`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170455`;
+  - OPD-1,024 `170457`: 4 H200s, 32 CPUs, `24:00:00`, `afterok:170456`;
+  - OPD-1,024 MATH-500 `170458`: 4 H200s, 32 CPUs, `24:00:00`,
+    `afterok:170457`;
+  - OPD endpoints 2,048/3,072/4,096/5,120: `170459`/`170460`/`170461`/`170462`,
+    each 4 H200s, 32 CPUs, `24:00:00`, serialized in that order;
+  - OPD-5,120 MATH-500 `170463`: 4 H200s, 32 CPUs, `24:00:00`,
+    `afterok:170462`;
+  - final report `170464`: 1 H200, 8 CPUs, `06:00:00`, `afterok:170463`.
+- Scheduler verification found no `DependencyNeverSatisfied`. Every replacement
+  has `MailUser=suryadv@cs.washington.edu`, `MailType=END,FAIL`, and requests no
+  more than four H200s. Data job `170454` started on `g022`; all downstream jobs
+  remained correctly blocked on their immediate predecessor.
+- The replacement reuses the unchanged output roots listed above and the
+  completed pinned Hugging Face cache. Runtime gates remain exact
+  `50,000/1,024/4,096` output counts, zero source-ID/UUID/prompt-hash overlap,
+  semantically terminated Qwen3 SFT targets, and successful strict dependency
+  release into SFT.
+- Runtime data validation completed successfully: `170454` finished in
+  `00:01:31` with exit code `0`, writing exactly `50,000` SFT, `1,024` first
+  OPD, and `4,096` continuation OPD rows. Metadata reports zero intersections
+  for source IDs, UUIDs, and prompt hashes. Its three Qwen3 audits all record
+  terminal token `151645` followed only by whitespace token `198`. SFT job
+  `170455` was released from dependency and is pending only for node
+  availability.
+- Direction change: low-data OpenThoughts SFT improved math accuracy but also exposed high cap-hit, redundant-reasoning, and inconsistent-formatting behavior. Strict cleaning is expensive and may require substantially more clean SFT data to generalize.
+
+## 2026-07-11 strict-English v2 replacement
+
+- Superseded jobs canceled: `167285`, `167286`, `167287`, `167288`, `167289`, `167290`.
+- Cleanup policy: scheduler jobs only. No checkpoint, eval chunk, log, or diagnostic artifact was deleted.
+- Preserved partial diagnostic: job `167285` had schema-2 resumable chunks covering 128 MATH-500 examples under `math500_eval_cleaned_sft_25k_qwen3mask_vllm/sft_025000`.
+- Replacement experiment: `strict_en_v2_math45k_opd5k`.
+- Base comparison: reuse valid job `165035` summary.
+- Submission architecture: 1-GPU language setup -> 1-GPU resumable cleaning/count gate -> 1-GPU dynamic dispatcher -> serialized jobs requesting at most 4 H200s.
+- The implementation commit and replacement job IDs are recorded below after push/submission.
+- First submission attempt `168159`-`168161` was canceled before cleaning ran: the submission log exposed inherited legacy data paths. No data artifact was written or overwritten. The strict config now assigns all experiment paths through dedicated `STRICT_EN_*` override names.
+- Implementation commits: `8249de4` (strict cleaner/experiment) and `2425091` (isolated strict paths).
+- Corrected initial jobs submitted 2026-07-11 02:00 PDT:
+  - language setup `168162`: 1 H200, 8 CPUs, `06:00:00`, no dependency;
+  - resumable strict cleaning `168163`: 1 H200, 8 CPUs, `24:00:00`, `afterok:168162`;
+  - dynamic dispatcher `168164`: 1 H200, 4 CPUs, `01:00:00`, `afterok:168163`.
+- All three use `MailUser=suryadv@cs.washington.edu`, `MailType=END,FAIL` and have no stale dependency.
+- Strict data root: `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/data/openthoughts3_strict_en_v2_math45k_opd5k`.
+- The dispatcher submits downstream SFT/eval/OPD/report IDs only after the count gate passes and actual batch-aligned sizes are known. It records them in `outputs/slurm_logs/strict_en_v2_dispatched_jobs_168164.txt`.
+
 Recorded: 2026-07-01 17:28 PDT
 
 ## Planned Cleaned OpenThoughts SFT + OPD vLLM Chain
@@ -44,6 +184,11 @@ Recorded: 2026-07-01 17:28 PDT
     `VLLM_EVAL_MAX_MODEL_LEN=32768`, GPU memory utilization `0.92`,
     `VLLM_EVAL_MAX_NUM_SEQS=16`, and
     `VLLM_EVAL_MAX_NUM_BATCHED_TOKENS=131072`.
+  - Post-submission optimization on 2026-07-14 superseded those original eval
+    settings with utilization `0.97`, 24 sequences, 16,384 batched tokens,
+    asynchronous continuous batching, and per-sample atomic resume. The running
+    SFT eval preserved completed indices `0-127`; pending OPD evals were replaced
+    without changing the training or report checkpoints in the dependency chain.
 - Dynamic caps:
   - OPD train cap: `min(31744, OPD_ROLLOUT_MAX_CONTEXT_LEN - prompt_tokens)`,
     with `OPD_ROLLOUT_MAX_CONTEXT_LEN=32766`.
@@ -3046,3 +3191,85 @@ Recorded: 2026-07-01 17:28 PDT
       chunk files and only generate missing chunks.
     - Final SFT eval should write `sft_025000/debug_eval_0.pt` and
       `sft_025000/summary.json`, after which OPD-1k `166667` can start.
+
+## Corrected Qwen3 Thinking and Stop Semantics
+
+- Incident observed in SFT eval `166666`:
+  - 12 resumable chunks covered 192/500 MATH-500 examples.
+  - All 192 responses reached 31,744 generated tokens and ended with
+    `finish_reason=length`; observed cap-hit rate was 1.0.
+  - The old chunk schema saved decoded text but discarded generated token ids,
+    while vLLM skipped special tokens by default. Those files cannot prove
+    whether `<think>`, `</think>`, or `<|im_end|>` was emitted.
+  - Corrected SFT targets end in `<|im_end|>` id `151645`, but the old eval
+    only reliably recognized configured EOS `<|endoftext|>` id `151643`.
+- Patch policy:
+  - Pass `enable_thinking=True` explicitly in every Qwen3 prompt-rendering path
+    used by this experiment.
+  - Stop vLLM eval and SGLang OPD on either `151645` or `151643`.
+  - Save exact prefill/generated token ids and special-preserving response text.
+  - Fingerprint the complete generation policy so old or mismatched chunks are
+    rejected rather than silently resumed.
+  - Preserve the valid base result from `165035`: accuracy `0.612`, parse
+    failure `0.176`, cap hit `0.040`.
+- Cleaning follow-up recorded, not yet applied:
+  - Our counts were incomplete-think `743,814`, mixed-language `94,920`, valid
+    `429,713`; the reference counts were `749,380`, `397,642`, and `332,843`.
+  - Cleaned source row `655427` still includes fragments such as
+    `Por lo tanto`, `因此`, and Korean text because English dominates its long
+    response and non-English characters stay below the script-ratio threshold.
+  - If corrected eval semantics do not resolve most of the behavior, the next
+    pass should remove the worst English-contaminated, Latin-script
+    non-English, multilingual, and web-noise rows while preserving LaTeX and
+    mathematical notation.
+- Tracked incident note:
+  `examples/qwen3_8b_opd_tillicum/results/cleaned_sft_eval_special_token_incident.md`.
+- Preservation/resubmission decision:
+  - Preserve `166666` chunks in a diagnostic `pre_special_token_fix_166666`
+    directory; do not merge or score them as the corrected eval.
+  - Preserve cleaned data, conversion, base summary, and corrected SFT
+    `iter_0000099` full/HF checkpoints.
+  - Cancel `166666` through `166671`, then resubmit from SFT eval with the
+    existing strict serialized tail.
+  - Patch commit and replacement job ids are recorded below after submission.
+
+### Submitted Special-Token-Corrected Tail
+
+- Patch commit: `cf960ae` (`Fix Qwen3 thinking and eval stop semantics`),
+  pushed to `origin/opd-reproduction` before submission.
+- Old chain cleanup:
+  - Canceled `166666` through `166671`.
+  - Preserved all 12 old SFT-eval chunks under
+    `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/math500_eval_cleaned_sft_25k_qwen3mask_vllm/sft_025000.pre_special_token_fix_166666`.
+  - Created no corrected summary from those incompatible chunks.
+- Submit time/log: `2026-07-10 13:56 PDT`,
+  `/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/outputs/slurm_logs/submit_cleaned_sft_opd_vllm_20260710_135659.txt`.
+- Preserved inputs:
+  - setup/data/convert/smoke: `163642`/`163643`/`163644`/`165034`;
+  - base eval: `165035`;
+  - corrected Qwen3-mask SFT: `165695`, full and HF `iter_0000099`.
+- Replacement serialized chain:
+  - SFT eval `167285`: 4 H200, `24:00:00`, no dependency;
+  - OPD-1k train `167286`: 4 H200, `24:00:00`, `afterok:167285`;
+  - OPD-1k eval `167287`: 4 H200, `24:00:00`, `afterok:167286`;
+  - OPD +4k train `167288`: 4 H200, `24:00:00`, `afterok:167287`;
+  - OPD-5k eval `167289`: 4 H200, `24:00:00`, `afterok:167288`;
+  - final report `167290`: 1 H200, `06:00:00`, `afterok:167289`.
+- Scheduler validation:
+  - `167285` started on `g008`; downstream jobs are pending on the strict
+    `afterok` chain, so no train/eval stages overlap.
+  - Every job has `MailUser=suryadv@cs.washington.edu` and
+    `MailType=END,FAIL`.
+  - No job requests more than four H200s.
+- Initial runtime validation from `167285`:
+  - log shows `Qwen3 thinking enabled: 1`;
+  - stop ids are `151645 151643`;
+  - special-token preservation is enabled;
+  - all four workers report generation-policy fingerprint
+    `13f2476ed504ea7885c74fa9033e212956488bf1314c534b34792ecedb6139aa`;
+  - policy records schema `2`, `enable_thinking=true`, and both stop ids;
+  - stage loads corrected SFT HF snapshot `iter_0000099` and writes to a fresh
+    `sft_025000` directory.
+- Remaining runtime check: inspect the first completed new chunk for nonempty
+  `prefill_token_ids`/`generated_token_ids`, visible special tokens in
+  `response`, and terminal stopping below the old universal 31,744-token cap.

@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
+from examples.qwen3_8b_opd_tillicum.validate_qwen3_generation import semantic_terminal_audit
 from slime.utils.mask_utils import MultiTurnLossMaskGenerator
 from slime.utils.processing_utils import load_tokenizer
 
@@ -32,6 +33,26 @@ def iter_rows(path: Path, limit: int):
             yield index, json.loads(line)
 
 
+def find_subsequence(sequence: list[int], needle: list[int]) -> list[int]:
+    if not needle:
+        return []
+    return [
+        index
+        for index in range(0, len(sequence) - len(needle) + 1)
+        if sequence[index : index + len(needle)] == needle
+    ]
+
+
+def require_supervised_subsequence(
+    *, row_index: int, name: str, token_ids: list[int], loss_mask: list[int], needle: list[int]
+) -> None:
+    matches = find_subsequence(token_ids, needle)
+    if not matches:
+        raise SystemExit(f"row {row_index}: required target {name} token ids {needle} are absent")
+    if not any(all(loss_mask[position] != 0 for position in range(start, start + len(needle))) for start in matches):
+        raise SystemExit(f"row {row_index}: required target {name} exists but has zero loss weight")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", required=True, type=Path)
@@ -44,7 +65,17 @@ def main() -> None:
     args = parser.parse_args()
 
     tokenizer = load_tokenizer(args.hf_checkpoint, trust_remote_code=True)
-    mask_generator = MultiTurnLossMaskGenerator(tokenizer, tokenizer_type=args.loss_mask_type)
+    template_kwargs = {"enable_thinking": True} if args.loss_mask_type == "qwen3" else {}
+    mask_generator = MultiTurnLossMaskGenerator(
+        tokenizer,
+        tokenizer_type=args.loss_mask_type,
+        apply_chat_template_kwargs=template_kwargs,
+    )
+    default_mask_generator = (
+        MultiTurnLossMaskGenerator(tokenizer, tokenizer_type=args.loss_mask_type)
+        if args.loss_mask_type == "qwen3"
+        else None
+    )
 
     checked = 0
     for row_index, row in iter_rows(args.data, args.num_samples):
@@ -52,10 +83,62 @@ def main() -> None:
         assistant = assistant_text(messages)
         raw_assistant_tokens = tokenizer(assistant, add_special_tokens=False)["input_ids"]
         token_ids, loss_mask = mask_generator.get_loss_mask(messages)
+        if default_mask_generator is not None:
+            default_token_ids, default_loss_mask = default_mask_generator.get_loss_mask(messages)
+            if token_ids != default_token_ids or loss_mask != default_loss_mask:
+                raise SystemExit(
+                    f"row {row_index}: explicit enable_thinking=True changed Qwen3 SFT token ids or loss mask"
+                )
         response_length = mask_generator.get_response_lengths([loss_mask])[0]
         if response_length <= 0:
             raise SystemExit(f"row {row_index}: no trainable response tokens produced")
         train_target_ids = token_ids[-response_length:]
+        terminal_audit = None
+        if args.require_think:
+            for name, text in (("think_open", "<think>"), ("think_close", "</think>")):
+                require_supervised_subsequence(
+                    row_index=row_index,
+                    name=name,
+                    token_ids=token_ids,
+                    loss_mask=loss_mask,
+                    needle=tokenizer(text, add_special_tokens=False)["input_ids"],
+                )
+            require_supervised_subsequence(
+                row_index=row_index,
+                name="chat_terminal_im_end",
+                token_ids=token_ids,
+                loss_mask=loss_mask,
+                needle=[tokenizer.convert_tokens_to_ids("<|im_end|>")],
+            )
+            final_text = assistant.rsplit("</think>", 1)[-1].strip()
+            if not final_text:
+                raise SystemExit(f"row {row_index}: assistant has no final-answer text after </think>")
+            supervised_target = tokenizer.decode(
+                [token_id for token_id, weight in zip(token_ids, loss_mask, strict=True) if weight != 0],
+                skip_special_tokens=False,
+            )
+            if final_text not in supervised_target:
+                raise SystemExit(f"row {row_index}: post-think final answer is not fully supervised")
+            if "\\boxed" in final_text and "\\boxed" not in supervised_target:
+                raise SystemExit(f"row {row_index}: boxed final answer is not supervised")
+            eos_id = tokenizer.eos_token_id
+            if eos_id is not None and eos_id in train_target_ids:
+                train_target_mask = loss_mask[-response_length:]
+                supervised_eos = any(
+                    token_id == eos_id and train_target_mask[index] != 0
+                    for index, token_id in enumerate(train_target_ids)
+                )
+                if not supervised_eos and eos_id != tokenizer.convert_tokens_to_ids("<|im_end|>"):
+                    raise SystemExit(f"row {row_index}: genuine EOS is present but has zero loss weight")
+            try:
+                terminal_audit = semantic_terminal_audit(
+                    tokenizer,
+                    train_target_ids,
+                    tokenizer.convert_tokens_to_ids("<|im_end|>"),
+                )
+            except ValueError as exc:
+                raise SystemExit(f"row {row_index}: decoded train target has invalid terminal: {exc}") from exc
+            train_target_ids = terminal_audit["input_ids"]
         train_target = tokenizer.decode(train_target_ids, skip_special_tokens=False)
         loss_tokens = int(sum(loss_mask))
         ratio = loss_tokens / max(len(raw_assistant_tokens), 1)
@@ -75,6 +158,8 @@ def main() -> None:
             )
         if args.require_think and ("<think>" not in train_target or "</think>" not in train_target):
             raise SystemExit(f"row {row_index}: decoded train target does not contain complete think tags")
+        if args.require_think and terminal_audit["terminal_token_id"] != tokenizer.convert_tokens_to_ids("<|im_end|>"):
+            raise SystemExit(f"row {row_index}: decoded train target lacks semantic terminal <|im_end|>")
         if args.print_snippets:
             print(f"SFT_LOSS_MASK_SNIPPET row={row_index}")
             print(compact(train_target))

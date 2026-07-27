@@ -1,0 +1,101 @@
+{
+  "submit_time": "2026-07-19T00:16:58-07:00",
+  "verification_time": "2026-07-19T00:18:14-07:00",
+  "first_update_verification_time": "2026-07-19T00:30:53-07:00",
+  "implementation_commit": "4dc07112dd0c0a0aaf38cebb07cb14d4a04ab267",
+  "completed_teacher_job": {
+    "job_id": 178745,
+    "state": "COMPLETED",
+    "exit_code": "0:0"
+  },
+  "canceled_obsolete_jobs": [179553, 179554],
+  "preserved_failed_job": 179552,
+  "jobs": [
+    {
+      "stage": "opd_002048_r16k",
+      "job_id": 179845,
+      "dependency": null,
+      "state_at_verification": "RUNNING",
+      "node_at_verification": "g009"
+    },
+    {
+      "stage": "opd_002048_single_eval",
+      "job_id": 179846,
+      "dependency": "afterok:179845",
+      "state_at_verification": "PENDING"
+    },
+    {
+      "stage": "opd_next_003072_r16k",
+      "job_id": 179847,
+      "dependency": "afterok:179846",
+      "state_at_verification": "PENDING"
+    },
+    {
+      "stage": "opd_005120_single_eval",
+      "job_id": 179848,
+      "dependency": "afterok:179847",
+      "state_at_verification": "PENDING"
+    },
+    {
+      "stage": "opd_005120_mc16_eval",
+      "job_id": 179849,
+      "dependency": "afterok:179848",
+      "state_at_verification": "PENDING"
+    }
+  ],
+  "dependency_policy": "strict_serial_afterok",
+  "max_concurrent_gpu_count": 4,
+  "configuration": {
+    "opd_max_response_len": 16384,
+    "opd_seq_length": 32766,
+    "opd_max_tokens_per_gpu": 8192,
+    "opd_log_probs_chunk_size": 2048,
+    "opd_train_memory_margin_bytes": 0,
+    "teacher_chunked_prefill_size": 8192,
+    "teacher_max_prefill_tokens": 16384,
+    "teacher_mem_fraction": 0.65,
+    "eval_max_response_len": 31744,
+    "eval_max_model_len": 32768,
+    "scorer_version": "aime_answer_v2",
+    "output_tag": "r16k"
+  },
+  "prompts": {
+    "first_2048_sha256": "663ca57d49d8838b5e1fe8d26872d0423b41fd5fa56be5446a89f9ebaed6b20b",
+    "continuation_3072_sha256": "6f381d2dbcb7ef11ca5d5c1ec8ec95ae5ddbe8492a7b064298fd244ae8667c1b"
+  },
+  "validation": {
+    "dry_checks_passed": true,
+    "pytest_passed": 33,
+    "dry_run_job_count": 5,
+    "dry_run_afterok_dependency_count": 4,
+    "scontrol_verified": true,
+    "root_startup_settings_verified": true,
+    "first_actor_update_completed": true,
+    "teacher_scoring_overlap_observed": true,
+    "fatal_cuda_oom_observed": false
+  },
+  "first_rollout_live_check": {
+    "rollout_id": 0,
+    "samples": 128,
+    "average_response_tokens": 8682.921875,
+    "max_response_tokens": 16384,
+    "cap_hit_rate": 0.1171875,
+    "completed_rate": 0.8828125,
+    "final_answer_rate": 0.921875,
+    "rollout_seconds": 276.47884821891785,
+    "teacher_scoring_completed": true,
+    "teacher_two_sequence_prefill_observed": true,
+    "actor_update_seconds": 42.47679901123047,
+    "actor_train_tokens_per_second": 26510.613469302934,
+    "train_loss": 0.1678287386894226,
+    "gradient_norm": 2.0205220903691394,
+    "next_rollout_started": true,
+    "pytorch_oom_exception": false,
+    "note": "Torch memory-saver emitted recoverable CUDA allocation retry warnings; training completed and advanced."
+  },
+  "artifacts": {
+    "submission_metadata_sha256": "5d8255ee9fb560c3db3fd4049d20c78bbe52dd64d697bfae251597c1a9382b77",
+    "source_manifest_sha256": "4bd239f739734e6ddd690e3693ab25cb6b4b4712cd355a03c5c606cc5711a1a5",
+    "remaining_source_manifest_sha256": "e375980dc3163c25b10999949031d2e9a56e08abd9d7f973d2e55ba3305c10f4"
+  }
+}

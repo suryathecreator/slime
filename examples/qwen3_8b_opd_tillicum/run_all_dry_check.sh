@@ -12,6 +12,31 @@ echo "  account/partition/qos: ${ACCOUNT}/${PARTITION}/${QOS}"
 echo "  scratch: ${SCRATCH_ROOT}"
 echo "  container (${SLIME_CONTAINER_FORMAT}): ${SLIME_SIF}"
 
+if [[ "${QWEN3_ENABLE_THINKING}" != "1" ]]; then
+  echo "QWEN3_ENABLE_THINKING must be 1 for this Qwen3 experiment." >&2
+  exit 1
+fi
+if [[ " ${QWEN3_STOP_TOKEN_IDS} " != *" ${QWEN3_IM_END_TOKEN_ID} "* ]] || \
+   [[ " ${QWEN3_STOP_TOKEN_IDS} " != *" ${QWEN3_ENDOFTEXT_TOKEN_ID} "* ]]; then
+  echo "QWEN3_STOP_TOKEN_IDS must contain both im_end and endoftext ids." >&2
+  echo "  stop ids=${QWEN3_STOP_TOKEN_IDS}" >&2
+  exit 1
+fi
+if [[ "${VLLM_EVAL_NUM_GPUS}" != "4" ]] || [[ "${VLLM_EVAL_MAX_NUM_SEQS}" -lt 24 ]] || \
+   [[ "${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}" != "16384" ]] || \
+   [[ "${VLLM_EVAL_GPU_MEMORY_UTILIZATION}" != "0.97" ]]; then
+  echo "vLLM eval must use the optimized 4xH200 batching defaults." >&2
+  echo "  replicas/max_seqs/batched_tokens/gpu_memory=${VLLM_EVAL_NUM_GPUS}/${VLLM_EVAL_MAX_NUM_SEQS}/${VLLM_EVAL_MAX_NUM_BATCHED_TOKENS}/${VLLM_EVAL_GPU_MEMORY_UTILIZATION}" >&2
+  exit 1
+fi
+if [[ "${VLLM_EVAL_KV_CACHE_DTYPE}" != "auto" ]] || \
+   [[ "${VLLM_EVAL_ASYNC_SCHEDULING}" != "1" ]] || \
+   [[ "${VLLM_EVAL_ENABLE_CHUNKED_PREFILL}" != "1" ]] || \
+   [[ "${VLLM_EVAL_SPECULATIVE_METHOD}" != "none" ]]; then
+  echo "vLLM eval must use BF16 KV, async scheduling, chunked prefill, and Model Runner V2." >&2
+  exit 1
+fi
+
 if [[ "${OPD_CONTEXT_PARALLEL_SIZE}" -gt 1 ]]; then
   opd_seq_modulus=$((2 * OPD_CONTEXT_PARALLEL_SIZE))
   if (( OPD_SEQ_LENGTH % opd_seq_modulus != 0 )); then
@@ -59,6 +84,10 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/submit_opd_continue_1k_to_25k_val100_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_cleaned_sft_opd_vllm_chain.sh
   examples/qwen3_8b_opd_tillicum/submit_cleanup_base_opd_2gpu.sh
+  examples/qwen3_8b_opd_tillicum/submit_strict_en_v2_chain.sh
+  examples/qwen3_8b_opd_tillicum/strict_en_v2_env.sh
+  examples/qwen3_8b_opd_tillicum/submit_openr1_math220k_chain.sh
+  examples/qwen3_8b_opd_tillicum/openr1_math220k_env.sh
   examples/qwen3_8b_opd_tillicum/02_prepare_data_25k_10k.sbatch
   examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_data.sbatch
   examples/qwen3_8b_opd_tillicum/02_prepare_opd_continuation_25k_val100.sbatch
@@ -73,18 +102,26 @@ SHELL_FILES=(
   examples/qwen3_8b_opd_tillicum/08_maybe_base_eval_math500.sbatch
   examples/qwen3_8b_opd_tillicum/09_cleanup_base_opd_2gpu.sbatch
   examples/qwen3_8b_opd_tillicum/10_setup_vllm_eval_env.sbatch
+  examples/qwen3_8b_opd_tillicum/11_setup_strict_language_env.sbatch
+  examples/qwen3_8b_opd_tillicum/12_prepare_strict_english_data.sbatch
+  examples/qwen3_8b_opd_tillicum/13_dispatch_strict_en_chain.sbatch
+  examples/qwen3_8b_opd_tillicum/14_prepare_openr1_math220k.sbatch
 )
 
 PYTHON_FILES=(
   examples/qwen3_8b_opd_tillicum/02_prepare_cleaned_openthoughts3.py
+  examples/qwen3_8b_opd_tillicum/prepare_strict_english_openthoughts3.py
+  examples/qwen3_8b_opd_tillicum/_strict_english_filters.py
   examples/qwen3_8b_opd_tillicum/02_prepare_openthoughts3_math_sample.py
   examples/qwen3_8b_opd_tillicum/eval_math500_vllm.py
+  examples/qwen3_8b_opd_tillicum/validate_qwen3_generation.py
   examples/qwen3_8b_opd_tillicum/check_sft_loss_mask.py
   examples/qwen3_8b_opd_tillicum/sglang_launch_native_rope.py
   examples/qwen3_8b_opd_tillicum/summarize_opd_sanity.py
   examples/qwen3_8b_opd_tillicum/summarize_eval.py
   examples/qwen3_8b_opd_tillicum/prepare_math500_subset.py
   examples/qwen3_8b_opd_tillicum/prepare_opd_continuation_pool.py
+  examples/qwen3_8b_opd_tillicum/prepare_openr1_math220k.py
   examples/qwen3_8b_opd_tillicum/write_opd_trained_manifest.py
   sitecustomize.py
   slime/backends/sglang_utils/native_rope.py
@@ -102,6 +139,10 @@ done
 
 echo "Checking required container env forwarding"
 REQUIRED_CONTAINER_ENV=(
+  QWEN3_ENABLE_THINKING
+  QWEN3_IM_END_TOKEN_ID
+  QWEN3_ENDOFTEXT_TOKEN_ID
+  QWEN3_STOP_TOKEN_IDS
   SFT_LOSS_MASK_TYPE
   SFT_LOSS_MASK_PREFLIGHT_ENABLED
   SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK
@@ -126,6 +167,7 @@ REQUIRED_CONTAINER_ENV=(
   OPD_MANIFEST_FROM_ROLLOUT_LOGS
   OPD_REF_LOAD_DIR
   OPD_ROLLOUT_MAX_CONTEXT_LEN
+  OPD_ROLLOUT_STOP_TOKEN_IDS
   OPD_LOG_PROBS_CHUNK_SIZE
   OPD_TRAIN_MEMORY_MARGIN_BYTES
   OPD_LR
@@ -150,7 +192,25 @@ REQUIRED_CONTAINER_ENV=(
   CLEANED_OPD_RESERVE_JSONL
   CLEANED_OPD_1K_JSONL
   CLEANED_OPD_4K_JSONL
+  STRICT_EN_EXPERIMENT_LABEL
+  STRICT_EN_DATASET_DIR
+  STRICT_LANGUAGE_SITE
+  STRICT_LANGUAGE_INSTALL_SPEC
+  STRICT_EN_SHARD_SIZE
+  STRICT_EN_WORKERS
+  STRICT_MATH_MAX_SELECTED
+  STRICT_OPD_RESERVE_SIZE
+  OPENR1_EXPERIMENT_LABEL
+  OPENR1_DATASET
+  OPENR1_CONFIG
+  OPENR1_SPLIT
+  OPENR1_REVISION
+  OPENR1_DATA_DIR
+  OPENR1_SUCCESS_FILE
   SFT_ACTOR_GPUS
+  SFT_OPTIMIZER_CPU_OFFLOAD
+  SFT_RECOMPUTE_LOSS_FUNCTION
+  SFT_LOG_PROBS_CHUNK_SIZE
   SFT_TENSOR_MODEL_PARALLEL_SIZE
   SFT_CONTEXT_PARALLEL_SIZE
   SFT_PIPELINE_MODEL_PARALLEL_SIZE
@@ -159,6 +219,7 @@ REQUIRED_CONTAINER_ENV=(
   SFT_LR
   SFT_CKPT_FORMAT
   EVAL_MAX_CONTEXT_LEN
+  EVAL_STOP_TOKEN_IDS
   EVAL_BACKEND
   REPORT_SFT_FINAL_ONLY
   REPORT_OPD_FINAL_ONLY
@@ -173,11 +234,23 @@ REQUIRED_CONTAINER_ENV=(
   VLLM_EVAL_GPU_MEMORY_UTILIZATION
   VLLM_EVAL_MAX_NUM_SEQS
   VLLM_EVAL_MAX_NUM_BATCHED_TOKENS
+  VLLM_EVAL_KV_CACHE_DTYPE
+  VLLM_EVAL_ENABLE_PREFIX_CACHING
+  VLLM_EVAL_ENABLE_CHUNKED_PREFILL
+  VLLM_EVAL_ASYNC_SCHEDULING
+  VLLM_EVAL_SAFETENSORS_LOAD_STRATEGY
+  VLLM_EVAL_SPECULATIVE_METHOD
+  VLLM_EVAL_NUM_SPECULATIVE_TOKENS
+  VLLM_EVAL_PROMPT_LOOKUP_MIN
+  VLLM_EVAL_PROMPT_LOOKUP_MAX
   VLLM_EVAL_CHUNK_SIZE
   VLLM_EVAL_RESUME_COMPLETED
+  VLLM_EVAL_PRESERVE_SPECIAL_TOKENS
   VLLM_EVAL_DTYPE
   VLLM_EVAL_TRUST_REMOTE_CODE
   VLLM_EVAL_FORCE_NATIVE_SAMPLER
+  OPD_RETIRE_PREVIOUS_FULL_SAVE_DIR
+  OPD_RETIRE_PREVIOUS_HF_DIR
   SLIME_VLLM_PATCH_SITE
   LD_LIBRARY_PATH
 )
@@ -187,6 +260,17 @@ for name in "${REQUIRED_CONTAINER_ENV[@]}"; do
     exit 1
   fi
 done
+
+if ! grep -Fq -- '--apply-chat-template-kwargs "{\"enable_thinking\": true}"' \
+  examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch; then
+  echo "OPD wrapper must pass enable_thinking=true explicitly." >&2
+  exit 1
+fi
+if ! grep -Fq -- '--rollout-stop-token-ids ${OPD_ROLLOUT_STOP_TOKEN_IDS}' \
+  examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch; then
+  echo "OPD wrapper must pass the configured dual stop token ids." >&2
+  exit 1
+fi
 
 echo "Checking Python syntax"
 python3 -m py_compile "${PYTHON_FILES[@]}"
@@ -205,6 +289,10 @@ SBATCH_FILES=(
   examples/qwen3_8b_opd_tillicum/08_maybe_base_eval_math500.sbatch
   examples/qwen3_8b_opd_tillicum/09_cleanup_base_opd_2gpu.sbatch
   examples/qwen3_8b_opd_tillicum/10_setup_vllm_eval_env.sbatch
+  examples/qwen3_8b_opd_tillicum/11_setup_strict_language_env.sbatch
+  examples/qwen3_8b_opd_tillicum/12_prepare_strict_english_data.sbatch
+  examples/qwen3_8b_opd_tillicum/13_dispatch_strict_en_chain.sbatch
+  examples/qwen3_8b_opd_tillicum/14_prepare_openr1_math220k.sbatch
 )
 
 echo "Checking Slurm scripts with sbatch --test-only"

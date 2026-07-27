@@ -108,6 +108,7 @@ def main() -> None:
         "resume_from_full_optim_checkpoint": str(save_dir / f"iter_{final_rollout_id:07d}"),
         "initial_load_mode": env.get("OPD_INITIAL_LOAD_MODE"),
         "initial_load_dir": env.get("OPD_INITIAL_LOAD_DIR"),
+        "prompt_contract_version": env.get("OPD_PROMPT_CONTRACT_VERSION"),
         "ref_load_dir": env.get("OPD_REF_LOAD_DIR"),
         "resume_from_hf_snapshot": str(hf_dir),
         "rollout_dataset_state": str(dataset_state),

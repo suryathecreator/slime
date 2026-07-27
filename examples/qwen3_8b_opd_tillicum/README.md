@@ -17,6 +17,25 @@ The reproduction branch also carries small runtime fixes needed for this run,
 including skipping entropy allocation when `--entropy-coef 0.00` and handling
 non-scalar rollout rewards in logging.
 
+The isolated strict-English v2 SFT -> OPD run is specified in
+[`results/strict_en_v2_experiment.md`](results/strict_en_v2_experiment.md).
+It saves a reusable all-domain corpus, gates cleaning counts against the
+comparison implementation, derives a high-quality math subset, and dynamically
+dispatches the batch-aligned training chain.
+
+The active replacement reproduction is specified in
+[`results/openr1_math220k_reproduction.md`](results/openr1_math220k_reproduction.md).
+It uses the curated OpenR1-Math-220k `default` subset for 50k SFT, then disjoint
+1,024 and 4,096-prompt OPD phases. Launch the serialized four-GPU chain with:
+
+```bash
+bash examples/qwen3_8b_opd_tillicum/submit_openr1_math220k_chain.sh
+```
+
+All prior OpenThoughts scripts and scratch artifacts are intentionally retained;
+the status at the direction change is frozen under
+`results/status_through_2026-07-13/`.
+
 ## Required environment
 
 Source `env.sh` before running commands:
@@ -297,6 +316,14 @@ The next experiment is the cleaned-data run described in
 bash examples/qwen3_8b_opd_tillicum/submit_cleaned_sft_opd_vllm_chain.sh
 ```
 
+The corrected cleaned-SFT eval special-token incident and the auditable
+thinking/dual-stop fix are recorded in
+`results/cleaned_sft_eval_special_token_incident.md`. Qwen3 generation now
+passes `enable_thinking=True` explicitly, accepts both `<|im_end|>` and
+`<|endoftext|>` as stops, and saves special-preserving text plus raw prefill and
+generated token ids. The same note records the remaining language-cleaning
+gap and the optional future `<think>\n` prefill diagnostic.
+
 This chain first validates/installs a scratch-local vLLM eval environment,
 cleans OpenThoughts3 by requiring complete thinking traces and removing
 mixed-language rows, deterministically shuffles valid rows with seed `1234`,
@@ -324,8 +351,15 @@ OPD-1k rows in the final trained-data manifest.
 Only four full MATH-500 evals run for this cleaned experiment: base, SFT-25k,
 OPD-1k, and OPD-5k. They use the Tillicum-local vLLM path with four independent
 1-GPU workers, greedy decoding, `VLLM_EVAL_MAX_MODEL_LEN=32768`,
-`VLLM_EVAL_GPU_MEMORY_UTILIZATION=0.92`, `VLLM_EVAL_MAX_NUM_SEQS=16`, and
-`VLLM_EVAL_MAX_NUM_BATCHED_TOKENS=131072`.
+`VLLM_EVAL_GPU_MEMORY_UTILIZATION=0.97`, `VLLM_EVAL_MAX_NUM_SEQS=24`, and
+`VLLM_EVAL_MAX_NUM_BATCHED_TOKENS=16384`. Each worker enqueues its entire
+unfinished shard into vLLM's asynchronous scheduler, keeps continuous-batching
+backlog, and atomically saves each completed sample. Resume scans compatible
+artifacts by global eval index, independent of prior chunk or shard boundaries.
+The production default retains BF16 KV cache, chunked prefill, Model Runner V2,
+CUDA graphs, and FlashAttention 3. GPU N-gram speculation remains available but
+is disabled by default because vLLM 0.24 requires a C compiler that is absent
+from the production container and otherwise falls back to Model Runner V1.
 
 Both training and eval use dynamic per-prompt generation caps. OPD training
 requests `min(31744, OPD_ROLLOUT_MAX_CONTEXT_LEN - prompt_tokens)` with

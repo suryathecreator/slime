@@ -53,6 +53,10 @@ echo "SFT loss mask type: ${SFT_LOSS_MASK_TYPE}"
 echo "SFT loss mask preflight: enabled=${SFT_LOSS_MASK_PREFLIGHT_ENABLED} require_think=${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK} samples=${SFT_LOSS_MASK_PREFLIGHT_SAMPLES}"
 echo "SFT LR: ${SFT_LR}"
 echo "SFT max tokens per GPU: ${SFT_MAX_TOKENS_PER_GPU}"
+echo "SFT sequence length / gradient clip: ${SFT_SEQ_LENGTH}/${SFT_GRAD_CLIP}"
+echo "SFT log probs chunk size: ${SFT_LOG_PROBS_CHUNK_SIZE}"
+echo "SFT optimizer CPU offload: ${SFT_OPTIMIZER_CPU_OFFLOAD}"
+echo "SFT recompute loss function: ${SFT_RECOMPUTE_LOSS_FUNCTION}"
 
 checkpoint_start_pruner sft "${SFT_SAVE_DIR}" "${CHECKPOINT_PRUNE_INTERVAL_SECONDS}" "${CHECKPOINT_REPORT_DIR}"
 cleanup() {
@@ -63,6 +67,13 @@ trap cleanup EXIT
 "${SCRIPT_DIR}/container_exec.sh" bash -lc '
 set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
+
+if [[ -n "${SFT_TORCH_COMPILE_CC:-}" ]]; then
+  [[ -x "${SFT_TORCH_COMPILE_CC}" ]] || { echo "SFT compiler is not executable: ${SFT_TORCH_COMPILE_CC}" >&2; exit 1; }
+  export CC="${SFT_TORCH_COMPILE_CC}"
+  export CPATH="${SFT_TORCH_COMPILE_CPATH}"
+  echo "SFT_TORCH_COMPILER_READY cc=${CC} cpath=${CPATH}"
+fi
 
 ray stop --force >/dev/null 2>&1 || true
 
@@ -168,11 +179,13 @@ SFT_ARGS=(
   --prompt-data "${SFT_PARQUET}"
   --input-key messages
   --rollout-shuffle
+  --rollout-seed "${DATA_SEED}"
   --num-epoch "${SFT_NUM_EPOCH}"
   --rollout-batch-size "${SFT_ROLLOUT_BATCH_SIZE}"
   --global-batch-size "${SFT_GLOBAL_BATCH_SIZE}"
   --loss-type sft_loss
   --loss-mask-type "${SFT_LOSS_MASK_TYPE}"
+  --apply-chat-template-kwargs "{\"enable_thinking\": true}"
   --calculate-per-token-loss
   --disable-compute-advantages-and-returns
   --debug-train-only
@@ -184,6 +197,7 @@ PERF_ARGS=(
   --sequence-parallel
   --pipeline-model-parallel-size "${SFT_PIPELINE_MODEL_PARALLEL_SIZE}"
   --context-parallel-size "${SFT_CONTEXT_PARALLEL_SIZE}"
+  --seq-length "${SFT_SEQ_LENGTH}"
   --expert-model-parallel-size 1
   --expert-tensor-parallel-size 1
   --recompute-granularity full
@@ -191,6 +205,7 @@ PERF_ARGS=(
   --recompute-num-layers 1
   --use-dynamic-batch-size
   --max-tokens-per-gpu "${SFT_MAX_TOKENS_PER_GPU}"
+  --log-probs-chunk-size "${SFT_LOG_PROBS_CHUNK_SIZE}"
 )
 
 OPTIMIZER_ARGS=(
@@ -200,7 +215,20 @@ OPTIMIZER_ARGS=(
   --weight-decay 0.1
   --adam-beta1 0.9
   --adam-beta2 0.95
+  --clip-grad "${SFT_GRAD_CLIP}"
 )
+if [[ "${SFT_OPTIMIZER_CPU_OFFLOAD}" == "1" ]]; then
+  OPTIMIZER_ARGS+=(
+    --optimizer-cpu-offload
+    --overlap-cpu-optimizer-d2h-h2d
+    --use-precision-aware-optimizer
+  )
+fi
+
+MEMORY_ARGS=()
+if [[ "${SFT_RECOMPUTE_LOSS_FUNCTION}" == "1" ]]; then
+  MEMORY_ARGS+=(--recompute-loss-function)
+fi
 
 WANDB_ARGS=()
 if [[ "${WANDB_MODE}" != "disabled" ]]; then
@@ -208,6 +236,7 @@ if [[ "${WANDB_MODE}" != "disabled" ]]; then
 fi
 
 MISC_ARGS=(
+  --seed "${DATA_SEED}"
   --attention-dropout 0.0
   --hidden-dropout 0.0
   --attention-softmax-in-fp32
@@ -240,6 +269,12 @@ if [[ -z "${SFT_CUDA_DEVICE_MAX_CONNECTIONS:-}" ]]; then
 fi
 echo "SFT CUDA_DEVICE_MAX_CONNECTIONS=${SFT_CUDA_DEVICE_MAX_CONNECTIONS}"
 
+COMPILER_RUNTIME_ENV=""
+if [[ -n "${CC:-}" ]]; then
+  COMPILER_RUNTIME_ENV=",
+    \"CC\": \"${CC}\",
+    \"CPATH\": \"${CPATH}\""
+fi
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
     \"PYTHONPATH\": \"/root/Megatron-LM:${SLIME_REPO_ROOT}\",
@@ -247,7 +282,7 @@ RUNTIME_ENV_JSON="{
     \"NCCL_NVLS_ENABLE\": \"${HAS_NVLINK}\",
     \"PYTORCH_CUDA_ALLOC_CONF\": \"expandable_segments:True\",
     \"WANDB_MODE\": \"${WANDB_MODE}\",
-    \"HF_HOME\": \"${HF_HOME}\"
+    \"HF_HOME\": \"${HF_HOME}\"${COMPILER_RUNTIME_ENV}
   }
 }"
 
@@ -265,6 +300,7 @@ SLIME_SGLANG_PATCH_SITE=0 ray job submit --address="http://127.0.0.1:8265" \
   "${DP_OPT_ARGS[@]}" \
   "${WANDB_ARGS[@]}" \
   "${PERF_ARGS[@]}" \
+  "${MEMORY_ARGS[@]}" \
   "${MISC_ARGS[@]}"
 '
 

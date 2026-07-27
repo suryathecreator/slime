@@ -106,6 +106,8 @@ cfg.write_text(
     "    input_key: prompt\n"
     "    label_key: label\n"
     "    apply_chat_template: true\n"
+    "    apply_chat_template_kwargs:\n"
+    "      enable_thinking: true\n"
     "  datasets:\n"
     "    - name: math500\n"
     f"      path: {out}\n"
@@ -185,6 +187,8 @@ run_eval() {
     --prompt-data "${MATH500_JSONL}"
     --input-key prompt
     --apply-chat-template
+    --apply-chat-template-kwargs '{"enable_thinking": true}'
+    --rollout-stop-token-ids "${QWEN3_IM_END_TOKEN_ID}" "${QWEN3_ENDOFTEXT_TOKEN_ID}"
     --num-rollout 0
     --rollout-batch-size "${EVAL_ROLLOUT_BATCH_SIZE}"
     --n-samples-per-prompt 1

@@ -1,0 +1,47 @@
+{
+  "answer_events": 289671,
+  "answer_replacements": 131448,
+  "behavior_metrics_fatal": false,
+  "cap_hit_rate": 0.49609375,
+  "cap_hits": 2921,
+  "doubts": 5811,
+  "eligible_final_answer_rate": 0.8547894021739131,
+  "globally_unique_trajectory_ids": true,
+  "length": {
+    "max": 16344,
+    "mean": 13173.408457880434,
+    "median": 15562.5,
+    "p90": 16307.0,
+    "p95": 16316.0
+  },
+  "mean_student_terminal_logprob": -1.3004331004441432,
+  "mean_teacher_terminal_logprob": -4.51343591049375,
+  "prompt_domains": {
+    "code": 688,
+    "math": 3996,
+    "science": 1204
+  },
+  "prompt_sources": {
+    "ai2-adapt-dev/openmath-2-math": 3996,
+    "nvidia/OpenCodeReasoning": 408,
+    "organic-chemistry-questions": 748,
+    "stackexchange-physics": 456,
+    "stackexchange_codegolf": 280
+  },
+  "reference_correctness": "not computed: OpenThoughts responses are not verified gold references",
+  "repetition_indicators": 812,
+  "retractions": 5802,
+  "rollout_files": 92,
+  "sampled_reverse_kl": 0.3176936624970487,
+  "schema_version": 1,
+  "source": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-32b-full-repro/v1/4095e6ac256b0dbf/outputs/opd_sanity/rollout_audit.json",
+  "status": "complete",
+  "teacher_minus_student_sampled_logprob": -0.3176936624970487,
+  "terminal_conditions": {
+    "None": 2921,
+    "eos": 330,
+    "im_end": 2637
+  },
+  "think_closed_rate": 0.43733016304347827,
+  "trajectories": 5888
+}

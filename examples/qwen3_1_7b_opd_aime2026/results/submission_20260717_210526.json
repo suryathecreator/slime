@@ -1,0 +1,39 @@
+{
+  "dependency_policy": "strict_serial_gpu_afterok",
+  "implementation_commit": "e4685f2828a4079b10ba469d2d108d752c328b41",
+  "jobs": {
+    "base_report": "177962",
+    "final_report": "177968",
+    "opd_001024_eval": "177964",
+    "opd_001024_report": "177965",
+    "opd_001024_train": "177963",
+    "opd_005120_eval": "177967",
+    "opd_005120_train": "177966",
+    "qwen3_1.7b_base_eval": "177960",
+    "qwen3_8b_teacher_eval": "177961",
+    "setup": "177959"
+  },
+  "max_concurrent_gpu_count": 4,
+  "protocol": {
+    "max_model_len": 32768,
+    "max_response_len": 31744,
+    "metric": "total_correct_divided_by_480_mc_pass_at_1",
+    "num_generations": 480,
+    "num_problems": 30,
+    "samples_per_problem": 16,
+    "sampling": {
+      "min_p": 0.0,
+      "seed_formula": "42 + problem_position_zero_based * 16 + sample_index_zero_based",
+      "temperature": 0.6,
+      "top_k": 20,
+      "top_p": 0.95
+    }
+  },
+  "revisions": {
+    "dataset": "MathArena/aime_2026@d2de22f3c656b4f56cf8981212186377d1e23bc3",
+    "student": "Qwen/Qwen3-1.7B@70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+    "teacher": "Qwen/Qwen3-8B@b968826d9c46dd6066d109eabc6255188de91218"
+  },
+  "scratch_root": "/gpfs/scrubbed/suryadv/slime-qwen3-1.7b-opd-aime2026",
+  "submit_time": "2026-07-17T21:05:26-07:00"
+}

@@ -1,0 +1,109 @@
+{
+  "submission": {
+    "submit_time": "2026-07-18T18:27:28-07:00",
+    "implementation_commit": "c5b590ee18e7931a428d1ebb8105b6431816352e",
+    "completed_teacher_job": "178745",
+    "completed_teacher_state": "COMPLETED 0:0",
+    "replaces_jobs": [
+      "179070",
+      "179071",
+      "179072",
+      "179073",
+      "179074"
+    ],
+    "failed_root_job": "179070",
+    "cancelled_blocked_descendants": [
+      "179071",
+      "179072",
+      "179073",
+      "179074"
+    ]
+  },
+  "jobs": [
+    {
+      "stage": "OPD first 2,048 rows",
+      "job_id": "179550",
+      "dependency": null,
+      "state_at_verification": "RUNNING",
+      "requested_h200_gpus": 4
+    },
+    {
+      "stage": "OPD-2,048 single-sample AIME eval",
+      "job_id": "179551",
+      "dependency": "afterok:179550",
+      "state_at_verification": "PENDING (Dependency)",
+      "requested_h200_gpus": 4
+    },
+    {
+      "stage": "OPD next 3,072 rows",
+      "job_id": "179552",
+      "dependency": "afterok:179551",
+      "state_at_verification": "PENDING (Dependency)",
+      "requested_h200_gpus": 4
+    },
+    {
+      "stage": "OPD-5,120 single-sample AIME eval",
+      "job_id": "179553",
+      "dependency": "afterok:179552",
+      "state_at_verification": "PENDING (Dependency)",
+      "requested_h200_gpus": 4
+    },
+    {
+      "stage": "OPD-5,120 16-sample AIME eval",
+      "job_id": "179554",
+      "dependency": "afterok:179553",
+      "state_at_verification": "PENDING (Dependency)",
+      "requested_h200_gpus": 4
+    }
+  ],
+  "resource_policy": {
+    "dependency_policy": "strict serial afterok",
+    "maximum_concurrent_h200_gpus": 4,
+    "opd_actor_gpus": 2,
+    "opd_rollout_gpus": 3,
+    "opd_colocated": true,
+    "global_batch_size": 128,
+    "rollout_batch_size": 128
+  },
+  "scorer_comparison": {
+    "scorer_v1": "aime_answer_v1",
+    "scorer_v2": "aime_answer_v2",
+    "base_480": {
+      "v1_correct": 183,
+      "v1_score": 0.38125,
+      "v2_correct": 184,
+      "v2_score": 0.38333333333333336,
+      "correct_delta": 1,
+      "percentage_point_delta": 0.20833333333333334
+    },
+    "teacher_single_30": {
+      "v1_correct": 21,
+      "v1_score": 0.7,
+      "v2_correct": 21,
+      "v2_score": 0.7,
+      "correct_delta": 0,
+      "percentage_point_delta": 0.0
+    }
+  },
+  "verification": {
+    "verified_at": "2026-07-18T18:34:33-07:00",
+    "root_runtime": "00:07:05",
+    "root_node": "g017",
+    "root_requested_h200_gpus": 4,
+    "root_allocated_h200_gpus": 4,
+    "passed_prior_failure_runtime": true,
+    "training_actors_loaded": true,
+    "rollout_weights_synchronized": true,
+    "first_128_sample_rollout_prefill_started": true,
+    "first_128_sample_rollout_decode_started": true,
+    "old_batch_divisibility_assertion_absent": true
+  },
+  "artifacts": {
+    "submission_log": "/gpfs/scrubbed/suryadv/slime-qwen3-1.7b-opd-aime2026/slurm_logs/submit_qwen3_1.7b_aime2026_remaining_2k_20260718_182727.txt",
+    "active_root_log": "/gpfs/scrubbed/suryadv/slime-qwen3-1.7b-opd-aime2026/slurm_logs/q3-17b-opd-2k_179550.log",
+    "active_teacher_log": "/gpfs/scrubbed/suryadv/slime-qwen3-1.7b-opd-aime2026/outputs/teacher_logs/sglang_teacher_179550.log",
+    "archived_failed_sanity": "/gpfs/scrubbed/suryadv/slime-qwen3-1.7b-opd-aime2026/outputs/qwen3_1.7b_opd_002048_sanity_failed_179070",
+    "archived_failed_teacher_log": "/gpfs/scrubbed/suryadv/slime-qwen3-1.7b-opd-aime2026/outputs/teacher_logs/sglang_teacher_179070_failed.log",
+    "failed_root_log": "/gpfs/scrubbed/suryadv/slime-qwen3-1.7b-opd-aime2026/slurm_logs/q3-17b-opd-2k_179070.log"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "commit": "1f73cdff3e5a4f304c42695c3c753d59c44f3dbf",
+  "contract_hash": "4095e6ac256b0dbf",
+  "gpu_contract": "every job requests exactly four H200 GPUs",
+  "jobs": {
+    "base_eval": "180970",
+    "cleanup": "180969",
+    "opd_1472x4": "180974",
+    "opd_eval_100pct": "180975",
+    "preflight": "180968",
+    "sft_200k": "180972",
+    "sft_eval": "180973",
+    "teacher_eval": "180971"
+  },
+  "submitted_at": "2026-07-20T03:45:46.591177+00:00"
+}

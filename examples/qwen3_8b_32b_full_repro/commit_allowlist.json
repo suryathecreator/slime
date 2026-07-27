@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "purpose": "reviewed implementation commit for qwen3-8b-32b-full-repro",
+  "allowed_roots": [
+    "examples/qwen3_8b_32b_full_repro",
+    "examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch",
+    "examples/qwen3_8b_opd_tillicum/05_run_opd_50k_8xh200.sbatch",
+    "examples/qwen3_8b_opd_tillicum/check_sft_loss_mask.py",
+    "examples/qwen3_8b_opd_tillicum/container_exec.sh",
+    "examples/qwen3_8b_opd_tillicum/env.sh",
+    "examples/qwen3_1_7b_opd_aime2026/results/final_status_before_8b_pivot_20260719.md",
+    "examples/qwen3_1_7b_opd_aime2026/results/final_status_before_8b_pivot_20260719.json"
+  ],
+  "forbidden": ["raw datasets", "model weights", "optimizer checkpoints", "tokens", "credentials", "private keys"]
+}

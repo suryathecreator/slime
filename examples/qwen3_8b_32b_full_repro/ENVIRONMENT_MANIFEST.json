@@ -1,0 +1,91 @@
+{
+  "branch": "qwen3-8b-32b-full-repro",
+  "cached_source_refs": {
+    "math500": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/hf_home/hub/datasets--HuggingFaceH4--MATH-500/refs/main",
+      "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+      "sha256": "430661e65bab63f820e802e01bc463c7d4370a0ec4d8fad5ffd6fde252a4c5b1"
+    },
+    "openthoughts3": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/hf_home/hub/datasets--open-thoughts--OpenThoughts3-1.2M/refs/main",
+      "revision": "61bcf9d4eb38b30295efc2021227a63cc5bb34c8",
+      "sha256": "bbb78528303ed3d2b45870180f10b461ce10e8b0a18ffc3281856ab1da87aec3"
+    },
+    "student": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/hf_home/hub/models--Qwen--Qwen3-8B-Base/refs/main",
+      "revision": "49e3418fbbbca6ecbdf9608b4d22e5a407081db4",
+      "sha256": "89712ac3ba9ff84d6035d9380c014f4d9955c347119a269d79ab148d2c3885c8"
+    },
+    "teacher": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/hf_home/hub/models--Qwen--Qwen3-32B/refs/main",
+      "revision": "9216db5781bf21249d130ec9da846c4624c16137",
+      "sha256": "3525ce254b6d486c20139e0da3c448d4838ee549b12eeb83c28e821058046d17"
+    }
+  },
+  "contract_hash_prefix": "4095e6ac256b0dbf",
+  "contract_sha256": "4095e6ac256b0dbfc90c1a9062bd7641439fb8b4be23f0021686da8e43f1cc2e",
+  "cuda": "12.9",
+  "cudnn_package": "9.16.0.29",
+  "external_vllm_version": "0.24.0",
+  "implementation_commit": "a92bd1c8e2a36e7a5024ac92cd69a39fb105f20e",
+  "launch_commit": "1f73cdff3e5a4f304c42695c3c753d59c44f3dbf",
+  "megatron_lm_commit": "1dcf0dafa884ad52ffb243625717a3471643e087",
+  "nccl_package": "2.28.9",
+  "packages": {
+    "flash-attn": "2.7.4.post1",
+    "math-verify": "0.9.0",
+    "ray": "2.55.1",
+    "sglang": "0.5.13",
+    "torch": "2.11.0+cu129",
+    "transformers": "5.8.1"
+  },
+  "platform": "Linux-5.14.0-611.55.1.el9_7.x86_64-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "rendered_prompt": "<|im_start|>user\nPlease reason step by step, and put your final answer within \\boxed{}.<|im_end|>\n<|im_start|>assistant\n",
+  "rendered_prompt_token_ids": [
+    151644,
+    872,
+    198,
+    5501,
+    2874,
+    3019,
+    553,
+    3019,
+    11,
+    323,
+    2182,
+    697,
+    1590,
+    4226,
+    2878,
+    1124,
+    79075,
+    46391,
+    151645,
+    198,
+    151644,
+    77091,
+    198
+  ],
+  "schema_version": 1,
+  "source_config_hashes": {
+    "student_config": "3bd01d7ad7a2e203ecbbe84e24087a51c6d2a108ee4bcc42d0016bf49564983a",
+    "student_tokenizer_config": "3c04ed3ca964ea2f6b2b5faf0dc4d31aec1cb1e8b4bcf63f402d295046b422b5",
+    "teacher_config": "97e295b63283935788fac5e4f8860862a56d4089538cafc93f0431f2ebe483bb",
+    "teacher_tokenizer_config": "d5d09f07b48c3086c508b30d1c9114bd1189145b74e982a265350c923acd8101"
+  },
+  "source_paths": {
+    "hf_cache": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/hf_home",
+    "student": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/models/Qwen3-8B-Base",
+    "teacher": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/models/Qwen3-32B"
+  },
+  "student_context": 32768,
+  "teacher_context": 40960,
+  "token_ids": {
+    "</think>": 151668,
+    "<think>": 151667,
+    "<|endoftext|>": 151643,
+    "<|im_end|>": 151645
+  },
+  "unicode_database": "15.0.0"
+}

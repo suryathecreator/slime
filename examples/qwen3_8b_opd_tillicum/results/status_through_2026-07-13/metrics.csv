@@ -1,0 +1,14 @@
+evaluation_scope,experiment,train_samples,n,accuracy,accuracy_on_parseable,parse_failure_rate,cap_hit_rate,avg_generated_tokens,validity
+math500,base_vllm_165035,0,500,0.612,0.7427184466,0.176,0.040,1880.558,valid
+math500,base_sglang_earlier,0,500,0.638,0.7595238095,0.160,0.036,1686.402,valid_different_contract
+math500,original_openthoughts_sft,5120,500,0.664,0.8948787062,0.258,0.318,10543.942,valid
+math500,original_openthoughts_sft,10240,500,0.734,0.7645833333,0.040,0.534,17383.034,valid
+math500,original_openthoughts_sft,15360,500,0.746,0.7803347280,0.044,0.694,22238.692,valid
+math500,original_openthoughts_sft,20480,500,0.730,0.7782515991,0.062,0.716,22928.606,valid
+math500,original_openthoughts_sft,24832,500,0.750,0.7812500000,0.040,0.576,18574.302,valid
+math500,corrected_sft_opd,1024,500,0.724,0.7685774947,0.058,0.832,26567.282,valid
+math500,accidental_base_opd,1024,500,0.000,0.0000000000,0.998,0.882,30137.598,invalid_weight_mismatch
+val100,corrected_sft_opd_continuation,1024,100,0.700,0.7526881720,0.070,0.840,26924.530,diagnostic
+val100,corrected_sft_opd_continuation,2048,100,0.720,0.8181818182,0.120,0.980,31365.730,diagnostic
+val100,corrected_sft_opd_continuation,3072,100,0.770,0.8279569892,0.070,0.980,31352.810,diagnostic
+val100,corrected_sft_opd_continuation,4096,100,0.740,0.8043478261,0.080,1.000,31744.000,diagnostic
