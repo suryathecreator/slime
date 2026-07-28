@@ -36,13 +36,24 @@ records a content-addressed manifest for its final Hugging Face checkpoint.
 The exact paths are in
 `../qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_sources.json`.
 
-MATH-500 is deliberately deferred for transfer to another system. The frozen
-handoff uses the latest borrowed OPD `math500_strict_boxed_scorer_v3`, greedy
-decoding, and the dynamic budget
-`32768 - rendered_prompt_tokens - 64`. Both stop IDs 151643 and 151645 are
-accepted. The base 8B evaluation is rerun once and shared with the 2K tables.
-The one-H200, per-example resumable wrapper and result importer are documented
-in `../qwen3_8b_openr1_math220k_masked_sft_eval_handoff/README.md`.
+MATH-500 was deferred until checkpoint transfer and is now evaluated on the
+destination system. The base and all three final 40K checkpoints use the exact
+generation path already used by the completed 2K evaluations: instruction
+before problem, greedy decoding, vLLM 0.10.2, and a request for 32,768 output
+tokens within a 32,768-token model context. No explicit 64-token buffer or
+manually calculated per-problem cap is used; vLLM naturally clamps generation
+according to prompt length. Both stop IDs 151643 and 151645 are accepted.
+
+The earlier SLIME evaluations used problem-before-instruction prompts, a
+64-token buffer, and vLLM 0.24.0. Those differences are documentation only;
+the historical SLIME driver is not given compatibility switches. All saved
+2K, base, and 40K generations are scored verbatim with
+`math500_strict_boxed_units_scorer_v4`, which normalizes recognized explicit
+answer units before mathematical equivalence checking. Original Axolotl and
+SLIME V3 decisions are retained as provenance. The base evaluation is
+completed and rescored before the 40K jobs are released. The exact launcher,
+artifact paths, and rescore procedure are documented in
+`../qwen3_8b_openr1_math220k_masked_sft_eval_handoff/README.md`.
 
 The authoritative launcher is
 `../qwen3_8b_openr1_math220k_masked_sft_2k/submit_training_only.sh`. It

@@ -1,0 +1,70 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "208d776d3205f97721efa2b85aa68d4f62961400d3560f9a28e16640368492ff",
+  "contract_hash": "6ea372402facbc5e",
+  "created_at": "2026-07-25T12:45:59.179848+00:00",
+  "family": "40k",
+  "files": [
+    {
+      "bytes": 4116,
+      "name": "chat_template.jinja",
+      "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+    },
+    {
+      "bytes": 1619,
+      "name": "config.json",
+      "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+    },
+    {
+      "bytes": 167,
+      "name": "generation_config.json",
+      "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+    },
+    {
+      "bytes": 3996250720,
+      "name": "model-00001-of-00005.safetensors",
+      "sha256": "8fc79b158c362a1750ca2e9b8a5b9c73f90b115dcf3c31a484ad8ecb51667e76"
+    },
+    {
+      "bytes": 3993160000,
+      "name": "model-00002-of-00005.safetensors",
+      "sha256": "d926691e7bf6bc387376732c8be67ff6dd80e1b88314702d204e33c6004df1c0"
+    },
+    {
+      "bytes": 3959604736,
+      "name": "model-00003-of-00005.safetensors",
+      "sha256": "44b275a9d7f6483786ca80b191e86a9f246e4f4a7dcf5922ba4885fd608be90a"
+    },
+    {
+      "bytes": 3187841360,
+      "name": "model-00004-of-00005.safetensors",
+      "sha256": "7446c9492747152abda0e5ff960fef6840405c70f609cc065366757d1c3e0b97"
+    },
+    {
+      "bytes": 1244659808,
+      "name": "model-00005-of-00005.safetensors",
+      "sha256": "5fe903874ed58a14f1e3383ee97d35bd1f6ff203b20cf3599a3923e2830aaed3"
+    },
+    {
+      "bytes": 34485,
+      "name": "model.safetensors.index.json",
+      "sha256": "c07ecb9e128277ff2cdce2b404d8823da5dead9ac4095293521762b1919f6b2b"
+    },
+    {
+      "bytes": 11422650,
+      "name": "tokenizer.json",
+      "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+    },
+    {
+      "bytes": 695,
+      "name": "tokenizer_config.json",
+      "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    }
+  ],
+  "final_iteration": 199,
+  "full_sft": true,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "repo_commit": "7f7736a75b1bff8bc392586bb6ac56048d3a4703",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-openr1-masked-sft-40k/v1/6ea372402facbc5e/outputs/training/weighted_tau_0p20/weights/iter_0000199",
+  "variant": "weighted_tau_0p20"
+}

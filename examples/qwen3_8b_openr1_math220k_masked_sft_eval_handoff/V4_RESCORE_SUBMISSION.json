@@ -1,0 +1,32 @@
+{
+  "artifact_schema_version": 1,
+  "base_2k_cpu_rescore_job": "37803202",
+  "completed_at": "2026-07-27T22:57:26.064182+00:00",
+  "current_audit_job": "37803207",
+  "current_finalizers": {
+    "40k_correct_only": "37803203",
+    "40k_unmasked": "37803103",
+    "40k_weighted_tau_0p20": "37787315"
+  },
+  "scorer": {
+    "module": "examples/qwen3_8b_32b_full_repro/math500_scorer_v4.py",
+    "version": "math500_strict_boxed_units_scorer_v4"
+  },
+  "standardized_base_2k_rows": 6000,
+  "standardized_total_rows": 7500,
+  "status": "complete",
+  "superseded_jobs": {
+    "audits": [
+      "37787318",
+      "37803106"
+    ],
+    "failed_on_node_n3320_during_shared_storage_flush": {
+      "40k_correct_only_finalize": "37803102",
+      "base_2k_cpu_rescore": "37803095"
+    },
+    "failed_during_version_transition": {
+      "40k_correct_only_finalize": "37787313",
+      "40k_unmasked_finalize": "37787317"
+    }
+  }
+}

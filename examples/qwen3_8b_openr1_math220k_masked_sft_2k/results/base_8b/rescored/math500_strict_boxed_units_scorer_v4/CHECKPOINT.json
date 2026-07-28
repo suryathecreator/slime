@@ -1,0 +1,165 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "401f62fead5dfc0398939cbaddf96dbffd14ddb53d07a220fe5c54546be9e1a5",
+  "contract_hash": "5c3230a293f7acb2",
+  "created_at": "2026-07-25T06:02:56.755676+00:00",
+  "family": "shared",
+  "files": [
+    {
+      "bytes": 1,
+      "name": ".cache/huggingface/.gitignore",
+      "sha256": "684888c0ebb17f374298b65ee2807526c066094c701bcc7ebbe1c1095f494fc1"
+    },
+    {
+      "bytes": 191,
+      "name": ".cache/huggingface/CACHEDIR.TAG",
+      "sha256": "f6572428f6d5e1575e73a1502895a8731f10757dfbb634909c6e154b849af91d"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/.gitattributes.metadata",
+      "sha256": "4e384a5f16b64a4828cf60db64dca58ca24f1447a6919063fa5062a801768ca0"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/README.md.metadata",
+      "sha256": "f1acd80b990241e744d6baecf605850d178e6303b795541d3842ecb62190e64f"
+    },
+    {
+      "bytes": 100,
+      "name": ".cache/huggingface/download/config.json.metadata",
+      "sha256": "3d62056dc4cf349b39e6191278292c0c5d18f0662b6d886db888c1aa106b438d"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/generation_config.json.metadata",
+      "sha256": "40a93aad1e14f5e66c1bbdcf63311b4972c5433cfff13ba4e3e19662c634484c"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/merges.txt.metadata",
+      "sha256": "c66f04d2e5affa23a818d7e8df69f0bc9f29d83bd1fbc1958080f5c27e5d3f5a"
+    },
+    {
+      "bytes": 125,
+      "name": ".cache/huggingface/download/model-00001-of-00005.safetensors.metadata",
+      "sha256": "5fe487e16260b5c53f8ed3850e9ccea5fcced2e29a214c3b562e6c2d2f413df5"
+    },
+    {
+      "bytes": 124,
+      "name": ".cache/huggingface/download/model-00002-of-00005.safetensors.metadata",
+      "sha256": "0e0c84eef4ad8e315debed9bcb05c4f39081d4c6ab2200aebdbf2e6a7c8fec1f"
+    },
+    {
+      "bytes": 124,
+      "name": ".cache/huggingface/download/model-00003-of-00005.safetensors.metadata",
+      "sha256": "be5e5f926da254f2f937df1a560ce1e7852a7dad643c56ad4a7b57067fa3a482"
+    },
+    {
+      "bytes": 125,
+      "name": ".cache/huggingface/download/model-00004-of-00005.safetensors.metadata",
+      "sha256": "9602746ec3ae48d81654526a6b131bdcda40875d8170c12a8e6589c437708b31"
+    },
+    {
+      "bytes": 125,
+      "name": ".cache/huggingface/download/model-00005-of-00005.safetensors.metadata",
+      "sha256": "ce4772b82820bb2d603cc6d58184477890e2e39d07996e8628472101f8b19e61"
+    },
+    {
+      "bytes": 100,
+      "name": ".cache/huggingface/download/model.safetensors.index.json.metadata",
+      "sha256": "56de3d7b4e8d8428cddb3721f1bb57fca149094fa5a07fefbea7bd61899561ff"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/tokenizer.json.metadata",
+      "sha256": "2a7804038a27c07afa71ebf9e427368aa6db0217dcc61d4db7fa20f05bf85820"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/tokenizer_config.json.metadata",
+      "sha256": "4d8c902663516f088de8b0184761a111ada357ac9f000a23a74e671ed942a3b3"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/vocab.json.metadata",
+      "sha256": "dc1149c93e0378bec5c60eec6832652a2d0e4cd21f8f4a94e159da8a2215a272"
+    },
+    {
+      "bytes": 1519,
+      "name": ".gitattributes",
+      "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361"
+    },
+    {
+      "bytes": 2938,
+      "name": "README.md",
+      "sha256": "0eb9f991baa4f92c9ef708d1e9c7a01ae5b19d05516d38f8833549aa8b06a07e"
+    },
+    {
+      "bytes": 729,
+      "name": "config.json",
+      "sha256": "3bd01d7ad7a2e203ecbbe84e24087a51c6d2a108ee4bcc42d0016bf49564983a"
+    },
+    {
+      "bytes": 138,
+      "name": "generation_config.json",
+      "sha256": "8c970692323e3ea0e9b8b0a4dca79388d31226e41f83c9fd6014804280ebf6e8"
+    },
+    {
+      "bytes": 1671853,
+      "name": "merges.txt",
+      "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+    },
+    {
+      "bytes": 3996250744,
+      "name": "model-00001-of-00005.safetensors",
+      "sha256": "9983f1b9ef2f60e7c3730d9bc11ada914e6ec630639b5b020a89bd158cd0446b"
+    },
+    {
+      "bytes": 3993160032,
+      "name": "model-00002-of-00005.safetensors",
+      "sha256": "9aa12339835bf7a093d3d0b0a0d2d77f8538301cfc7f8e7ec7a585858ebf7a1f"
+    },
+    {
+      "bytes": 3959604768,
+      "name": "model-00003-of-00005.safetensors",
+      "sha256": "c7dd5a191c8da555def0714550375b3c0117751add408fcdda0c2a79ac0186bc"
+    },
+    {
+      "bytes": 3187841392,
+      "name": "model-00004-of-00005.safetensors",
+      "sha256": "ad8b708792105133e03fe19e2d56c89c709f677f01285f8b3ede8947d59fd9fe"
+    },
+    {
+      "bytes": 1244659840,
+      "name": "model-00005-of-00005.safetensors",
+      "sha256": "fbf24915d47ea030bb68ab0b9488f4515a907185baa6dc26837c9c3f2326a550"
+    },
+    {
+      "bytes": 32878,
+      "name": "model.safetensors.index.json",
+      "sha256": "cd39d5e44c5aadfd1954b598883aea1c4a98822a2f7723d214ef2278b7fec2e4"
+    },
+    {
+      "bytes": 7031645,
+      "name": "tokenizer.json",
+      "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539"
+    },
+    {
+      "bytes": 9678,
+      "name": "tokenizer_config.json",
+      "sha256": "3c04ed3ca964ea2f6b2b5faf0dc4d31aec1cb1e8b4bcf63f402d295046b422b5"
+    },
+    {
+      "bytes": 2776833,
+      "name": "vocab.json",
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    }
+  ],
+  "final_iteration": null,
+  "full_sft": false,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "repo_commit": "f58494e8270f77d094ac7477cf463a220aaea655",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-8b-opd/models/Qwen3-8B-Base",
+  "variant": "base_8b"
+}

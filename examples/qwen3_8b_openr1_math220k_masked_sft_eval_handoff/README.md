@@ -2,7 +2,7 @@
 
 The Tillicum launch trains models only. The current Klone evaluation covers the
 eleven completed 2K checkpoints that are already present locally. Base and 40K
-evaluation are deferred until those checkpoint copies exist. All models were
+checkpoints have now been transferred for the matching current evaluation. All models were
 trained from exactly
 `Qwen/Qwen3-8B-Base@49e3418fbbbca6ecbdf9608b4d22e5a407081db4`;
 no floating base-model revision is permitted.
@@ -10,6 +10,76 @@ no floating base-model revision is permitted.
 `checkpoint_sources.json` remains the authoritative cross-system inventory.
 `available_eval_manifest.json` is the authoritative list for this local run.
 Every listed checkpoint has a content-addressed manifest.
+
+## Current base and 40K evaluation
+
+The base and three final 40K checkpoints use exactly the generation path used
+for the completed 2K training evaluations. The evaluator, Axolotl commit,
+tokenizer overlay, vLLM environment, prompt renderer, greedy sampling, stop
+rules, four contiguous 125-problem shards, chunk size 32, batching, and
+persistence behavior are unchanged. The base run changes only the checkpoint,
+stage name, and output directory.
+
+These current evaluations differ from the earlier SLIME evaluations in three
+documented ways:
+
+1. The earlier SLIME prompt placed the problem before the boxed-answer
+   instruction. The current evaluation places the instruction first and then
+   `Problem:` followed by the problem.
+2. The earlier SLIME evaluation subtracted a 64-token safety buffer. The
+   current evaluator requests `max_tokens=32768` with
+   `max_model_len=32768`; it does not calculate a separate per-problem cap or
+   reserve a buffer, and vLLM naturally clamps generation according to the
+   rendered prompt length.
+3. The earlier SLIME evaluation used vLLM 0.24.0. The current evaluation uses
+   the same pinned vLLM 0.10.2 environment as the completed 2K evaluations.
+
+These are protocol notes, not compatibility modes added to SLIME's historical
+driver. Generation remains on the established current evaluator. Both the
+saved 2K generations and the newly saved base/40K generations are rescored
+verbatim with
+`../qwen3_8b_32b_full_repro/math500_scorer_v4.py` at
+`math500_strict_boxed_units_scorer_v4`. V4 preserves the strict final-box and
+cap-hit rules from V3, and additionally removes only recognized explicit
+presentation units from the boxed candidate and gold before mathematical
+equivalence checking. For example, `\boxed{12\,\text{cm}}` is compared as
+`12` against a gold answer of `12`; categorical text such as
+`\text{Evelyn}` is not stripped. The native Axolotl decisions and parallel
+V3 artifacts remain immutable provenance, while the shared SLIME-V4
+decisions are the comparable reported results.
+
+The base evaluation is deliberately first. Its four shards, merge, and V4
+rescore must succeed before the three 40K arrays are released:
+
+```bash
+bash examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/submit_base_40k_current.sh \
+  --test-only-shapes
+bash examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/submit_base_40k_current.sh \
+  --submit
+```
+
+The eleven existing 2K generation sets require no GPUs and are rescored
+without inference:
+
+```bash
+PYTHONPATH=. ../Axolotl-Masked-SFT/.venv-vllm/bin/python \
+  examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/current_math500_eval.py \
+  --repo-root . rescore-2k
+```
+
+For the standardized V4 migration, base and all eleven completed 2K variants
+can be rescored concurrently on one CPU allocation:
+
+```bash
+sbatch \
+  examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/rescore_base_2k_cpu.sbatch
+```
+
+The active migration job IDs and repaired 40K finalizer dependencies are
+recorded in `V4_RESCORE_SUBMISSION.json`. The completed standardized table is
+in `SLIME_V4_RESULTS.md`, with its machine-readable source in
+`SLIME_V4_RESULTS.json`; both are emitted only after the final cross-result
+audit succeeds.
 
 ## Transfer
 
@@ -28,7 +98,7 @@ python3 examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_man
 The manifest identity hashes every file, but not the machine-specific source
 path. A verified copy therefore has the same model identity on either system.
 
-## Fast Axolotl evaluator used for this run
+## Fast Axolotl evaluator used for the 2K and current runs
 
 This run directly calls
 `../Axolotl-Masked-SFT/scripts/openr1_axolotl/evaluate_math_vllm.py` at

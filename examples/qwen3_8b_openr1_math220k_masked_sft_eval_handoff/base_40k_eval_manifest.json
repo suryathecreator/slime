@@ -1,0 +1,87 @@
+{
+  "artifact_schema_version": 1,
+  "axolotl": {
+    "commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
+    "evaluator": "scripts/openr1_axolotl/evaluate_math_vllm.py",
+    "repository": "../Axolotl-Masked-SFT"
+  },
+  "benchmark": {
+    "full": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/_control/eval_benchmarks/math500.jsonl",
+    "sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+    "shards": [
+      "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/_control/eval_benchmarks/shard_00_000_125.jsonl",
+      "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/_control/eval_benchmarks/shard_01_125_250.jsonl",
+      "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/_control/eval_benchmarks/shard_02_250_375.jsonl",
+      "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/_control/eval_benchmarks/shard_03_375_500.jsonl"
+    ],
+    "smoke": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/_control/eval_benchmarks/smoke.jsonl"
+  },
+  "checkpoints": [
+    {
+      "family": "shared",
+      "final_iteration": null,
+      "full_sft": false,
+      "id": "base_8b",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/base_8b.json",
+      "model": "checkpoints/models/Qwen3-8B-Base",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/base_8b",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/base_8b",
+      "variant": "base_8b"
+    },
+    {
+      "family": "40k",
+      "final_iteration": 199,
+      "full_sft": true,
+      "id": "40k_correct_only",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/handoff/checkpoints/correct_only.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/outputs/training/correct_only/weights/iter_0000199",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/outputs/math500/correct_only",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_40k/results/correct_only",
+      "variant": "correct_only"
+    },
+    {
+      "family": "40k",
+      "final_iteration": 199,
+      "full_sft": true,
+      "id": "40k_weighted_tau_0p20",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/handoff/checkpoints/weighted_tau_0p20.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/outputs/training/weighted_tau_0p20/weights/iter_0000199",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/outputs/math500/weighted_tau_0p20",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_40k/results/weighted_tau_0p20",
+      "variant": "weighted_tau_0p20"
+    },
+    {
+      "family": "40k",
+      "final_iteration": 199,
+      "full_sft": true,
+      "id": "40k_unmasked",
+      "manifest": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/handoff/checkpoints/unmasked.json",
+      "model": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/outputs/training/unmasked/weights/iter_0000199",
+      "output": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/outputs/math500/unmasked",
+      "result": "examples/qwen3_8b_openr1_math220k_masked_sft_40k/results/unmasked",
+      "variant": "unmasked"
+    }
+  ],
+  "control_root": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_40k/v1/6ea372402facbc5e/outputs/math500/_control_base_40k",
+  "dataset": {
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "row_order": "original_500",
+    "split": "test"
+  },
+  "generation_policy": "examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/axolotl_eval_policy.json",
+  "report_json": "examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/SLIME_V4_RESULTS.json",
+  "report_md": "examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/SLIME_V4_RESULTS.md",
+  "rescore_policy": "examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/slime_v4_rescore_policy.json",
+  "runtime": {
+    "math_verify": "0.9.0",
+    "torch": "2.8.0",
+    "transformers": "4.57.6",
+    "vllm": "0.10.2"
+  },
+  "scorer": {
+    "module": "examples/qwen3_8b_32b_full_repro/math500_scorer_v4.py",
+    "version": "math500_strict_boxed_units_scorer_v4"
+  },
+  "tokenizer": "checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/_control/tokenizer_49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
+}

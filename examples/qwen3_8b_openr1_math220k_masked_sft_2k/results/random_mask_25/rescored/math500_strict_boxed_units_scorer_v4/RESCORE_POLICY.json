@@ -1,0 +1,13 @@
+{
+  "answer_units": "strip only recognized explicit presentation units from the candidate and gold before equivalence checking; preserve the original boxed candidate and categorical text answers in the trace",
+  "artifact_schema_version": 1,
+  "cap_hits": "officially incorrect; strict-box result retained as a counterfactual diagnostic",
+  "generated_text": "score the complete saved generation verbatim without inference, continuation, truncation, or retokenization",
+  "gold_answer": "reuse the correct_answer stored with the immutable source prediction after verifying it against the canonical benchmark",
+  "scorer": {
+    "module": "examples/qwen3_8b_32b_full_repro/math500_scorer_v4.py",
+    "version": "math500_strict_boxed_units_scorer_v4"
+  },
+  "source_join": "join merged prediction and raw-generation records by problem_id in canonical MATH-500 order",
+  "stop_token_id": "null when the source Axolotl artifact did not retain the exact stopping token; diagnostic only and not used in the V4 correctness decision"
+}

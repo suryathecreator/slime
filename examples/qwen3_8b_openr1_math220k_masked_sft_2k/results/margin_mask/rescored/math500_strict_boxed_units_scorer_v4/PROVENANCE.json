@@ -1,0 +1,16 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/handoff/checkpoints/margin_mask.json",
+  "checkpoint_manifest_sha256": "911cd3d71195e80950810e790723eb9fee53e5525f38f747a113783958f3acb4",
+  "generation_policy_sha256": "27f7c02acac40231c48b25ceaeb94b1670ac75f8cf6c35143e432373f5871bcf",
+  "raw_results": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/margin_mask/rescored/math500_strict_boxed_units_scorer_v4",
+  "rescore_policy_sha256": "3c9c6e66820786781b2c4a274c9dbf55ac77e80478e7d21697c01f2420ec5e20",
+  "scorer_module_sha256": "ac871046632f5b2f5715049e52b2b6983f47d292babd400e4378592ba7d05d25",
+  "source_predictions": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/margin_mask/merged/predictions.jsonl",
+  "source_predictions_sha256": "d56ea1437486ecf8d7294a82082c14f2dcf21eee9f529f46e2c6cac2cffe3bfe",
+  "source_raw_generations": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_8b_openr1_math220k_masked_sft_2k/v1/5c3230a293f7acb2/outputs/math500/margin_mask/merged/raw_generations.jsonl",
+  "source_raw_generations_sha256": "558fc3752ac86334ae00d5d413dbc8a1ae549e369b5be3302e704aef7a0e6695",
+  "stage": "2k_margin_mask",
+  "stop_token_id": null,
+  "stop_token_note": "The source Axolotl artifact did not retain the exact stopping token. This diagnostic field does not affect V4 correctness."
+}
