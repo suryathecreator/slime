@@ -1,0 +1,117 @@
+{
+  "artifact_schema_version": 1,
+  "base_model": {
+    "hf_repo": "Qwen/Qwen2.5-7B",
+    "revision": "d149729398750b98c0af14eb82c78cfe92750796"
+  },
+  "checkpoints": [
+    {
+      "family": "shared",
+      "final_iteration": null,
+      "full_sft": false,
+      "id": "base_7b",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/models/Qwen2.5-7B",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/base_7b.json",
+      "variant": "base_7b"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_correct_only",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/correct_only/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/correct_only.json",
+      "variant": "correct_only"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_unmasked",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/unmasked/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/unmasked.json",
+      "variant": "unmasked"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_70",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/random_mask_70/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/random_mask_70.json",
+      "variant": "random_mask_70"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_inverse_tau_0p20",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/inverse_tau_0p20/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/inverse_tau_0p20.json",
+      "variant": "inverse_tau_0p20"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_inverse_tau_0p05",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/inverse_tau_0p05/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/inverse_tau_0p05.json",
+      "variant": "inverse_tau_0p05"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_25",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/random_mask_25/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/random_mask_25.json",
+      "variant": "random_mask_25"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_50",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/random_mask_50/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/random_mask_50.json",
+      "variant": "random_mask_50"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_80",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/random_mask_80/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/random_mask_80.json",
+      "variant": "random_mask_80"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_random_mask_90",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/random_mask_90/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/random_mask_90.json",
+      "variant": "random_mask_90"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_margin_mask",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/margin_mask/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/margin_mask.json",
+      "variant": "margin_mask"
+    },
+    {
+      "family": "2k",
+      "final_iteration": 9,
+      "full_sft": true,
+      "id": "2k_prob_ratio_mask",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/outputs/training/prob_ratio_mask/weights/iter_0000009",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2_5-7b-openr1-masked-sft-2k/v1/6cfd7bd235e078b8/handoff/checkpoints/prob_ratio_mask.json",
+      "variant": "prob_ratio_mask"
+    }
+  ]
+}

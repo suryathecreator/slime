@@ -12,7 +12,7 @@ from typing import Any
 
 from examples.qwen3_8b_openr1_math220k_masked_sft_40k.data_utils import (
     atomic_json,
-    chat_prefix_ids,
+    normalize_token_ids,
     token_sha256,
     user_content,
 )
@@ -29,6 +29,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--max-sequence-length", type=int, default=32768)
     parser.add_argument("--expected-wrong", type=int, default=20000)
+    parser.add_argument(
+        "--chat-template-kwargs",
+        default='{"enable_thinking": true}',
+        help="JSON object forwarded to apply_chat_template",
+    )
     return parser.parse_args()
 
 
@@ -123,14 +128,33 @@ def score_batch(model: Any, sequences: list[list[int]], prompt_lengths: list[int
     return results
 
 
-def score_prompt_variant(tokenizer: Any, model: Any, rows: list[dict[str, Any]], conditioned: bool, max_length: int) -> list[list[float]]:
+def score_prompt_variant(
+    tokenizer: Any,
+    model: Any,
+    rows: list[dict[str, Any]],
+    conditioned: bool,
+    max_length: int,
+    chat_template_kwargs: dict[str, Any] | None = None,
+) -> list[list[float]]:
     """Score a batch with or without the known correct answer in the prompt."""
     prompts: list[list[int]] = []
     traces: list[list[int]] = []
     sequences: list[list[int]] = []
     for row in rows:
         answer = str(row["answer"]) if conditioned else None
-        prompt_ids = chat_prefix_ids(tokenizer, user_content(str(row["problem"]), answer))
+        prompt_ids = normalize_token_ids(
+            tokenizer.apply_chat_template(
+                [
+                    {
+                        "role": "user",
+                        "content": user_content(str(row["problem"]), answer),
+                    }
+                ],
+                tokenize=True,
+                add_generation_prompt=True,
+                **(chat_template_kwargs or {}),
+            )
+        )
         trace_ids = [int(token) for token in tokenizer.encode(str(row["assistant_trace"]), add_special_tokens=False)]
         if token_sha256(trace_ids) != row["assistant_token_sha256"]:
             raise ValueError(f"token hash drift for {row['trace_id']}")
@@ -148,6 +172,9 @@ def main() -> None:
     if not 0 <= args.shard_index < args.num_shards:
         raise ValueError("invalid shard index")
     assigned = load_assigned(args)
+    chat_template_kwargs = json.loads(args.chat_template_kwargs)
+    if not isinstance(chat_template_kwargs, dict):
+        raise ValueError("--chat-template-kwargs must decode to a JSON object")
     pending = [row for row in assigned if not compatible_record(record_path(args.output_dir, int(row["wrong_index"])), row)]
     print(
         f"MARGIN_SHARD_START shard={args.shard_index}/{args.num_shards} assigned={len(assigned)} pending={len(pending)}",
@@ -171,8 +198,22 @@ def main() -> None:
         model.eval()
         for start in range(0, len(pending), args.batch_size):
             batch = pending[start : start + args.batch_size]
-            unconditioned = score_prompt_variant(tokenizer, model, batch, False, args.max_sequence_length)
-            conditioned = score_prompt_variant(tokenizer, model, batch, True, args.max_sequence_length)
+            unconditioned = score_prompt_variant(
+                tokenizer,
+                model,
+                batch,
+                False,
+                args.max_sequence_length,
+                chat_template_kwargs,
+            )
+            conditioned = score_prompt_variant(
+                tokenizer,
+                model,
+                batch,
+                True,
+                args.max_sequence_length,
+                chat_template_kwargs,
+            )
             for row, uncond, cond in zip(batch, unconditioned, conditioned, strict=True):
                 if len(uncond) != len(cond) or len(uncond) != int(row["assistant_token_count"]):
                     raise ValueError(f"score alignment failure for {row['trace_id']}")
@@ -206,6 +247,7 @@ def main() -> None:
             "assigned": len(assigned),
             "complete": complete,
             "model": args.model,
+            "chat_template_kwargs": chat_template_kwargs,
             "num_shards": args.num_shards,
             "shard_index": args.shard_index,
         },

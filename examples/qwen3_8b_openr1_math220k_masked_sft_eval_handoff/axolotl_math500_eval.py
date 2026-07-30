@@ -39,6 +39,8 @@ EXPECTED_VARIANTS = {
     "margin_mask",
     "prob_ratio_mask",
 }
+EXPECTED_CHECKPOINT_COUNT = len(EXPECTED_VARIANTS)
+APPROVED_BASE_REVISION = "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
 EXPECTED_BASE_TOKENIZER_FILES = {
     "chat_template.jinja": (
         "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
@@ -172,16 +174,20 @@ def load_inventory(
             raise FileNotFoundError(path)
     value = load_json(path)
     checkpoints = value.get("checkpoints")
-    if not isinstance(checkpoints, list) or len(checkpoints) != 11:
-        raise RuntimeError("available eval manifest must contain 11 checkpoints")
+    if (
+        not isinstance(checkpoints, list)
+        or len(checkpoints) != EXPECTED_CHECKPOINT_COUNT
+    ):
+        raise RuntimeError(
+            "available eval manifest must contain "
+            f"{EXPECTED_CHECKPOINT_COUNT} checkpoints"
+        )
     variants = [str(item["variant"]) for item in checkpoints]
     if len(set(variants)) != len(variants) or set(variants) != EXPECTED_VARIANTS:
         raise RuntimeError(
-            "available checkpoint variants differ from the approved eleven"
+            "available checkpoint variants differ from the approved set"
         )
-    if value["base_model"]["revision"] != (
-        "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
-    ):
+    if value["base_model"]["revision"] != APPROVED_BASE_REVISION:
         raise RuntimeError("base model revision is not the approved pin")
     if value["base_model"].get("tokenizer_files") != (
         EXPECTED_BASE_TOKENIZER_FILES
@@ -336,37 +342,23 @@ def prepare_tokenizer_overlay(
                 f"expected={expected_hash} actual={actual_hash}"
             )
 
+    destination = tokenizer_root(repo_root, inventory)
     original_config = load_json(source / "tokenizer_config.json")
     extra_tokens = original_config.get("extra_special_tokens")
-    if not isinstance(extra_tokens, list) or not all(
-        isinstance(value, str) for value in extra_tokens
-    ):
-        raise RuntimeError(
-            "expected the transferred tokenizer's list-form "
-            "extra_special_tokens compatibility issue"
-        )
-    compatible_config = dict(original_config)
-    compatible_config["extra_special_tokens"] = {}
-    destination = tokenizer_root(repo_root, inventory)
-    atomic_bytes(
-        destination / "tokenizer.json",
-        (source / "tokenizer.json").read_bytes(),
+    needs_compatibility_transform = (
+        "chat_template.jinja" in expected_hashes
+        and isinstance(extra_tokens, list)
+        and all(isinstance(value, str) for value in extra_tokens)
     )
-    atomic_bytes(
-        destination / "chat_template.jinja",
-        (source / "chat_template.jinja").read_bytes(),
-    )
-    atomic_text(
-        destination / "tokenizer_config.json",
-        canonical_json(compatible_config),
-    )
-    provenance = {
-        "artifact_schema_version": 1,
-        "base_model": {
-            "hf_repo": inventory["base_model"]["hf_repo"],
-            "revision": inventory["base_model"]["revision"],
-        },
-        "compatibility_transform": {
+    for name in expected_hashes:
+        if name == "tokenizer_config.json" and needs_compatibility_transform:
+            compatible_config = dict(original_config)
+            compatible_config["extra_special_tokens"] = {}
+            atomic_text(destination / name, canonical_json(compatible_config))
+        else:
+            atomic_bytes(destination / name, (source / name).read_bytes())
+    compatibility_transform = (
+        {
             "field": "extra_special_tokens",
             "from": extra_tokens,
             "reason": (
@@ -376,7 +368,22 @@ def prepare_tokenizer_overlay(
                 "tokenizer.json, token IDs, or the chat template."
             ),
             "to": {},
+        }
+        if needs_compatibility_transform
+        else {
+            "field": None,
+            "from": None,
+            "reason": "Pinned tokenizer files load directly in the approved runtime.",
+            "to": None,
+        }
+    )
+    provenance = {
+        "artifact_schema_version": 1,
+        "base_model": {
+            "hf_repo": inventory["base_model"]["hf_repo"],
+            "revision": inventory["base_model"]["revision"],
         },
+        "compatibility_transform": compatibility_transform,
         "files": {
             name: {
                 "destination_sha256": sha256_file(destination / name),
@@ -856,7 +863,11 @@ def audit(args: argparse.Namespace) -> None:
         "status": "complete",
     }
     atomic_text(output, canonical_json(value))
-    print(f"AXOLOTL_ALL_RESULTS_COMPLETE count=11 audit={output}", flush=True)
+    print(
+        f"AXOLOTL_ALL_RESULTS_COMPLETE count={EXPECTED_CHECKPOINT_COUNT} "
+        f"audit={output}",
+        flush=True,
+    )
 
 
 def mark_preflight(args: argparse.Namespace) -> None:
@@ -963,13 +974,13 @@ def record_submission(args: argparse.Namespace) -> None:
     arrays = assignments(args.array_job)
     merges = assignments(args.merge_job)
     if set(arrays) != EXPECTED_VARIANTS or set(merges) != EXPECTED_VARIANTS:
-        raise RuntimeError("submission journal does not cover all eleven variants")
+        raise RuntimeError("submission journal does not cover every approved variant")
     value = {
         "artifact_schema_version": 1,
         "array_jobs": arrays,
         "audit_job": args.audit_job,
-        "checkpoint_count": 11,
-        "eval_task_count": 44,
+        "checkpoint_count": EXPECTED_CHECKPOINT_COUNT,
+        "eval_task_count": EXPECTED_CHECKPOINT_COUNT * EXPECTED_SHARDS,
         "merge_jobs": merges,
         "preflight_job": args.preflight_job,
         "slurm": {

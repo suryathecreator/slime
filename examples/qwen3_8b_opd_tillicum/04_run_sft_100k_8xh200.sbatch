@@ -85,7 +85,15 @@ else
 fi
 echo "HAS_NVLINK=${HAS_NVLINK} (detected ${NVLINK_COUNT} NVLink references)"
 
-source scripts/models/qwen3-8B.sh
+SFT_MODEL_ARGS_SCRIPT="${SFT_MODEL_ARGS_SCRIPT:-scripts/models/qwen3-8B.sh}"
+[[ -f "${SFT_MODEL_ARGS_SCRIPT}" ]] || {
+  echo "Missing SFT model argument script: ${SFT_MODEL_ARGS_SCRIPT}" >&2
+  exit 1
+}
+source "${SFT_MODEL_ARGS_SCRIPT}"
+SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON="${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON:-{\"enable_thinking\": true}}"
+echo "SFT model args script: ${SFT_MODEL_ARGS_SCRIPT}"
+echo "SFT chat template kwargs: ${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON}"
 
 if [[ "${SFT_LOSS_MASK_PREFLIGHT_ENABLED}" == "1" ]]; then
   PREFLIGHT_ARGS=(
@@ -185,7 +193,7 @@ SFT_ARGS=(
   --global-batch-size "${SFT_GLOBAL_BATCH_SIZE}"
   --loss-type sft_loss
   --loss-mask-type "${SFT_LOSS_MASK_TYPE}"
-  --apply-chat-template-kwargs "{\"enable_thinking\": true}"
+  --apply-chat-template-kwargs "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON}"
   --calculate-per-token-loss
   --disable-compute-advantages-and-returns
   --debug-train-only
