@@ -13,9 +13,17 @@ set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen2_5_7b_openr1_math220k_masked_sft_2k"
 HANDOFF_DIR="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff"
 source "${SCRIPT_DIR}/env.sh"
-mkdir -p "${MODEL_ROOT}" "${SLURM_LOG_DIR}" "${TMPDIR}"
+: "${SLURM_JOB_ID:?Model preparation must run under Slurm}"
+
+# Megatron's async torch_dist writer creates multiprocessing AF_UNIX sockets.
+# Keep them off the long contract-root path used by the shared environment.
+export TMPDIR="/tmp/${USER:-suryadv}/q25-model-${SLURM_JOB_ID}"
+export RAY_TMPDIR="${TMPDIR}/ray"
+mkdir -p "${MODEL_ROOT}" "${SLURM_LOG_DIR}" "${TMPDIR}" "${RAY_TMPDIR}"
 exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
 
+"${SCRIPT_DIR}/container_exec.sh" python3 \
+  "${SCRIPT_DIR}/check_checkpoint_tmpdir.py"
 "${SCRIPT_DIR}/container_exec.sh" bash -lc '
 set -euo pipefail
 cd "${SLIME_REPO_ROOT}"

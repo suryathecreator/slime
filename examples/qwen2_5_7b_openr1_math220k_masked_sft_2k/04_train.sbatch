@@ -19,7 +19,7 @@ export TMPDIR="/tmp/${USER:-suryadv}/q25-2k-${SLURM_JOB_ID}"
 export RAY_TMPDIR="${TMPDIR}/ray"
 mkdir -p "${TMPDIR}" "${RAY_TMPDIR}"
 "${SCRIPT_DIR}/container_exec.sh" python3 \
-  "${SCRIPT_DIR}/../qwen3_8b_openr1_math220k_masked_sft_40k/check_train_tmpdir.py"
+  "${SCRIPT_DIR}/check_checkpoint_tmpdir.py"
 case "${SFT_VARIANT}" in
   correct_only) SFT_PARQUET="${CORRECT_ONLY_JSONL}" ;;
   unmasked) SFT_PARQUET="${UNMASKED_JSONL}" ;;

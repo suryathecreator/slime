@@ -66,3 +66,17 @@ normalizing `input_ids`. After the repair commit is pushed,
 job and rewires pending data job `198095`. Jobs `198095` through `198108`
 remain the original strict downstream chain; the repair writes an immutable
 manifest under the experiment manifest directory.
+
+## One-time conversion-socket repair
+
+Replacement model-preparation job `198594` passed the base-model validator but
+failed while saving the first Megatron torch-dist checkpoint. The async writer
+created a `multiprocessing.Manager` socket under the long GPFS contract
+`TMPDIR`, which exceeded the AF_UNIX path limit. Model preparation and every
+training job now use a short node-local `/tmp` path and execute the same
+manager-queue primitive as a fail-fast preflight.
+
+`resubmit_after_conversion_tmpdir.sh` preserves the non-resumable partial
+conversion with hashes, submits one replacement model-preparation job, and
+rewires only data job `198095`. The original jobs `198095` through `198108`
+remain the downstream chain.

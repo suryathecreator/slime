@@ -85,6 +85,7 @@ def main() -> None:
         repo / "examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch": "SFT_MODEL_ARGS_SCRIPT",
         repo / "examples/qwen3_8b_opd_tillicum/container_exec.sh": "SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON",
         example / "build_variants.py": "if index in protected:",
+        example / "check_checkpoint_tmpdir.py": "multiprocessing.Manager()",
         example / "weighted_sft_rollout.py": "weights[index] != 1.0",
     }
     for path, needle in required_source.items():

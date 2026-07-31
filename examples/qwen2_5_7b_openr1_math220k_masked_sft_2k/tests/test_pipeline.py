@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from examples.qwen2_5_7b_openr1_math220k_masked_sft_2k.build_variants import wrong_weights
+from examples.qwen2_5_7b_openr1_math220k_masked_sft_2k import (
+    check_checkpoint_tmpdir,
+)
 from examples.qwen2_5_7b_openr1_math220k_masked_sft_2k.data_utils import (
     protected_assistant_positions,
     stable_unit_interval,
@@ -160,6 +164,74 @@ def test_model_validation_repair_reuses_the_pending_chain():
     assert '"reused_jobs": list(range(198095, 198109))' in text
     assert '"${SCRIPT_DIR}/container_exec.sh" python3 \\' in text
     assert '"${SCRIPT_DIR}/validate_base_model.py" --model "${STUDENT_HF_DIR}"' in text
+    scancel_lines = [
+        line for line in text.splitlines() if line.lstrip().startswith("scancel")
+    ]
+    assert scancel_lines == ['      scancel "${replacement_job}" || true']
+
+
+def test_checkpoint_tmpdir_preflight_round_trip(monkeypatch):
+    class FakeQueue:
+        def __init__(self):
+            self.value = None
+
+        def put(self, value):
+            self.value = value
+
+        def get(self, timeout):
+            assert timeout == 5
+            return self.value
+
+    class FakeManager:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def Queue(self):
+            return FakeQueue()
+
+    configured = Path("/tmp") / f"q25-test-{os.getpid()}"
+    configured.mkdir(exist_ok=True)
+    monkeypatch.setenv("TMPDIR", str(configured))
+    monkeypatch.setattr(
+        check_checkpoint_tmpdir.tempfile, "gettempdir", lambda: str(configured)
+    )
+    monkeypatch.setattr(check_checkpoint_tmpdir.multiprocessing, "Manager", FakeManager)
+    try:
+        check_checkpoint_tmpdir.main()
+    finally:
+        configured.rmdir()
+
+
+def test_model_prep_uses_short_checkpoint_tmpdir_and_preflight():
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "00_prepare_model.sbatch").read_text()
+    assert 'export TMPDIR="/tmp/${USER:-suryadv}/q25-model-${SLURM_JOB_ID}"' in text
+    assert 'export RAY_TMPDIR="${TMPDIR}/ray"' in text
+    assert '"${SCRIPT_DIR}/check_checkpoint_tmpdir.py"' in text
+
+
+def test_conversion_tmpdir_repair_preserves_and_reuses_the_pending_chain():
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "resubmit_after_conversion_tmpdir.sh").read_text()
+    assert "readonly FAILED_MODEL_JOB=198594" in text
+    assert "readonly BLOCKED_DATA_JOB=198095" in text
+    assert "readonly NEXT_SMOKE_JOB=198096" in text
+    assert "readonly TAIL_TRAIN_JOB=198108" in text
+    assert "OSError: AF_UNIX path too long" in text
+    assert 'mv -- "${PARTIAL_DIR}" "${FAILED_ARCHIVE}"' in text
+    assert "--job-name=q25-7b-model-r2" in text
+    assert 'Dependency="afterok:${replacement_job}"' in text
+    assert '"reused_jobs": list(range(198095, 198109))' in text
+    assert text.index("trap fail_closed EXIT") < text.index(
+        'mv -- "${PARTIAL_DIR}" "${FAILED_ARCHIVE}"'
+    )
+    assert text.index('mv -- "${PARTIAL_DIR}" "${FAILED_ARCHIVE}"') < text.index(
+        'raw="$(sbatch'
+    )
+    assert text.index('raw="$(sbatch') < text.index("scontrol update")
     scancel_lines = [
         line for line in text.splitlines() if line.lstrip().startswith("scancel")
     ]
