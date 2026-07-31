@@ -101,3 +101,11 @@ single double-quoted `python3 -c` command, and the regression suite parses the
 actual container payload with `bash -n` and forbids embedded single quotes.
 `resubmit_after_smoke_validator_packaging.sh` archives that second zero-step
 attempt and performs the same one-edge repair at score job `198097`.
+
+Correctly packaged replacement `199393` loaded the base model and generated
+rollout `1`, but performed no optimizer step because the converted base's
+checkpoint iteration inferred start rollout `1` while a one-batch smoke has
+exclusive stop rollout `1`. Fresh base torch-dist initialization now passes
+`--start-rollout-id 0`; SFT checkpoint resumes retain their inferred rollout.
+`resubmit_after_smoke_start_rollout.sh` archives this third zero-step attempt
+and again repairs only the dependency into score job `198097`.

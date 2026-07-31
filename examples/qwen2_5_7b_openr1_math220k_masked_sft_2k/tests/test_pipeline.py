@@ -291,6 +291,20 @@ def test_shared_sft_rejects_malformed_chat_template_json():
     assert result.returncode != 0
 
 
+def test_fresh_base_sft_starts_at_rollout_zero_but_resume_does_not():
+    runner = (
+        Path(__file__).resolve().parents[2]
+        / "qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch"
+    ).read_text()
+    condition = 'if [[ "${SFT_LOAD_KIND}" == "base_megatron_torch_dist_initial" ]]'
+    override = "SFT_ARGS+=(--start-rollout-id 0)"
+    assert condition in runner
+    assert override in runner
+    assert runner.index(condition) < runner.index(override)
+    assert list(range(0, 1)) == [0]
+    assert list(range(1, 1)) == []
+
+
 def test_smoke_json_repair_preserves_the_pending_chain():
     root = Path(__file__).resolve().parents[1]
     text = (root / "resubmit_after_smoke_json.sh").read_text()
@@ -324,6 +338,28 @@ def test_smoke_packaging_repair_preserves_the_pending_chain():
     assert "syntax error: unexpected end of file" in text
     assert 'mv -- "${FAILED_OUTPUT}" "${FAILED_ARCHIVE}"' in text
     assert "--job-name=q25-7b-smoke-r2" in text
+    assert 'Dependency="afterok:${replacement_job}"' in text
+    assert '"reused_jobs": list(range(198097, 198109))' in text
+    assert text.index("trap fail_closed EXIT") < text.index(
+        'mv -- "${FAILED_OUTPUT}" "${FAILED_ARCHIVE}"'
+    )
+    assert text.index('raw="$(sbatch') < text.index("scontrol update")
+    scancel_lines = [
+        line for line in text.splitlines() if line.lstrip().startswith("scancel")
+    ]
+    assert scancel_lines == ['      scancel "${replacement_job}" || true']
+
+
+def test_smoke_start_rollout_repair_preserves_the_pending_chain():
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "resubmit_after_smoke_start_rollout.sh").read_text()
+    assert "readonly FAILED_SMOKE_JOB=199393" in text
+    assert "readonly BLOCKED_SCORE_JOB=198097" in text
+    assert "readonly FIRST_TRAIN_JOB=198098" in text
+    assert "readonly TAIL_TRAIN_JOB=198108" in text
+    assert "fresh converted base inferred start rollout 1" in text
+    assert 'mv -- "${FAILED_OUTPUT}" "${FAILED_ARCHIVE}"' in text
+    assert "--job-name=q25-7b-smoke-r3" in text
     assert 'Dependency="afterok:${replacement_job}"' in text
     assert '"reused_jobs": list(range(198097, 198109))' in text
     assert text.index("trap fail_closed EXIT") < text.index(

@@ -203,6 +203,12 @@ SFT_ARGS=(
   --debug-train-only
   --dump-details "${SFT_DETAILS_DIR}"
 )
+if [[ "${SFT_LOAD_KIND}" == "base_megatron_torch_dist_initial" ]]; then
+  # Converted base checkpoints carry checkpoint iteration 0, but no optimizer
+  # step has run. Override the inferred next actor rollout so fresh SFT
+  # executes rollout 0 instead of skipping it.
+  SFT_ARGS+=(--start-rollout-id 0)
+fi
 
 PERF_ARGS=(
   --tensor-model-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"
