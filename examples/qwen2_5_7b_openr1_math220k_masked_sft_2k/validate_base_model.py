@@ -8,6 +8,10 @@ import hashlib
 import json
 from pathlib import Path
 
+from examples.qwen2_5_7b_openr1_math220k_masked_sft_2k.data_utils import (
+    normalize_token_ids,
+)
+
 
 EXPECTED_CONFIG = {
     "model_type": "qwen2",
@@ -47,6 +51,36 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def validate_weight_inventory(model: Path) -> list[str]:
+    index_path = model / "model.safetensors.index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    weight_map = index.get("weight_map")
+    if not isinstance(weight_map, dict) or not weight_map:
+        raise ValueError("Qwen2.5 safetensors index has no weight map")
+    shard_names = sorted({str(value) for value in weight_map.values()})
+    if shard_names != [
+        "model-00001-of-00004.safetensors",
+        "model-00002-of-00004.safetensors",
+        "model-00003-of-00004.safetensors",
+        "model-00004-of-00004.safetensors",
+    ]:
+        raise ValueError(f"Qwen2.5 weight shard inventory drift: {shard_names}")
+    for shard_name in shard_names:
+        shard = model / shard_name
+        if not shard.is_file() or shard.stat().st_size <= 0:
+            raise ValueError(f"missing or empty Qwen2.5 weight shard: {shard}")
+    return shard_names
+
+
+def generation_prompt_ids(tokenizer: object) -> list[int]:
+    rendered = tokenizer.apply_chat_template(
+        [{"role": "user", "content": "x"}],
+        tokenize=True,
+        add_generation_prompt=True,
+    )
+    return normalize_token_ids(rendered)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, required=True)
@@ -59,6 +93,7 @@ def main() -> None:
         actual = sha256(args.model / name)
         if actual != expected:
             raise ValueError(f"pinned tokenizer hash drift {name}: {actual}")
+    weight_shards = validate_weight_inventory(args.model)
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(
         args.model, trust_remote_code=True, local_files_only=True
@@ -71,16 +106,12 @@ def main() -> None:
         raise ValueError(f"Qwen2.5 added-token inventory drift: {actual_added}")
     if tokenizer.eos_token_id != 151643 or tokenizer.pad_token_id != 151643:
         raise ValueError("Qwen2.5 EOS/pad IDs drifted")
-    rendered = tokenizer.apply_chat_template(
-        [{"role": "user", "content": "x"}],
-        tokenize=True,
-        add_generation_prompt=True,
-    )
-    if list(map(int, rendered))[-1] != 198:
+    rendered_ids = generation_prompt_ids(tokenizer)
+    if rendered_ids[-3:] != [151644, 77091, 198]:
         raise ValueError("Qwen2.5 generation prompt no longer ends at the assistant newline")
     print(
         "QWEN25_BASE_VALID architecture=Qwen2ForCausalLM native_context=131072 "
-        "experiment_context=32768 added_controls=22",
+        f"experiment_context=32768 added_controls=22 weight_shards={len(weight_shards)}",
         flush=True,
     )
 

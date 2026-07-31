@@ -21,11 +21,11 @@ set -euo pipefail
 cd "${SLIME_REPO_ROOT}"
 export HF_HUB_OFFLINE=0
 export TRANSFORMERS_OFFLINE=0
-if [[ ! -f "${STUDENT_HF_DIR}/config.json" ]]; then
-  hf download "${STUDENT_HF_REPO}" \
-    --revision "${STUDENT_HF_REVISION}" \
-    --local-dir "${STUDENT_HF_DIR}"
-fi
+# This is intentionally unconditional and idempotent. A prior failed attempt
+# may have written config.json before every pinned weight shard completed.
+hf download "${STUDENT_HF_REPO}" \
+  --revision "${STUDENT_HF_REVISION}" \
+  --local-dir "${STUDENT_HF_DIR}"
 python3 examples/qwen2_5_7b_openr1_math220k_masked_sft_2k/validate_base_model.py \
   --model "${STUDENT_HF_DIR}"
 if [[ ! -f "${STUDENT_TORCH_DIST_DIR}/latest_checkpointed_iteration.txt" ]]; then

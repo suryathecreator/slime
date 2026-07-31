@@ -56,3 +56,13 @@ Each final HF checkpoint is `weights/iter_0000009` with a content-addressed
 manifest. The base and all eleven checkpoints are transferred and evaluated
 through
 `../qwen2_5_7b_openr1_math220k_masked_sft_eval_handoff/`.
+
+## One-time model-validation repair
+
+Initial model-preparation job `198094` completed the pinned base download but
+failed because its validator iterated `BatchEncoding` keys instead of
+normalizing `input_ids`. After the repair commit is pushed,
+`resubmit_after_model_validation.sh` submits one replacement model-preparation
+job and rewires pending data job `198095`. Jobs `198095` through `198108`
+remain the original strict downstream chain; the repair writes an immutable
+manifest under the experiment manifest directory.

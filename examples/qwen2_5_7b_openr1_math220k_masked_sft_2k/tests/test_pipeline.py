@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -18,6 +19,9 @@ from examples.qwen2_5_7b_openr1_math220k_masked_sft_2k.prepare_from_axolotl impo
 from examples.qwen2_5_7b_openr1_math220k_masked_sft_2k.weighted_sft_rollout import (
     generate_rollout,
 )
+from examples.qwen2_5_7b_openr1_math220k_masked_sft_2k.validate_base_model import (
+    generation_prompt_ids,
+)
 
 
 class FakeTokenizer:
@@ -27,6 +31,32 @@ class FakeTokenizer:
     def encode(self, text, add_special_tokens=False):
         assert add_special_tokens is False
         return {"<think>": [7, 8], "</think>": [9, 10]}[text]
+
+
+class FakeChatTokenizer:
+    def __init__(self, rendered):
+        self.rendered = rendered
+
+    def apply_chat_template(self, messages, tokenize, add_generation_prompt):
+        assert messages == [{"role": "user", "content": "x"}]
+        assert tokenize is True
+        assert add_generation_prompt is True
+        return self.rendered
+
+
+@pytest.mark.parametrize(
+    "rendered",
+    (
+        [151644, 77091, 198],
+        {"input_ids": [151644, 77091, 198], "attention_mask": [1, 1, 1]},
+    ),
+)
+def test_generation_prompt_accepts_list_and_batch_encoding_shapes(rendered):
+    assert generation_prompt_ids(FakeChatTokenizer(rendered)) == [
+        151644,
+        77091,
+        198,
+    ]
 
 
 def test_stable_draw_is_repeatable():
@@ -116,3 +146,19 @@ def test_rollout_rejects_a_downweighted_protected_control():
     args = SimpleNamespace(rollout_global_dataset=True, rollout_batch_size=1)
     with pytest.raises(ValueError, match="protected assistant controls"):
         generate_rollout(args, 0, buffer)
+
+
+def test_model_validation_repair_reuses_the_pending_chain():
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "resubmit_after_model_validation.sh").read_text()
+    assert "readonly FAILED_MODEL_JOB=198094" in text
+    assert "readonly BLOCKED_DATA_JOB=198095" in text
+    assert "readonly NEXT_SMOKE_JOB=198096" in text
+    assert "readonly TAIL_TRAIN_JOB=198108" in text
+    assert 'scontrol update \\\n  JobId="${BLOCKED_DATA_JOB}"' in text
+    assert 'Dependency="afterok:${replacement_job}"' in text
+    assert '"reused_jobs": list(range(198095, 198109))' in text
+    scancel_lines = [
+        line for line in text.splitlines() if line.lstrip().startswith("scancel")
+    ]
+    assert scancel_lines == ['      scancel "${replacement_job}" || true']
