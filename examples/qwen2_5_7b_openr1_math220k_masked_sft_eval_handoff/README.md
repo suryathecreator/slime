@@ -22,6 +22,10 @@ bash examples/qwen2_5_7b_openr1_math220k_masked_sft_eval_handoff/rsync_to_klone.
 bash examples/qwen2_5_7b_openr1_math220k_masked_sft_eval_handoff/rsync_to_klone.sh --verify
 ```
 
+Remote verification uses the sibling Axolotl checkout's `.venv/bin/python`,
+not Klone's legacy system `python3`. Set `REMOTE_PYTHON` only if that venv is
+located elsewhere.
+
 On Klone, with this branch checked out and the sibling Axolotl repository at
 the pinned commit:
 

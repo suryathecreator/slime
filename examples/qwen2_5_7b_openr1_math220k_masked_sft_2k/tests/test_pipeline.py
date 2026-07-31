@@ -340,6 +340,18 @@ def test_training_status_publishes_all_full_sft_checkpoints():
     assert status["handoff"]["local_full_file_hashes_verified"] == 12
 
 
+def test_remote_rsync_verification_uses_the_eval_venv():
+    examples = Path(__file__).resolve().parents[2]
+    script = (
+        examples
+        / "qwen2_5_7b_openr1_math220k_masked_sft_eval_handoff"
+        / "rsync_to_klone.sh"
+    ).read_text()
+    assert "Axolotl-Masked-SFT/.venv/bin/python" in script
+    assert 'ssh "$REMOTE_HOST" "$REMOTE_PYTHON"' in script
+    assert 'ssh "$REMOTE_HOST" python3' not in script
+
+
 def test_smoke_json_repair_preserves_the_pending_chain():
     root = Path(__file__).resolve().parents[1]
     text = (root / "resubmit_after_smoke_json.sh").read_text()
