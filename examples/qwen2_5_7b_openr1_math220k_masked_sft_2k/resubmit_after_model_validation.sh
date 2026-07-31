@@ -90,7 +90,8 @@ PY
   echo "Downstream artifacts unexpectedly exist; refusing narrow repair." >&2
   exit 1
 }
-python3 "${SCRIPT_DIR}/validate_base_model.py" --model "${STUDENT_HF_DIR}"
+"${SCRIPT_DIR}/container_exec.sh" python3 \
+  "${SCRIPT_DIR}/validate_base_model.py" --model "${STUDENT_HF_DIR}"
 
 export REPAIR_COMMIT REPAIR_PENDING FAILED_LOG
 REPAIR_COMMIT="$(git rev-parse HEAD)"

@@ -158,6 +158,8 @@ def test_model_validation_repair_reuses_the_pending_chain():
     assert 'scontrol update \\\n  JobId="${BLOCKED_DATA_JOB}"' in text
     assert 'Dependency="afterok:${replacement_job}"' in text
     assert '"reused_jobs": list(range(198095, 198109))' in text
+    assert '"${SCRIPT_DIR}/container_exec.sh" python3 \\' in text
+    assert '"${SCRIPT_DIR}/validate_base_model.py" --model "${STUDENT_HF_DIR}"' in text
     scancel_lines = [
         line for line in text.splitlines() if line.lstrip().startswith("scancel")
     ]
