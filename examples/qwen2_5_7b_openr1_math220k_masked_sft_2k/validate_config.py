@@ -91,6 +91,15 @@ def main() -> None:
     for path, needle in required_source.items():
         if needle not in path.read_text(encoding="utf-8"):
             raise ValueError(f"required implementation missing in {path}")
+    shared_runner = (
+        repo / "examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch"
+    ).read_text(encoding="utf-8")
+    for needle in (
+        'if [[ -z "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON:-}" ]]',
+        "json.loads(sys.argv[1])",
+    ):
+        if needle not in shared_runner:
+            raise ValueError(f"shared SFT JSON validation missing: {needle}")
     for script in sorted(example.glob("*.sbatch")) + sorted(example.glob("*.sh")):
         subprocess.run(["bash", "-n", str(script)], check=True)
     if args.require_pushed_clean:

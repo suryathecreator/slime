@@ -12,11 +12,12 @@
 set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen2_5_7b_openr1_math220k_masked_sft_2k"
 source "${SCRIPT_DIR}/env.sh"
+: "${SLURM_JOB_ID:?Smoke training must run under Slurm}"
 export TMPDIR="/tmp/${USER:-suryadv}/q25-smoke-${SLURM_JOB_ID}"
 export RAY_TMPDIR="${TMPDIR}/ray"
 mkdir -p "${TMPDIR}" "${RAY_TMPDIR}" "${OUTPUT_ROOT}/smoke" "${SLURM_LOG_DIR}"
 "${SCRIPT_DIR}/container_exec.sh" python3 \
-  "${SCRIPT_DIR}/../qwen3_8b_openr1_math220k_masked_sft_40k/check_train_tmpdir.py"
+  "${SCRIPT_DIR}/check_checkpoint_tmpdir.py"
 export SFT_PARQUET="${OUTPUT_ROOT}/smoke/correct_only_first_200.jsonl"
 [[ ! -e "${SFT_PARQUET}" ]] || { echo "Refusing to overwrite ${SFT_PARQUET}" >&2; exit 1; }
 sed -n '1,200p' "${CORRECT_ONLY_JSONL}" >"${SFT_PARQUET}"

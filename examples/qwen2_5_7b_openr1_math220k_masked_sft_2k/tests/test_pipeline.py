@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import os
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -230,6 +231,80 @@ def test_conversion_tmpdir_repair_preserves_and_reuses_the_pending_chain():
     )
     assert text.index('mv -- "${PARTIAL_DIR}" "${FAILED_ARCHIVE}"') < text.index(
         'raw="$(sbatch'
+    )
+    assert text.index('raw="$(sbatch') < text.index("scontrol update")
+    scancel_lines = [
+        line for line in text.splitlines() if line.lstrip().startswith("scancel")
+    ]
+    assert scancel_lines == ['      scancel "${replacement_job}" || true']
+
+
+@pytest.mark.parametrize(
+    ("initial", "expected"),
+    (("{}", "{}"), ("", '{"enable_thinking": true}')),
+)
+def test_shared_sft_chat_template_json_resolution(initial, expected):
+    command = r'''
+set -euo pipefail
+SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON="$1"
+if [[ -z "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON:-}" ]]; then
+  SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON='{"enable_thinking": true}'
+fi
+python3 - "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON}" <<'PY'
+import json
+import sys
+value = json.loads(sys.argv[1])
+if not isinstance(value, dict):
+    raise SystemExit(2)
+print(sys.argv[1])
+PY
+'''
+    result = subprocess.run(
+        ["bash", "-c", command, "bash", initial],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout.strip() == expected
+
+
+def test_shared_sft_rejects_malformed_chat_template_json():
+    runner = (
+        Path(__file__).resolve().parents[2]
+        / "qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch"
+    ).read_text()
+    assert 'if [[ -z "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON:-}" ]]' in runner
+    assert "json.loads(sys.argv[1])" in runner
+    assert '${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON:-{\\"enable_thinking\\": true}}' not in runner
+    result = subprocess.run(
+        [
+            "python3",
+            "-c",
+            "import json, sys; value = json.loads(sys.argv[1]); "
+            "assert isinstance(value, dict)",
+            "{}}",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+
+
+def test_smoke_json_repair_preserves_the_pending_chain():
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "resubmit_after_smoke_json.sh").read_text()
+    assert "readonly COMPLETED_MODEL_JOB=199182" in text
+    assert "readonly COMPLETED_DATA_JOB=198095" in text
+    assert "readonly FAILED_SMOKE_JOB=198096" in text
+    assert "readonly BLOCKED_SCORE_JOB=198097" in text
+    assert "readonly FIRST_TRAIN_JOB=198098" in text
+    assert "readonly TAIL_TRAIN_JOB=198108" in text
+    assert 'mv -- "${FAILED_OUTPUT}" "${FAILED_ARCHIVE}"' in text
+    assert "--job-name=q25-7b-smoke-r1" in text
+    assert 'Dependency="afterok:${replacement_job}"' in text
+    assert '"reused_jobs": list(range(198097, 198109))' in text
+    assert text.index("trap fail_closed EXIT") < text.index(
+        'mv -- "${FAILED_OUTPUT}" "${FAILED_ARCHIVE}"'
     )
     assert text.index('raw="$(sbatch') < text.index("scontrol update")
     scancel_lines = [

@@ -91,7 +91,17 @@ SFT_MODEL_ARGS_SCRIPT="${SFT_MODEL_ARGS_SCRIPT:-scripts/models/qwen3-8B.sh}"
   exit 1
 }
 source "${SFT_MODEL_ARGS_SCRIPT}"
-SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON="${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON:-{\"enable_thinking\": true}}"
+if [[ -z "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON:-}" ]]; then
+  SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON='{"enable_thinking": true}'
+fi
+python3 - "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON}" <<'PY'
+import json
+import sys
+
+value = json.loads(sys.argv[1])
+if not isinstance(value, dict):
+    raise SystemExit("SFT chat template kwargs must be a JSON object")
+PY
 echo "SFT model args script: ${SFT_MODEL_ARGS_SCRIPT}"
 echo "SFT chat template kwargs: ${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON}"
 

@@ -80,3 +80,16 @@ manager-queue primitive as a fail-fast preflight.
 conversion with hashes, submits one replacement model-preparation job, and
 rewires only data job `198095`. The original jobs `198095` through `198108`
 remain the downstream chain.
+
+## One-time smoke JSON repair
+
+Model replacement `199182` and data preparation `198095` completed, but smoke
+job `198096` failed before an optimizer step because the shared runner's shell
+default appended a stray brace to the explicit Qwen2.5 chat-template value,
+producing `{}}`. The runner now preserves explicit `{}` and validates every
+chat-template kwargs value as a JSON object before Ray submission, while the
+Qwen3 default remains `{"enable_thinking": true}`.
+
+`resubmit_after_smoke_json.sh` archives the one-file failed smoke attempt,
+submits one replacement smoke job, and rewires only score job `198097`. Jobs
+`198097` through `198108` remain the original downstream chain.
