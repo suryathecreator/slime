@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import subprocess
@@ -303,6 +304,40 @@ def test_fresh_base_sft_starts_at_rollout_zero_but_resume_does_not():
     assert runner.index(condition) < runner.index(override)
     assert list(range(0, 1)) == [0]
     assert list(range(1, 1)) == []
+
+
+def test_training_status_publishes_all_full_sft_checkpoints():
+    root = Path(__file__).resolve().parents[1]
+    status = json.loads((root / "TRAINING_STATUS.json").read_text())
+    expected = {
+        "correct_only",
+        "unmasked",
+        "random_mask_25",
+        "random_mask_50",
+        "random_mask_70",
+        "random_mask_80",
+        "random_mask_90",
+        "inverse_tau_0p20",
+        "inverse_tau_0p05",
+        "margin_mask",
+        "prob_ratio_mask",
+    }
+    jobs = status["training_jobs"]
+    assert status["full_sft"] is True
+    assert status["summary"] == {
+        "checkpoints_with_final_hf_weights_and_manifests": 11,
+        "failed_training_jobs": 0,
+        "finished_at": "2026-07-31T06:13:52-07:00",
+        "successful_training_jobs": 11,
+    }
+    assert {job["variant"] for job in jobs} == expected
+    assert all(job["state"] == "COMPLETED" for job in jobs)
+    assert all(job["exit_code"] == "0:0" for job in jobs)
+    assert all(job["final_iteration"] == 9 for job in jobs)
+    assert all(len(job["checkpoint_manifest_sha256"]) == 64 for job in jobs)
+    assert status["training_sanity"]["expected_optimizer_steps"] == 10
+    assert status["training_sanity"]["sample_offset_per_variant"] == 2000
+    assert status["handoff"]["local_full_file_hashes_verified"] == 12
 
 
 def test_smoke_json_repair_preserves_the_pending_chain():

@@ -57,6 +57,19 @@ manifest. The base and all eleven checkpoints are transferred and evaluated
 through
 `../qwen2_5_7b_openr1_math220k_masked_sft_eval_handoff/`.
 
+## Completed 2K run
+
+All eleven full-SFT jobs completed successfully on 2026-07-31. Each job
+consumed all 2,000 records in one epoch, executed optimizer steps 0 through 9,
+and produced a full HF checkpoint plus content-addressed manifest. Exact job
+outcomes, losses, checkpoint identities, and the verified Hyak destination are
+recorded in `TRAINING_STATUS.json`.
+
+The base plus all eleven trained checkpoints passed full local file-hash
+verification. Transfer them with the handoff's `rsync_to_klone.sh --check`,
+`--transfer`, and `--verify` modes; see the handoff README for the complete
+command sequence.
+
 ## One-time model-validation repair
 
 Initial model-preparation job `198094` completed the pinned base download but
