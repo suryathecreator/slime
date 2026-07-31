@@ -93,3 +93,11 @@ Qwen3 default remains `{"enable_thinking": true}`.
 `resubmit_after_smoke_json.sh` archives the one-file failed smoke attempt,
 submits one replacement smoke job, and rewires only score job `198097`. Jobs
 `198097` through `198108` remain the original downstream chain.
+
+Replacement smoke `199376` passed the real checkpoint TMPDIR preflight but
+failed before Ray because the initial inline JSON validator used single quotes
+inside the runner's single-quoted container payload. The validator is now a
+single double-quoted `python3 -c` command, and the regression suite parses the
+actual container payload with `bash -n` and forbids embedded single quotes.
+`resubmit_after_smoke_validator_packaging.sh` archives that second zero-step
+attempt and performs the same one-edge repair at score job `198097`.

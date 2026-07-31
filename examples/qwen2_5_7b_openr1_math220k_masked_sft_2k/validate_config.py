@@ -96,7 +96,7 @@ def main() -> None:
     ).read_text(encoding="utf-8")
     for needle in (
         'if [[ -z "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON:-}" ]]',
-        "json.loads(sys.argv[1])",
+        "python3 -c \"import json, sys; value = json.loads(sys.argv[1])",
     ):
         if needle not in shared_runner:
             raise ValueError(f"shared SFT JSON validation missing: {needle}")
