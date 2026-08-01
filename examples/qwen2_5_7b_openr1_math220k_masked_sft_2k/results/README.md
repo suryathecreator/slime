@@ -22,3 +22,7 @@ generation fidelity or silently rewrite the result snapshots published here.
 
 See the [evaluation handoff](../../qwen2_5_7b_openr1_math220k_masked_sft_eval_handoff/README.md)
 for the exact runtime, gate, scoring, cap-hit, and recovery policies.
+
+The [provisional analysis](ANALYSIS.md) records the comparison table, cap-hit
+sensitivity, observed failure modes, and manual Llama-gate audit that motivated
+the planned scorer change.
