@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -121,11 +123,43 @@ def test_canary_gates_the_serial_training_chain():
         "score_qwen3_0p6b_margins_and_build"
     )
     assert "afterok:${tail_job}" in submit
+    assert "--branch qwen3-0.6b-openr1-masked-sft-2k" in submit
     assert "custom_pretokenized" in canary
     assert "slime.rollout.sft_rollout.generate_rollout" in canary
     assert "audit_runtime_batches.py" in canary
     assert "canary_generate.py" in canary
     assert 'SFT_FINAL_HF_DIR="${SFT_HF_SNAPSHOT_DIR}/iter_0000001"' in canary
+
+
+@pytest.mark.unit
+def test_submission_manifest_accepts_explicit_branch_provenance(tmp_path):
+    output = tmp_path / "manifest.json"
+    writer = (
+        ROOT
+        / "examples/qwen2_5_7b_openr1_math220k_masked_sft_2k/write_submission_manifest.py"
+    )
+    subprocess.run(
+        [
+            sys.executable,
+            str(writer),
+            "--output",
+            str(output),
+            "--contract",
+            "contract",
+            "--branch",
+            "qwen3-branch",
+            "--commit",
+            "deadbeef",
+            "--submitted-at",
+            "2026-08-04T05:06:50+00:00",
+            "model=1",
+        ],
+        check=True,
+    )
+    manifest = json.loads(output.read_text())
+    assert manifest["branch"] == "qwen3-branch"
+    assert manifest["commit"] == "deadbeef"
+    assert manifest["submitted_at"] == "2026-08-04T05:06:50+00:00"
 
 
 @pytest.mark.unit

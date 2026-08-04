@@ -14,6 +14,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True)
     parser.add_argument("--contract", required=True)
+    parser.add_argument(
+        "--branch",
+        default="qwen2.5-7b-openr1-masked-sft-2k",
+        help="Git branch whose pushed commit was submitted",
+    )
+    parser.add_argument("--commit", help="Explicit submitted commit; defaults to current HEAD")
+    parser.add_argument("--submitted-at", help="Explicit UTC timestamp; defaults to now")
     parser.add_argument("jobs", nargs="+")
     args = parser.parse_args()
     jobs = []
@@ -23,10 +30,10 @@ def main() -> None:
             raise ValueError(f"invalid job record: {item}")
         jobs.append({"name": name, "job_id": job_id})
     atomic_json(args.output, {
-        "branch": "qwen2.5-7b-openr1-masked-sft-2k",
-        "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+        "branch": args.branch,
+        "commit": args.commit or subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "contract_hash": args.contract,
-        "submitted_at": datetime.now(timezone.utc).isoformat(),
+        "submitted_at": args.submitted_at or datetime.now(timezone.utc).isoformat(),
         "resource_policy": {
             "dependency": "strict linear afterok chain",
             "maximum_concurrent_gpus": 4,

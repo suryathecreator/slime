@@ -60,7 +60,8 @@ for variant in \
     "${SCRIPT_DIR}/04_train.sbatch"
 done
 python3 "${SHARED_QWEN_SFT_DIR}/write_submission_manifest.py" \
-  --output "${SUBMISSION_MANIFEST}" --contract "${CONTRACT_HASH}" "${manifest_jobs[@]}"
+  --output "${SUBMISSION_MANIFEST}" --contract "${CONTRACT_HASH}" \
+  --branch qwen3-0.6b-openr1-masked-sft-2k "${manifest_jobs[@]}"
 submission_complete=1
 trap - EXIT
 echo "SUBMISSION_COMPLETE jobs=${#submitted_jobs[@]} first=${submitted_jobs[0]} last=${tail_job}"
