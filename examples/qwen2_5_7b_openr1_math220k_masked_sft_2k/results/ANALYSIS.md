@@ -114,18 +114,20 @@ and field consistency on long, repetitive, or capped responses. This supports
 retaining Llama as the definitive-answer gate while removing it from answer
 span selection.
 
-## Planned scorer interpretation
+## Region-verbatim v3 follow-up
 
-The likely next metric will use only Llama's binary `definitive` decision. For
-the 6,000 checks already run, it will reuse only that decision from the saved
-gate records and ignore the Llama-selected region, span, extracted answer,
-answer form, and boxing fields. Future gate requests will ask Llama only about
-definitiveness.
+The proposed Llama-only-definitiveness scorer was superseded before it ran.
+The v3 metric retains the unchanged definitive-answer adjudication and selected
+evidence region, then makes a new constrained call that copies the answer text
+verbatim from that region. Exact boxed and heuristic text remains available as
+guidance, while candidate and boundary IDs are removed. Returned text must pass
+mechanical exact-span validation before the existing structural and symbolic
+verifier can score it.
 
-For both existing and future responses, deterministic heuristics will extract
-the final committed answer and boxing status from the immutable raw response.
-The structural guards and symbolic verifier will then run on that extracted
-answer. This scorer change is post-hoc and versionable: it can be applied
-uniformly without changing or regenerating any model completion. The files in
-this directory remain the exact native and strict-v2 snapshots obtained so
-far, rather than being silently overwritten.
+For this corpus, v3 reuses the 5,991 valid adjudications as a documented one-off
+optimization and reruns extraction for all 2,196 definitive rows. It does not
+rerun or alter any generation and does not reuse any strict-v2 extraction.
+Remaining unresolved rows appear as strict wrong-to-right ranges and are queued
+for versioned review by a stronger trace-reasoning model or a human. This file
+continues to record the historical strict-v2 analysis; the v3 scoring job emits
+its own generated comparison table.

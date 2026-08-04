@@ -46,28 +46,81 @@ correct count, and lower/upper bounds. In particular it reports cap-hit
 percent, cap hits known correct (or bounds), and counts plus rates for treating
 all cap hits as wrong or all as right.
 
-## Scorer direction and result status
+## Region-verbatim v3 scorer
 
-The checked-in strict-v2 results are an immutable snapshot of the scorer that
-actually ran, not the settled metric. Manual review found the Llama
-definitiveness decisions useful, but found its evidence-region and answer-span
-selection brittle on some long or capped completions. The likely replacement
-will therefore ask Llama only whether the response definitively commits to a
-complete answer.
+The checked-in strict-v2 results remain immutable historical snapshots. The
+previously proposed Llama-only-definitiveness replacement was not adopted.
+The settled `math500_llama33_region_verbatim_strict_v3` policy retains the
+unchanged adjudication call, including its evidence-region selection. A second
+call sees only that selected region, the exact boxed contents, and other exact
+heuristic candidates. It returns constrained JSON containing a selection mode
+and `final_answer_raw` copied verbatim. It does not return candidate IDs or
+lexer-boundary IDs.
 
-For responses already checked, the replacement scorer will reuse the existing
-gate record only through its `definitive` decision and ignore the Llama-selected
-region, span, extracted answer, answer form, and boxing fields. Future gate runs
-will request only the definitiveness decision. In both cases, deterministic
-heuristics will extract the final committed answer directly from the immutable
-raw assistant completion, after which the same structural guards and symbolic
-verification apply. Boxing compliance will also be derived separately rather
-than trusted from Llama.
+The modes are `boxed_exact`, `heuristic_exact`, and `verbatim_region`.
+JSON-schema guided decoding constrains the object shape and mode but cannot by
+itself guarantee source fidelity. Post-decoding validation therefore requires
+the text to be, respectively, one complete balanced box content span, one
+eligible heuristic span, or one non-box contiguous substring of the selected
+region. Boxing compliance is derived from the validated source mode rather
+than trusted from the adjudication labels. Three failed attempts produce a
+durable unresolved row and processing continues.
 
-This is a post-hoc scoring change: it can be versioned and applied uniformly to
-all 6,000 saved responses and to future generations without regenerating or
-altering any completion. The native and strict-v2 artifacts remain published
-for provenance and reproduction of the results obtained so far.
+The motivation is narrower than replacing Llama extraction wholesale.
+Selecting opaque candidate and especially lexer-boundary IDs introduced
+avoidable errors, while many exact boxed and heuristic selections were valid.
+V3 keeps those exact texts as guidance but lets the model copy the answer in
+the natural representation needed by the symbolic verifier.
+
+For the current 6,000 immutable generations, preparation performs a one-off
+reuse of the 5,991 valid v2 adjudications only after pinning the v2 policy,
+response hashes, and region catalog. It reruns v3 extraction for every one of
+the 2,196 definitive adjudications, including old candidate-ID successes, and
+does not reuse any old answer extraction. The 3,795 nondefinitive rows need no
+second call; the nine rows that already exhausted adjudication remain
+unresolved. Future v3 evaluations run both calls normally, so this import is a
+compute optimization for the existing corpus rather than a scoring exception.
+
+Unresolved gate or verifier rows are shown as strict lower–upper bounds: the
+lower endpoint treats each unresolved row as wrong and the upper endpoint
+treats it as right. They are also written to an unresolved-review manifest for
+versioned review by a stronger model reasoning over the full trace or by a
+human. Native generations and strict-v2 results are never overwritten.
+
+## Source-mapped v4 scorer
+
+The subsequent `math500_llama33_source_mapped_strict_v4` policy corrects the
+v3 extraction contract. The unchanged first call still decides definitiveness
+and selects one evidence region. In the second call, Llama generates the answer
+content and a mode. For `boxed_exact` and `heuristic_exact`, presentation-only
+differences are used only to identify a candidate; the exact candidate text
+sliced from the response is what reaches the symbolic verifier. This prevents
+constrained decoding artifacts such as full-width reverse slashes, Unicode
+radicals, or added math delimiters from changing the scored candidate.
+
+`verbatim_region` is the fallback beyond both candidate catalogs. Its generated
+answer is retained for symbolic verification only if its content occurs in the
+selected non-box source region after a versioned, non-solving presentation
+normalization. That normalization handles wrappers, whitespace, Unicode/LaTeX
+glyph presentation, font/size commands, simple fraction/radical notation, and
+encoding artifacts observed across the prior extraction attempts. It does not
+use the gold answer or mathematical equivalence to establish source presence.
+Candidate modes cannot silently fall back to a shorter source substring.
+
+For the existing 6,000 generations, v4 is a one-off CPU-only replay. It reuses
+the immutable v2 adjudications, every v3 decoded-attempt journal entry in its
+original order, and every accepted v3 extraction. The first attempt that the v4
+validator would have accepted is selected; no generation or Llama inference is
+rerun. All symbolic and structural checks are then recomputed into new v4
+artifacts. Future evaluations run this validation directly and retain decoded
+failure attempts so later presentation-normalization revisions remain
+post-hoc and generation-fidelity preserving.
+
+Every comparison table reports both the strict lower–upper range and a separate
+`midpoint ± eval noise` column. The midpoint is the center of the unresolved
+range and the displayed noise is its half-width; percentages express the
+half-width in percentage points. The strict endpoints remain the authoritative
+known-wrong/known-right extremes.
 
 The tokenizer overlay is byte-identical to the pinned base
 `Qwen/Qwen2.5-7B@d149729398750b98c0af14eb82c78cfe92750796`; Qwen2.5 needs no
@@ -126,6 +179,17 @@ DAG with:
 ```bash
 bash examples/qwen2_5_7b_openr1_math220k_masked_sft_eval_handoff/resubmit_llama_gate_v2.sh
 ```
+
+To reuse the completed adjudications and submit the extraction-only v3 DAG for
+the current corpus, run:
+
+```bash
+bash examples/qwen2_5_7b_openr1_math220k_masked_sft_eval_handoff/submit_llama_gate_v3_reuse.sh
+```
+
+That DAG is preparation/import → v3 H200 canary → 48 extraction-only one-H200
+tasks → CPU scoring/table generation → audit. Each extraction shard requests
+20 minutes and remains row-checkpointed and requeue-safe.
 
 The gate identity hashes the model/runtime pins, both prompt files, both
 constrained schemas, and the span-catalog implementation version. An unchanged

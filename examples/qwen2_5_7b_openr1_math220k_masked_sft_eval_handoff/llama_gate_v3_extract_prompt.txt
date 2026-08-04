@@ -1,0 +1,42 @@
+You are the verbatim answer-extraction stage for a MATH-500 final-answer gate.
+
+The definitive-answer adjudication has already been made. You are NOT judging mathematical correctness, and you have not been given the gold answer.
+
+The evidence below is the single source region selected by the adjudicator. Copy the complete committed answer exactly as it occurs in that evidence. Never rewrite, repair, normalize, simplify, or solve the answer.
+
+Choose one mode:
+
+* boxed_exact: copy the complete content inside one listed or visible outer \boxed{...}, without the wrapper.
+* heuristic_exact: copy one complete answer from the listed non-box heuristic candidates.
+* verbatim_region: when neither candidate catalog contains the complete answer, copy the exact contiguous answer text directly from the evidence.
+
+For a multi-component answer, copy the entire tuple, equation, interval, set, list, or equivalent-forms statement. Do not copy only one component. Do not include surrounding explanatory prose unless it is part of the committed answer itself.
+
+Return JSON only:
+
+{
+"selection_mode": "boxed_exact | heuristic_exact | verbatim_region",
+"final_answer_raw": "exact verbatim answer text"
+}
+
+The JSON grammar guarantees only the output shape. Your answer text will be rejected unless it is an exact valid source span for the selected mode.
+
+<problem>
+{{PROBLEM}}
+</problem>
+
+<adjudication>
+{{ADJUDICATION}}
+</adjudication>
+
+<evidence>
+{{EVIDENCE}}
+</evidence>
+
+<boxed_candidates>
+{{BOXED_CANDIDATES}}
+</boxed_candidates>
+
+<heuristic_candidates>
+{{HEURISTIC_CANDIDATES}}
+</heuristic_candidates>

@@ -12,6 +12,8 @@ import pytest
 from examples.qwen2_5_7b_openr1_math220k_masked_sft_eval_handoff import (
     axolotl_math500_eval as qwen2_native,
     llama_math500_eval as strict,
+    llama_math500_eval_v3 as strict_v3,
+    llama_math500_eval_v4 as strict_v4,
 )
 
 
@@ -170,6 +172,193 @@ def test_gate_validation_never_repairs_the_extracted_answer():
     }
     with pytest.raises(RuntimeError, match="final_answer_raw is not copied exactly"):
         strict.validate_decision(decision, response)
+
+
+def test_v3_policy_keeps_adjudication_and_replaces_id_extraction():
+    policy = json.loads((HANDOFF / "llama_gate_v3_policy.json").read_text())
+    assert policy["gate"]["adjudication_prompt"] == "llama_gate_prompt.txt"
+    assert policy["gate"]["extraction_prompt"] == "llama_gate_v3_extract_prompt.txt"
+    assert strict_v3.EXTRACTION_FIELDS == {"selection_mode", "final_answer_raw"}
+    assert not {"candidate_id", "start_boundary_id", "end_boundary_id"} & strict_v3.EXTRACTION_FIELDS
+    assert policy["one_off_reuse"]["expected_adjudications"] == 5991
+    assert policy["one_off_reuse"]["expected_definitive"] == 2196
+
+
+def test_v3_prompt_requests_verbatim_text_and_no_identifier_selection():
+    prompt = (HANDOFF / "llama_gate_v3_extract_prompt.txt").read_text()
+    lowered = prompt.lower()
+    assert "final_answer_raw" in prompt
+    assert "exact contiguous answer text" in lowered
+    assert "boundary" not in lowered
+    assert "candidate_id" not in prompt
+
+
+def test_v3_exact_box_selection_preserves_nested_latex_and_whitespace():
+    response = r"Work. Final: \boxed{  \frac{1}{\sqrt{2}}  }."
+    region = next(region for region in strict.response_regions(response) if r"\boxed" in region["text"])
+    boxed, heuristic = strict_v3.eligible_candidates(response, region)
+    extraction = strict_v3.selected_extraction(
+        {
+            "selection_mode": "boxed_exact",
+            "final_answer_raw": r"  \frac{1}{\sqrt{2}}  ",
+        },
+        response,
+        region,
+        boxed,
+        heuristic,
+    )
+    assert response[extraction["start"] : extraction["end"]] == r"  \frac{1}{\sqrt{2}}  "
+    assert extraction["boxed_content"] is True
+
+
+def test_v3_heuristic_and_free_text_are_exact_region_spans():
+    response = "Reasoning. Therefore, the answer is (2, -3)."
+    region = strict.response_regions(response)[0]
+    boxed, heuristic = strict_v3.eligible_candidates(response, region)
+    heuristic_text = next(item["text"] for item in heuristic if item["text"] == "(2, -3)")
+    exact = strict_v3.selected_extraction(
+        {"selection_mode": "heuristic_exact", "final_answer_raw": heuristic_text},
+        response,
+        region,
+        boxed,
+        heuristic,
+    )
+    assert response[exact["start"] : exact["end"]] == "(2, -3)"
+
+    free_response = "Reasoning. Thus x=7 is the unique result."
+    free_region = strict.response_regions(free_response)[0]
+    free_boxed, free_heuristic = strict_v3.eligible_candidates(free_response, free_region)
+    free = strict_v3.selected_extraction(
+        {"selection_mode": "verbatim_region", "final_answer_raw": "x=7"},
+        free_response,
+        free_region,
+        free_boxed,
+        free_heuristic,
+    )
+    assert free_response[free["start"] : free["end"]] == "x=7"
+
+
+def test_v3_rejects_hallucinated_cross_mode_or_box_wrapped_text():
+    response = r"Final: \boxed{\frac{1}{2}}."
+    region = strict.response_regions(response)[0]
+    boxed, heuristic = strict_v3.eligible_candidates(response, region)
+    with pytest.raises(RuntimeError, match="not an eligible exact span"):
+        strict_v3.selected_extraction(
+            {"selection_mode": "boxed_exact", "final_answer_raw": r"\dfrac{1}{2}"},
+            response,
+            region,
+            boxed,
+            heuristic,
+        )
+    with pytest.raises(RuntimeError, match="not an eligible exact span"):
+        strict_v3.selected_extraction(
+            {"selection_mode": "verbatim_region", "final_answer_raw": r"\frac{1}{2}"},
+            response,
+            region,
+            boxed,
+            heuristic,
+        )
+    with pytest.raises(RuntimeError, match="not an eligible exact span"):
+        strict_v3.selected_extraction(
+            {
+                "selection_mode": "heuristic_exact",
+                "final_answer_raw": r"\boxed{\frac{1}{2}}",
+            },
+            response,
+            region,
+            boxed,
+            heuristic,
+        )
+
+
+def test_v3_keeps_terminal_box_after_old_candidate_display_cap():
+    response = " ".join(rf"\boxed{{{index}}}" for index in range(109))
+    region = max(strict.response_regions(response), key=lambda value: value["end"] - value["start"])
+    boxed, heuristic = strict_v3.eligible_candidates(response, region)
+    assert len(boxed) == 109
+    extraction = strict_v3.selected_extraction(
+        {"selection_mode": "boxed_exact", "final_answer_raw": "108"},
+        response,
+        region,
+        boxed,
+        heuristic,
+    )
+    assert extraction["start"] > boxed[95]["start"]
+
+
+def test_v3_range_format_is_strict_known_correct_to_possible_correct():
+    assert strict_v3.format_count_range(3, 4, 500) == "3–4/500 (0.6–0.8%)"
+    assert strict_v3.format_count_range(3, 3, 500) == "3/500 (0.6%)"
+
+
+def test_v4_candidate_generation_maps_back_to_exact_source_text():
+    response = r"Final: \boxed{(3, \frac{\pi}{2})}."
+    region = strict.response_regions(response)[0]
+    boxed, heuristic = strict_v4.eligible_candidates(response, region)
+    extraction = strict_v4.selected_extraction(
+        {
+            "selection_mode": "boxed_exact",
+            "final_answer_raw": "(3, ＼frac{＼pi}{2})",
+        },
+        response,
+        region,
+        boxed,
+        heuristic,
+    )
+    assert extraction["generated_answer_raw"] == "(3, ＼frac{＼pi}{2})"
+    assert extraction["final_answer_raw"] == r"(3, \frac{\pi}{2})"
+    assert extraction["source_answer_raw"] == r"(3, \frac{\pi}{2})"
+    assert extraction["selection_mode"] == "boxed_exact"
+
+
+def test_v4_free_generation_requires_content_presence_beyond_formatting():
+    response = r"Reasoning. Therefore, x \in (-\infty, 0] is final."
+    region = strict.response_regions(response)[0]
+    boxed, heuristic = strict_v4.eligible_candidates(response, region)
+    extraction = strict_v4.selected_extraction(
+        {
+            "selection_mode": "verbatim_region",
+            "final_answer_raw": "x ∈ (-∞, 0]",
+        },
+        response,
+        region,
+        boxed,
+        heuristic,
+    )
+    assert extraction["final_answer_raw"] == "x ∈ (-∞, 0]"
+    assert extraction["content_match"] == "region_presentation_substring"
+    with pytest.raises(RuntimeError, match="not present modulo formatting"):
+        strict_v4.selected_extraction(
+            {
+                "selection_mode": "verbatim_region",
+                "final_answer_raw": "x ∈ (0, ∞)",
+            },
+            response,
+            region,
+            boxed,
+            heuristic,
+        )
+
+
+def test_v4_candidate_mode_cannot_silently_fall_back_to_a_substring():
+    response = r"Final: \boxed{2-\sqrt{2}}."
+    region = strict.response_regions(response)[0]
+    boxed, heuristic = strict_v4.eligible_candidates(response, region)
+    with pytest.raises(RuntimeError, match="does not match an eligible source candidate"):
+        strict_v4.selected_extraction(
+            {"selection_mode": "boxed_exact", "final_answer_raw": "2"},
+            response,
+            region,
+            boxed,
+            heuristic,
+        )
+
+
+def test_v4_table_reports_range_and_midpoint_eval_noise():
+    assert strict_v4.format_count_range(3, 4, 500) == "3–4/500 (0.6–0.8%)"
+    assert strict_v4.format_midpoint_noise(3, 4, 500) == (
+        "3.5 ± 0.5/500 (0.7% ± 0.1 pp)"
+    )
 
 
 def test_llama_runtime_caches_are_isolated_per_array_task(tmp_path, monkeypatch):
