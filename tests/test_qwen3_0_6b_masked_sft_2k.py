@@ -12,6 +12,10 @@ import pytest
 from examples.qwen2_5_7b_openr1_math220k_masked_sft_2k.data_utils import (
     chat_prefix_suffix_ids,
 )
+from examples.qwen3_0_6b_openr1_math220k_masked_sft_2k.canary_generate import (
+    normalize_generation_inputs,
+    summarize_copy_regressions,
+)
 from examples.qwen3_0_6b_openr1_math220k_masked_sft_2k.validate_schedule import (
     audit,
 )
@@ -38,6 +42,16 @@ class FakeTokenizer:
         return [151645, 198]
 
 
+class FakeTensor:
+    def __init__(self, shape=(1, 3)):
+        self.shape = shape
+        self.device = None
+
+    def to(self, device):
+        self.device = device
+        return self
+
+
 @pytest.mark.unit
 def test_qwen3_chat_kwargs_are_frozen_into_pretokenization():
     prefix, suffix = chat_prefix_suffix_ids(
@@ -45,6 +59,65 @@ def test_qwen3_chat_kwargs_are_frozen_into_pretokenization():
     )
     assert prefix == [151644, 77091, 198]
     assert suffix == [151645, 198]
+
+
+@pytest.mark.unit
+def test_generation_inputs_accept_raw_tensor():
+    tensor = FakeTensor()
+    assert normalize_generation_inputs(tensor, "cuda") == {"input_ids": tensor}
+    assert tensor.device == "cuda"
+
+
+@pytest.mark.unit
+def test_generation_inputs_accept_mapping_and_forward_attention_mask():
+    input_ids = FakeTensor()
+    attention_mask = FakeTensor()
+    unused = FakeTensor()
+    normalized = normalize_generation_inputs(
+        {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "token_type_ids": unused,
+        },
+        "cuda",
+    )
+    assert normalized == {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+    }
+    assert input_ids.device == "cuda"
+    assert attention_mask.device == "cuda"
+    assert unused.device is None
+
+
+@pytest.mark.unit
+def test_generation_inputs_reject_mapping_without_input_ids():
+    with pytest.raises(ValueError, match="missing input_ids"):
+        normalize_generation_inputs({"attention_mask": FakeTensor()}, "cuda")
+
+
+@pytest.mark.unit
+def test_copy_regression_is_recorded_but_not_a_generation_failure():
+    results = {
+        "base": {"role_copy_starts": 0, "prompt_copy_starts": 1},
+        "custom_pretokenized_after_two_updates": {
+            "role_copy_starts": 2,
+            "prompt_copy_starts": 1,
+        },
+        "stock_messages_after_two_updates": {
+            "role_copy_starts": 0,
+            "prompt_copy_starts": 3,
+        },
+    }
+    diagnostic = summarize_copy_regressions(results)
+    assert diagnostic["detected"] is True
+    assert diagnostic["policy"] == "diagnostic_only_does_not_block_training"
+    assert [item["regression"] for item in diagnostic["comparisons"]] == [
+        True,
+        False,
+        False,
+        True,
+    ]
 
 
 @pytest.mark.unit
@@ -132,6 +205,30 @@ def test_canary_gates_the_serial_training_chain():
 
 
 @pytest.mark.unit
+def test_generation_only_repair_reuses_artifacts_and_rewires_one_edge():
+    generation_job = (EXAMPLE / "02_canary_generation_only.sbatch").read_text()
+    repair = (EXAMPLE / "resubmit_after_canary_generation.sh").read_text()
+    assert "#SBATCH --gres=gpu:h200:1" in generation_job
+    assert "#SBATCH --time=01:00:00" in generation_job
+    assert "canary_generate.py" in generation_job
+    assert "diagnostic_only_does_not_block_training" in generation_job
+    assert '[[ ! -e "${CANARY_GENERATION_JSON}" ]]' in generation_job
+    for job_id in (207511, 207512, 207513, 207514, 207515, 207525):
+        assert str(job_id) in repair
+    assert "list(range(207511, 207526))" in repair
+    for digest in (
+        "114ef55784275913daca9412a05c3aec98f5d87301498a5b784c9ddcf0ebca90",
+        "04922866b39dddd21311c4a7c5f6ed1ce7a9ef5147bfc5a22afe92ad5b3e7b83",
+        "28105350fd5c29f29ecfced5d454a570f8cc9ca2fe1d1eba6760ae676181dbe3",
+        "8df4bd72d116ba9c91e6653ff911f9aea23315e5cf2c1d40e61f4ab99456b925",
+    ):
+        assert digest in repair
+    assert 'JobId="${BLOCKED_SCORE_JOB}"' in repair
+    assert 'Dependency="afterok:${replacement_job}"' in repair
+    assert '"reused_jobs": list(range(207514, 207526))' in repair
+
+
+@pytest.mark.unit
 def test_submission_manifest_accepts_explicit_branch_provenance(tmp_path):
     output = tmp_path / "manifest.json"
     writer = (
@@ -170,3 +267,7 @@ def test_full_training_finishes_at_update_125_and_has_no_eval_stage():
     assert "eval" not in "\n".join(
         line for line in submit.splitlines() if line.lstrip().startswith("submit_serial")
     ).lower()
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__]))

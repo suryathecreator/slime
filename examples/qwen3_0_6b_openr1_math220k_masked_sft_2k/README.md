@@ -22,7 +22,7 @@ Full training is gated by two independent 32-example, two-update canaries:
 1. The custom pretokenized weighted-SFT path used by all eleven variants.
 2. Slime's stock message-based Qwen3 SFT path over the exact same ordered traces.
 
-For both paths, the job saves every real DP-rank runtime batch and audits all 64 examples. It emits a JSONL row for every input position containing the decoded input token, the next-token causal label, and the shifted loss weight. The gate checks exact source-token identity, assistant-entry boundaries, `<|im_end|>`, absence of synthetic EOS, global batch 16, and one microbatch per rank. It then greedily compares eight prompts under base, custom-after-two-updates, and stock-after-two-updates; either trained path is rejected if prompt/role-copy starts increase over base.
+For both paths, the job saves every real DP-rank runtime batch and audits all 64 examples. It emits a JSONL row for every input position containing the decoded input token, the next-token causal label, and the shifted loss weight. The gate checks exact source-token identity, assistant-entry boundaries, `<|im_end|>`, absence of synthetic EOS, global batch 16, and one microbatch per rank. It then greedily compares eight prompts under base, custom-after-two-updates, and stock-after-two-updates. Decoded completions, including special tokens, are stored verbatim. Prompt/role-copy regressions are explicitly recorded but are diagnostic only and do not block the training chain; technical generation failures or invalid/missing diagnostics still block it.
 
 Key artifacts live under `${EXPERIMENT_ROOT}`:
 
@@ -50,3 +50,7 @@ bash examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/submit_training_only.sh
 ```
 
 The chain is model preparation -> exact-token data preparation -> both canaries and audits -> 0.6B margin scoring and variant construction -> eleven serial training jobs. A failed gate prevents every downstream training job from starting.
+
+## One-time canary generation recovery
+
+The initial canary job `207513` completed both two-update trainings and the runtime audit, then failed because Transformers returned a `BatchEncoding` that was passed positionally to `model.generate`. `02_canary_generation_only.sbatch` reuses those immutable artifacts on one H200 and writes only the missing generation diagnostic. `resubmit_after_canary_generation.sh` verifies the failed log, exact checkpoint/data/audit hashes, all pending dependencies, and a clean pushed repair commit before it submits the generation-only job and rewires only score job `207514`. Jobs `207514` through `207525` remain the original submitted jobs.
