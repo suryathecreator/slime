@@ -146,12 +146,18 @@ def user_content(problem: str) -> str:
     return f"{INSTRUCTION}\n\nProblem:\n{problem}"
 
 
-def chat_prefix_suffix_ids(tokenizer: Any, content: str) -> tuple[list[int], list[int]]:
+def chat_prefix_suffix_ids(
+    tokenizer: Any,
+    content: str,
+    apply_chat_template_kwargs: dict[str, Any] | None = None,
+) -> tuple[list[int], list[int]]:
+    template_kwargs = dict(apply_chat_template_kwargs or {})
     prefix = normalize_token_ids(
         tokenizer.apply_chat_template(
             [{"role": "user", "content": content}],
             tokenize=True,
             add_generation_prompt=True,
+            **template_kwargs,
         )
     )
     suffix = normalize_token_ids(
@@ -174,8 +180,13 @@ def build_training_record(
     selected: dict[str, Any],
     assistant_weights: list[float] | None,
     max_sequence_length: int,
+    apply_chat_template_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    prefix, suffix = chat_prefix_suffix_ids(tokenizer, user_content(str(selected["problem"])))
+    prefix, suffix = chat_prefix_suffix_ids(
+        tokenizer,
+        user_content(str(selected["problem"])),
+        apply_chat_template_kwargs,
+    )
     assistant_ids = normalize_token_ids(
         tokenizer.encode(str(selected["assistant_trace"]), add_special_tokens=False)
     )

@@ -1,0 +1,78 @@
+{
+  "base_model": {
+    "hf_repo": "Qwen/Qwen3-0.6B-Base",
+    "revision": "da87bfb608c14b7cf20ba1ce41287e8de496c0cd"
+  },
+  "canary": {
+    "examples_per_path": 32,
+    "generation_examples": 8,
+    "paths": [
+      "custom_pretokenized",
+      "stock_messages"
+    ],
+    "runtime_audit": "decode every runtime token with its causal target and shifted loss weight before accepting either two-step run",
+    "updates_per_path": 2
+  },
+  "execution": {
+    "eval": false,
+    "gpus": 4,
+    "gpu_type": "h200",
+    "serialization": "model -> data -> canaries -> margins_and_variants -> eleven strictly serial training jobs"
+  },
+  "name": "qwen3_0_6b_openr1_math220k_masked_sft_2k_v1",
+  "selection": {
+    "correct_only_trace_order_sha256": "95c199c745005797627f210b39078058161f3e27531b7af91db5ba4a6cc1bd94",
+    "mixed_trace_order_sha256": "a6020e731bc64f93114d398e4d868f92f0505e7942f52d19fb26aa93b302f46d",
+    "source_correct_only_sha256": "3219becadaf38337b5fc3b692912a4110679ff763d81abae50b19fe345889315",
+    "source_correct_wrong_unmasked_sha256": "8f888746d48510f601413f83eec0286f7b87d4c8795ee42de56bd4de0b039dbe",
+    "source_repository_commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
+    "source_stats_sha256": "051feaaad99eb69c38e366f3bbe34373010936432ea0f93a59e93096f9830a49"
+  },
+  "supervision": {
+    "assistant_added_token_ids": "all tokenizer.get_added_vocab values",
+    "embedded_chat_boundaries": "fail_closed",
+    "im_end": "exact_weight_1",
+    "loss_reduction": "retained_token_mass_normalized",
+    "no_synthetic_endoftext": true,
+    "prompt_tokens": "context_only_outside_response_loss",
+    "protected_positions": "excluded_from_every_masking_and_downweighting_decision",
+    "template_newline_after_im_end": "weight_0"
+  },
+  "training": {
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.95,
+    "adam_epsilon": 1e-08,
+    "bf16": true,
+    "context_length": 32768,
+    "data_parallel_size": 4,
+    "effective_gradient_accumulation_steps": 1,
+    "epochs": 1,
+    "full_parameter_sft": true,
+    "global_batch_size": 16,
+    "gradient_clip_norm": 1.0,
+    "learning_rate": 1e-05,
+    "lr_decay_style": "cosine",
+    "max_tokens_per_gpu": 32768,
+    "min_learning_rate": 0.0,
+    "optimizer": "AdamW",
+    "optimizer_updates": 125,
+    "rows": 2000,
+    "tensor_parallel_size": 1,
+    "warmup_fraction": 0.05,
+    "warmup_style": "linear_from_zero",
+    "weight_decay": 0.0001
+  },
+  "variants": [
+    "correct_only",
+    "unmasked",
+    "random_mask_70",
+    "inverse_tau_0p20",
+    "inverse_tau_0p05",
+    "random_mask_25",
+    "random_mask_50",
+    "random_mask_80",
+    "random_mask_90",
+    "margin_mask",
+    "prob_ratio_mask"
+  ]
+}

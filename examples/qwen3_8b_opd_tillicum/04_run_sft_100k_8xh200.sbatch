@@ -23,6 +23,16 @@ export SFT_LOSS_MASK_TYPE="${SFT_LOSS_MASK_TYPE:-qwen}"
 export SFT_LOSS_MASK_PREFLIGHT_ENABLED="${SFT_LOSS_MASK_PREFLIGHT_ENABLED:-0}"
 export SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK="${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK:-0}"
 export SFT_LOSS_MASK_PREFLIGHT_SAMPLES="${SFT_LOSS_MASK_PREFLIGHT_SAMPLES:-3}"
+export SFT_OPTIMIZER="${SFT_OPTIMIZER:-adam}"
+export SFT_LR_DECAY_STYLE="${SFT_LR_DECAY_STYLE:-constant}"
+export SFT_MIN_LR="${SFT_MIN_LR:-0.0}"
+export SFT_LR_WARMUP_FRACTION="${SFT_LR_WARMUP_FRACTION:-}"
+export SFT_LR_WARMUP_INIT="${SFT_LR_WARMUP_INIT:-0.0}"
+export SFT_LR_DECAY_ITERS="${SFT_LR_DECAY_ITERS:-}"
+export SFT_WEIGHT_DECAY="${SFT_WEIGHT_DECAY:-0.1}"
+export SFT_ADAM_BETA1="${SFT_ADAM_BETA1:-0.9}"
+export SFT_ADAM_BETA2="${SFT_ADAM_BETA2:-0.95}"
+export SFT_ADAM_EPS="${SFT_ADAM_EPS:-1.0e-8}"
 
 mkdir -p "${SLURM_LOG_DIR}" "${SFT_SAVE_DIR}" "${SFT_HF_SNAPSHOT_DIR}" "${SFT_DETAILS_DIR}" "${CHECKPOINT_REPORT_DIR}"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
@@ -51,7 +61,8 @@ echo "SFT optimizer mode: ${SFT_OPTIMIZER_MODE:-legacy_stage_${SFT_ZERO_STAGE}}"
 echo "SFT legacy sharding stage: ${SFT_ZERO_STAGE}"
 echo "SFT loss mask type: ${SFT_LOSS_MASK_TYPE}"
 echo "SFT loss mask preflight: enabled=${SFT_LOSS_MASK_PREFLIGHT_ENABLED} require_think=${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK} samples=${SFT_LOSS_MASK_PREFLIGHT_SAMPLES}"
-echo "SFT LR: ${SFT_LR}"
+echo "SFT optimizer: ${SFT_OPTIMIZER} beta1=${SFT_ADAM_BETA1} beta2=${SFT_ADAM_BETA2} eps=${SFT_ADAM_EPS} weight_decay=${SFT_WEIGHT_DECAY}"
+echo "SFT LR schedule: lr=${SFT_LR} min_lr=${SFT_MIN_LR} style=${SFT_LR_DECAY_STYLE} warmup_fraction=${SFT_LR_WARMUP_FRACTION:-unset} warmup_init=${SFT_LR_WARMUP_INIT} decay_iters=${SFT_LR_DECAY_ITERS:-inferred}"
 echo "SFT max tokens per GPU: ${SFT_MAX_TOKENS_PER_GPU}"
 echo "SFT sequence length / gradient clip: ${SFT_SEQ_LENGTH}/${SFT_GRAD_CLIP}"
 echo "SFT log probs chunk size: ${SFT_LOG_PROBS_CHUNK_SIZE}"
@@ -227,14 +238,23 @@ PERF_ARGS=(
 )
 
 OPTIMIZER_ARGS=(
-  --optimizer adam
+  --optimizer "${SFT_OPTIMIZER}"
   --lr "${SFT_LR}"
-  --lr-decay-style constant
-  --weight-decay 0.1
-  --adam-beta1 0.9
-  --adam-beta2 0.95
+  --min-lr "${SFT_MIN_LR}"
+  --lr-decay-style "${SFT_LR_DECAY_STYLE}"
+  --lr-warmup-init "${SFT_LR_WARMUP_INIT}"
+  --weight-decay "${SFT_WEIGHT_DECAY}"
+  --adam-beta1 "${SFT_ADAM_BETA1}"
+  --adam-beta2 "${SFT_ADAM_BETA2}"
+  --adam-eps "${SFT_ADAM_EPS}"
   --clip-grad "${SFT_GRAD_CLIP}"
 )
+if [[ -n "${SFT_LR_WARMUP_FRACTION}" ]]; then
+  OPTIMIZER_ARGS+=(--lr-warmup-fraction "${SFT_LR_WARMUP_FRACTION}")
+fi
+if [[ -n "${SFT_LR_DECAY_ITERS}" ]]; then
+  OPTIMIZER_ARGS+=(--lr-decay-iters "${SFT_LR_DECAY_ITERS}")
+fi
 if [[ "${SFT_OPTIMIZER_CPU_OFFLOAD}" == "1" ]]; then
   OPTIMIZER_ARGS+=(
     --optimizer-cpu-offload

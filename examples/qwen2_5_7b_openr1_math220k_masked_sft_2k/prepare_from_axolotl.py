@@ -32,6 +32,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stats-output", required=True)
     parser.add_argument("--inventory-output", required=True)
     parser.add_argument("--max-sequence-length", type=int, default=32768)
+    parser.add_argument(
+        "--chat-template-kwargs",
+        default="{}",
+        help="JSON object forwarded to tokenizer.apply_chat_template",
+    )
     return parser.parse_args()
 
 
@@ -104,6 +109,9 @@ def normalize_source(row: dict[str, Any], tokenizer: Any) -> dict[str, Any]:
 
 def main() -> None:
     args = parse_args()
+    chat_template_kwargs = json.loads(args.chat_template_kwargs)
+    if not isinstance(chat_template_kwargs, dict):
+        raise ValueError("--chat-template-kwargs must decode to a JSON object")
     destinations = (
         args.selected_output,
         args.correct_output,
@@ -143,11 +151,23 @@ def main() -> None:
         raise ValueError("selected union contains duplicate traces")
 
     correct_records = (
-        build_training_record(tokenizer, row, None, args.max_sequence_length)
+        build_training_record(
+            tokenizer,
+            row,
+            None,
+            args.max_sequence_length,
+            chat_template_kwargs,
+        )
         for row in correct
     )
     mixed_records = (
-        build_training_record(tokenizer, row, None, args.max_sequence_length)
+        build_training_record(
+            tokenizer,
+            row,
+            None,
+            args.max_sequence_length,
+            chat_template_kwargs,
+        )
         for row in mixed
     )
     atomic_jsonl(args.selected_output, selected_union)
@@ -180,7 +200,14 @@ def main() -> None:
             "correct_only_sha256": sha256_file(args.correct_output),
             "mixed_unmasked_sha256": sha256_file(args.mixed_output),
         },
-        "prompt_policy": "Qwen2.5 native chat template without enable_thinking",
+        "prompt_policy": (
+            "Qwen2.5 native chat template without enable_thinking"
+            if not chat_template_kwargs
+            else {
+                "apply_chat_template_kwargs": chat_template_kwargs,
+                "instruction": "Please reason step by step, and put your final answer within \\boxed{}.",
+            }
+        ),
         "supervision_policy": "all added/control tokens and literal think markup bypass masking; im_end exact weight 1",
     }
     atomic_json(args.stats_output, stats)
