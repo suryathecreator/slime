@@ -2,6 +2,13 @@
 
 This is a train-only rerun of the same frozen 2,000-example correct/wrong/everything suite on `Qwen/Qwen3-0.6B-Base` at revision `da87bfb608c14b7cf20ba1ce41287e8de496c0cd`. It produces eleven checkpoints and does no evaluation.
 
+The completed checkpoints are evaluated by the separate, versioned MATH-500
+handoff in
+`examples/qwen3_0_6b_openr1_math220k_masked_sft_eval_handoff`.  That handoff
+uses the last complete boxed answer only, scores cap hits normally, and applies
+the same fixed parser ensemble to candidate and gold without gold-conditioned
+routing.
+
 ## Frozen training contract
 
 - Full-parameter SFT, BF16, one epoch over exactly 2,000 rows.
