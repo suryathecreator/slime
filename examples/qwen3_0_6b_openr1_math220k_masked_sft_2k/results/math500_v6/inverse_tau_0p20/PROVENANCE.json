@@ -1,0 +1,26 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/inverse_tau_0p20.json",
+  "checkpoint_manifest_sha256": "f76e0765ccfc051dc064d1f41692ccd9c547a2e02a33ccf23e677dbb325361dd",
+  "dataset_jsonl": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/_control/eval_benchmarks/math500.jsonl",
+  "dataset_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+  "policy_sha256": "15dfe2c9aa8e30796f8aa4d54d7c04532ec74e7832e968a6933ee6dcabde1035",
+  "raw_results": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/inverse_tau_0p20/merged",
+  "repository_commit": "1a6a06ac7af4700ac632e5c2f4332404828c90ef",
+  "rescore": {
+    "generation_reused_verbatim": true,
+    "native_predictions_sha256": "310bf51636ab1729abc0c10c8c30bd307f3c0c9238d8f6ac7ef598516cfc5dd7",
+    "raw_generations_sha256": "cbb6ce127fd71503d5a3e11b6a9d37bf44e49590ca900ea2ee02ea15a2e9e5dc",
+    "source_predictions_sha256": "35af871daa615c3c5834b1fbcd10690367fe0516a6a46fd01d25624f8db3e7af",
+    "source_provenance_sha256": "eddf882d7898899a6e827dc0772c00fe3466557ed58c28ed0929b0817dfd7175",
+    "source_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5",
+    "source_scorer_version": "math500_last_boxed_symmetric_scorer_v5",
+    "source_summary_sha256": "f1c21fe0c0e827cd8f861f5736bda2cd8debac6d92d63f01d94da1c4a5575353"
+  },
+  "scorer_path": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/examples/qwen3_8b_32b_full_repro/math500_scorer_v6.py",
+  "scorer_sha256": "c76945273ca08e2a33e9b3ca7437e3da4aa3dde71390e5559062e373caea6df5",
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "stage": "2k_inverse_tau_0p20",
+  "tokenizer_provenance_sha256": "d80012c1a4e32ae303fd4af9cb559aa2e0d4a19dbaed50fea004f1e07c5619e0",
+  "trace_schema_version": "math500_last_boxed_symmetric_trace_v6"
+}

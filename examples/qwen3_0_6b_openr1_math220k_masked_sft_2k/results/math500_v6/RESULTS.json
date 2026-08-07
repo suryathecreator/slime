@@ -1,0 +1,159 @@
+{
+  "artifact_schema_version": 1,
+  "audited_at": "2026-08-07T15:57:10.560664+00:00",
+  "count": 12,
+  "dataset": {
+    "axolotl_canonical_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "split": "test"
+  },
+  "results": [
+    {
+      "accuracy": 0.446,
+      "cap_hit_accuracy": 0.0,
+      "cap_hit_correct": 0,
+      "cap_hit_rate": 0.132,
+      "cap_hits": 66,
+      "correct": 223,
+      "parse_failure_count": 10,
+      "stage": "base_0p6b",
+      "valid_box_rate": 0.854,
+      "variant": "base_0p6b"
+    },
+    {
+      "accuracy": 0.138,
+      "cap_hit_accuracy": 0.10669456066945607,
+      "cap_hit_correct": 51,
+      "cap_hit_rate": 0.956,
+      "cap_hits": 478,
+      "correct": 69,
+      "parse_failure_count": 1,
+      "stage": "2k_correct_only",
+      "valid_box_rate": 0.198,
+      "variant": "correct_only"
+    },
+    {
+      "accuracy": 0.138,
+      "cap_hit_accuracy": 0.12164948453608247,
+      "cap_hit_correct": 59,
+      "cap_hit_rate": 0.97,
+      "cap_hits": 485,
+      "correct": 69,
+      "parse_failure_count": 2,
+      "stage": "2k_unmasked",
+      "valid_box_rate": 0.184,
+      "variant": "unmasked"
+    },
+    {
+      "accuracy": 0.148,
+      "cap_hit_accuracy": 0.14052953156822812,
+      "cap_hit_correct": 69,
+      "cap_hit_rate": 0.982,
+      "cap_hits": 491,
+      "correct": 74,
+      "parse_failure_count": 1,
+      "stage": "2k_random_mask_25",
+      "valid_box_rate": 0.198,
+      "variant": "random_mask_25"
+    },
+    {
+      "accuracy": 0.134,
+      "cap_hit_accuracy": 0.11958762886597939,
+      "cap_hit_correct": 58,
+      "cap_hit_rate": 0.97,
+      "cap_hits": 485,
+      "correct": 67,
+      "parse_failure_count": 3,
+      "stage": "2k_random_mask_50",
+      "valid_box_rate": 0.168,
+      "variant": "random_mask_50"
+    },
+    {
+      "accuracy": 0.138,
+      "cap_hit_accuracy": 0.10560344827586207,
+      "cap_hit_correct": 49,
+      "cap_hit_rate": 0.928,
+      "cap_hits": 464,
+      "correct": 69,
+      "parse_failure_count": 4,
+      "stage": "2k_random_mask_70",
+      "valid_box_rate": 0.206,
+      "variant": "random_mask_70"
+    },
+    {
+      "accuracy": 0.15,
+      "cap_hit_accuracy": 0.08849557522123894,
+      "cap_hit_correct": 40,
+      "cap_hit_rate": 0.904,
+      "cap_hits": 452,
+      "correct": 75,
+      "parse_failure_count": 1,
+      "stage": "2k_random_mask_80",
+      "valid_box_rate": 0.196,
+      "variant": "random_mask_80"
+    },
+    {
+      "accuracy": 0.124,
+      "cap_hit_accuracy": 0.043478260869565216,
+      "cap_hit_correct": 19,
+      "cap_hit_rate": 0.874,
+      "cap_hits": 437,
+      "correct": 62,
+      "parse_failure_count": 4,
+      "stage": "2k_random_mask_90",
+      "valid_box_rate": 0.172,
+      "variant": "random_mask_90"
+    },
+    {
+      "accuracy": 0.112,
+      "cap_hit_accuracy": 0.09775967413441955,
+      "cap_hit_correct": 48,
+      "cap_hit_rate": 0.982,
+      "cap_hits": 491,
+      "correct": 56,
+      "parse_failure_count": 4,
+      "stage": "2k_inverse_tau_0p20",
+      "valid_box_rate": 0.16,
+      "variant": "inverse_tau_0p20"
+    },
+    {
+      "accuracy": 0.122,
+      "cap_hit_accuracy": 0.1083844580777096,
+      "cap_hit_correct": 53,
+      "cap_hit_rate": 0.978,
+      "cap_hits": 489,
+      "correct": 61,
+      "parse_failure_count": 2,
+      "stage": "2k_inverse_tau_0p05",
+      "valid_box_rate": 0.162,
+      "variant": "inverse_tau_0p05"
+    },
+    {
+      "accuracy": 0.08,
+      "cap_hit_accuracy": 0.051759834368530024,
+      "cap_hit_correct": 25,
+      "cap_hit_rate": 0.966,
+      "cap_hits": 483,
+      "correct": 40,
+      "parse_failure_count": 0,
+      "stage": "2k_margin_mask",
+      "valid_box_rate": 0.1,
+      "variant": "margin_mask"
+    },
+    {
+      "accuracy": 0.108,
+      "cap_hit_accuracy": 0.017897091722595078,
+      "cap_hit_correct": 8,
+      "cap_hit_rate": 0.894,
+      "cap_hits": 447,
+      "correct": 54,
+      "parse_failure_count": 2,
+      "stage": "2k_prob_ratio_mask",
+      "valid_box_rate": 0.126,
+      "variant": "prob_ratio_mask"
+    }
+  ],
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "status": "complete"
+}

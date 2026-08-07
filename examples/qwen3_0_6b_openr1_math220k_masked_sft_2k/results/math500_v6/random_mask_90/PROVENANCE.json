@@ -1,0 +1,26 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/random_mask_90.json",
+  "checkpoint_manifest_sha256": "b4bdff2e55b9938494d1f5130f66e2aac9eb794f1b660ba7c3ae73461f45a431",
+  "dataset_jsonl": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/_control/eval_benchmarks/math500.jsonl",
+  "dataset_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+  "policy_sha256": "15dfe2c9aa8e30796f8aa4d54d7c04532ec74e7832e968a6933ee6dcabde1035",
+  "raw_results": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/random_mask_90/merged",
+  "repository_commit": "1a6a06ac7af4700ac632e5c2f4332404828c90ef",
+  "rescore": {
+    "generation_reused_verbatim": true,
+    "native_predictions_sha256": "417bd9518f21b762500542e6ecfc653fc0d9c9fb2d401ffadaddddc462bbeced",
+    "raw_generations_sha256": "ac2128144212cf8b05b7f697c50875dc31e0a8dfb0bf61baa22f63a34818af69",
+    "source_predictions_sha256": "adade59678b1309c50a189412dc94bc10dadb0bdf87d3b1062b1b1e76d3225e3",
+    "source_provenance_sha256": "ef5e18458cd58ce4b18c8a5d3aadf00c17b01b42a75f85256ea65a6a9ec69e20",
+    "source_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5",
+    "source_scorer_version": "math500_last_boxed_symmetric_scorer_v5",
+    "source_summary_sha256": "6bbca230e4e9c49c16313a158622518a73dd9a51383d1082ad81cc614fa3b183"
+  },
+  "scorer_path": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/examples/qwen3_8b_32b_full_repro/math500_scorer_v6.py",
+  "scorer_sha256": "c76945273ca08e2a33e9b3ca7437e3da4aa3dde71390e5559062e373caea6df5",
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "stage": "2k_random_mask_90",
+  "tokenizer_provenance_sha256": "d80012c1a4e32ae303fd4af9cb559aa2e0d4a19dbaed50fea004f1e07c5619e0",
+  "trace_schema_version": "math500_last_boxed_symmetric_trace_v6"
+}

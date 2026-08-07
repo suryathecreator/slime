@@ -1,0 +1,26 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/prob_ratio_mask.json",
+  "checkpoint_manifest_sha256": "c89794eb5644c4534527683eacfef2abee9dcd8ceee4b0126fead9969104990d",
+  "dataset_jsonl": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/_control/eval_benchmarks/math500.jsonl",
+  "dataset_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+  "policy_sha256": "15dfe2c9aa8e30796f8aa4d54d7c04532ec74e7832e968a6933ee6dcabde1035",
+  "raw_results": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/prob_ratio_mask/merged",
+  "repository_commit": "1a6a06ac7af4700ac632e5c2f4332404828c90ef",
+  "rescore": {
+    "generation_reused_verbatim": true,
+    "native_predictions_sha256": "edd5106201099b9c7a7e2bf68425605e72de5fe293869e2894609c2f35baebb9",
+    "raw_generations_sha256": "664438f289077f742c1d08464ef094efcb0f6128109e4872bc60621b32b5996b",
+    "source_predictions_sha256": "8d15b149813f609222fd1951cd4a28fdaba6123d0737b6bd82e970020e5de34f",
+    "source_provenance_sha256": "655eb7eeda230b54006f9649bd4f79a65826ef9838d20e94881ba9b596ca2956",
+    "source_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5",
+    "source_scorer_version": "math500_last_boxed_symmetric_scorer_v5",
+    "source_summary_sha256": "c211762960bcd897929c28c19b12fbb8ae12dab4020ffedcf8cd6950a2203abc"
+  },
+  "scorer_path": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/examples/qwen3_8b_32b_full_repro/math500_scorer_v6.py",
+  "scorer_sha256": "c76945273ca08e2a33e9b3ca7437e3da4aa3dde71390e5559062e373caea6df5",
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "stage": "2k_prob_ratio_mask",
+  "tokenizer_provenance_sha256": "d80012c1a4e32ae303fd4af9cb559aa2e0d4a19dbaed50fea004f1e07c5619e0",
+  "trace_schema_version": "math500_last_boxed_symmetric_trace_v6"
+}
