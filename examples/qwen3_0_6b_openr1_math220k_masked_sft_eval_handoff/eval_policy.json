@@ -50,20 +50,17 @@
     "extraction": "chronologically last complete nonempty boxed group only",
     "gold_conditioned_routing": false,
     "non_boxed_fallback": null,
+    "decimal_literals": "rewritten as exact rational LaTeX on symmetric verification copies",
     "parser_lanes": {
-      "expr": {
-        "config": "ExprExtractionConfig",
-        "extraction_mode": "first_match",
-        "fallback_mode": "no_fallback"
-      },
       "latex": {
         "config": "LatexExtractionConfig",
         "extraction_mode": "first_match",
         "fallback_mode": "no_fallback",
-        "input_wrapper": "$...$"
+        "input_wrapper": "$...$",
+        "whole_value_only": true
       }
     },
-    "scorer": "math500_last_boxed_symmetric_scorer_v5",
+    "scorer": "math500_last_boxed_symmetric_scorer_v6",
     "structural_guards": [
       "ordered tuple arity and order",
       "matrix shape",
@@ -73,10 +70,12 @@
       "complete relation type"
     ],
     "text": "fixed exact categorical/MCQ normalization; no gold-seeded StringExtractionConfig",
-    "unit_normalization": "symmetric recognized presentation-unit normalization on derived verification copies",
+    "unit_normalization": "symmetric recognized presentation-unit normalization, including a terminal percent sign, on derived verification copies",
     "verifier": {
       "allow_set_relation_comp": false,
       "math_verify_version": "0.9.0",
+      "float_rounding": 15,
+      "numeric_precision": 30,
       "strict": true,
       "timeout_seconds": 5
     }

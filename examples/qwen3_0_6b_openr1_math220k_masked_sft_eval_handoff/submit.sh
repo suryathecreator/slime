@@ -71,7 +71,7 @@ if [[ "$MODE" == "--test-only-shapes" ]]; then
   sbatch --test-only "${COMMON[@]}" --export=ALL,EVAL_VARIANT=base_0p6b \
     --output="$LOG_DIR/%x-%j.out" "$HANDOFF/finalize_cpu.sbatch"
   sbatch --test-only "${COMMON[@]}" --output="$LOG_DIR/%x-%j.out" "$HANDOFF/audit_cpu.sbatch"
-  echo "MATH500_V5_SLURM_SHAPES_VALID checkpoints=12 shards=48"
+  echo "MATH500_V6_SLURM_SHAPES_VALID checkpoints=12 shards=48"
   exit 0
 fi
 
@@ -138,12 +138,12 @@ PY
       [[ -f "$candidate_log" ]] || continue
       if grep -Fq "zmq.error.ZMQError" "$candidate_log" \
         && grep -Fq "is longer than 107 characters" "$candidate_log" \
-        && grep -Fq "/q06-math500-v5/tasks/job_" "$candidate_log"; then
+        && grep -Eq "/q06-math500-v(5|6)/tasks/job_" "$candidate_log"; then
         INFRA_FAILURE_LOG="$candidate_log"
         INFRA_FAILURE_KIND="zmq_ipc_path_too_long"
         break 2
       elif grep -Fq "torch._dynamo.exc.BackendCompilerFailed" "$candidate_log" \
-        && grep -Fq "/q06-math500-v5/vllm/torch_compile_cache/" "$candidate_log"; then
+        && grep -Eq "/q06-math500-v(5|6)/vllm/torch_compile_cache/" "$candidate_log"; then
         INFRA_FAILURE_LOG="$candidate_log"
         INFRA_FAILURE_KIND="shared_compile_cache_race"
         break 2
@@ -178,7 +178,7 @@ PY
   if [[ -d "$CONTROL_ROOT/canary" ]]; then
     mv "$CONTROL_ROOT/canary" "$ATTEMPT_ARCHIVE/canary"
   fi
-  echo "MATH500_V5_SUPERSEDED archive=$ATTEMPT_ARCHIVE failure_kind=$INFRA_FAILURE_KIND failure_log=$INFRA_FAILURE_LOG jobs=${PRIOR_JOBS[*]}"
+  echo "MATH500_V6_SUPERSEDED archive=$ATTEMPT_ARCHIVE failure_kind=$INFRA_FAILURE_KIND failure_log=$INFRA_FAILURE_LOG jobs=${PRIOR_JOBS[*]}"
 fi
 
 SUBMITTED_JOBS=()
@@ -269,4 +269,4 @@ audit_job="$LAST_SUBMITTED_JOB"
 
 SUBMISSION_RECORDED=1
 trap - EXIT
-echo "MATH500_V5_SUBMITTED preflight=$preflight_job canary=$canary_job arrays=${array_jobs[*]} merges=${merge_jobs[*]} audit=$audit_job"
+echo "MATH500_V6_SUBMITTED preflight=$preflight_job canary=$canary_job arrays=${array_jobs[*]} merges=${merge_jobs[*]} audit=$audit_job"

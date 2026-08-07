@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=q06-m500-v5
+#SBATCH --job-name=q06-m500-v6
 #SBATCH --account=raivn-ckpt
 #SBATCH --partition=ckpt-all
 #SBATCH --qos=ckpt
@@ -36,7 +36,7 @@ export HF_HOME="${HF_HOME:-/gscratch/scrubbed/suryadv/hf_cache}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
 export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
 export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
-export SCRUBBED_CACHE_ROOT="${SCRUBBED_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/q06-math500-v5}"
+export SCRUBBED_CACHE_ROOT="${SCRUBBED_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/q06-math500-v6}"
 TASK_CACHE_ROOT="$SCRUBBED_CACHE_ROOT/tasks/array_${SLURM_ARRAY_JOB_ID:?}/$EVAL_VARIANT/shard_$(printf '%02d' "$SHARD_INDEX")"
 export XDG_CACHE_HOME="$TASK_CACHE_ROOT/xdg"
 export VLLM_CACHE_ROOT="$TASK_CACHE_ROOT/vllm"
@@ -53,7 +53,7 @@ export PYTHONPATH="$REPO_ROOT:$AXOLOTL_ROOT/scripts/openr1_axolotl:${PYTHONPATH:
 
 mkdir -p "$SHARD_OUTPUT" "$TMPDIR" "$XDG_CACHE_HOME" "$VLLM_CACHE_ROOT"
 mkdir -p "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR"
-echo "MATH500_V5_CACHE_NAMESPACE variant=$EVAL_VARIANT shard=$SHARD_INDEX root=$TASK_CACHE_ROOT tmp=$TMPDIR"
+echo "MATH500_V6_CACHE_NAMESPACE variant=$EVAL_VARIANT shard=$SHARD_INDEX root=$TASK_CACHE_ROOT tmp=$TMPDIR"
 cd "$REPO_ROOT"
 
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" check-canary
@@ -90,4 +90,4 @@ child_pid=""
 
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" repair-shard \
   --eval-file "$EVAL_FILE" --output-dir "$SHARD_OUTPUT"
-echo "MATH500_V5_SHARD_COMPLETE variant=$EVAL_VARIANT shard=$SHARD_INDEX job=$SLURM_JOB_ID at=$(date -Is)"
+echo "MATH500_V6_SHARD_COMPLETE variant=$EVAL_VARIANT shard=$SHARD_INDEX job=$SLURM_JOB_ID at=$(date -Is)"

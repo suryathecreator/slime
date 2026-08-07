@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=q06-m500-v5-audit
+#SBATCH --job-name=q06-m500-v6-audit
 #SBATCH --account=raivn-ckpt
 #SBATCH --partition=ckpt-all
 #SBATCH --qos=ckpt
@@ -19,4 +19,4 @@ RUNTIME_PYTHON="${RUNTIME_PYTHON:-$REPO_ROOT/checkpoints/runtime/qwen25-math500-
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 cd "$REPO_ROOT"
 "$RUNTIME_PYTHON" "$HANDOFF/math500_eval.py" --repo-root "$REPO_ROOT" audit
-echo "MATH500_V5_AUDIT_COMPLETE job=$SLURM_JOB_ID at=$(date -Is)"
+echo "MATH500_V6_AUDIT_COMPLETE job=$SLURM_JOB_ID at=$(date -Is)"

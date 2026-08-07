@@ -11,7 +11,7 @@ from typing import Any
 from examples.qwen3_8b_openr1_math220k_masked_sft_eval_handoff import (
     axolotl_math500_eval as native,
 )
-from examples.qwen3_8b_32b_full_repro.math500_scorer_v5 import (
+from examples.qwen3_8b_32b_full_repro.math500_scorer_v6 import (
     SCORER_VERSION,
     TRACE_SCHEMA_VERSION,
     interpret_answer,
@@ -26,8 +26,19 @@ POLICY = HANDOFF / "eval_policy.json"
 SCORER = (
     HANDOFF.parent
     / "qwen3_8b_32b_full_repro"
-    / "math500_scorer_v5.py"
+    / "math500_scorer_v6.py"
 )
+SOURCE_SCORER_VERSION = "math500_last_boxed_symmetric_scorer_v5"
+EXPECTED_V6_DECISION_CHANGES = {
+    ("base_0p6b", "test/number_theory/598.json"),
+    ("base_0p6b", "test/geometry/826.json"),
+    ("base_0p6b", "test/intermediate_algebra/1566.json"),
+    ("inverse_tau_0p05", "test/precalculus/1291.json"),
+    ("inverse_tau_0p20", "test/precalculus/1252.json"),
+    ("random_mask_25", "test/counting_and_probability/119.json"),
+    ("random_mask_50", "test/prealgebra/1924.json"),
+    ("random_mask_70", "test/precalculus/1291.json"),
+}
 EXPECTED_VARIANTS = {
     "base_0p6b",
     "correct_only",
@@ -257,7 +268,7 @@ def validate_gold(args: argparse.Namespace) -> None:
             }
         ),
     )
-    print(f"MATH500_V5_GOLD_COVERAGE_COMPLETE rows=500 output={output}", flush=True)
+    print(f"MATH500_V6_GOLD_COVERAGE_COMPLETE rows=500 output={output}", flush=True)
 
 
 def _score_rows(
@@ -454,8 +465,262 @@ def merge(args: argparse.Namespace) -> None:
         _compact_files(summary, provenance, checkpoint, policy),
     )
     print(
-        f"MATH500_V5_MERGE_COMPLETE variant={item['variant']} correct={summary['correct']}/500 "
+        f"MATH500_V6_MERGE_COMPLETE variant={item['variant']} correct={summary['correct']}/500 "
         f"cap_hits={summary['cap_hits']} cap_correct={summary['cap_hit_correct']} result={paths['result']}",
+        flush=True,
+    )
+
+
+def rescore_existing(args: argparse.Namespace) -> None:
+    """Rescore immutable V5 generations into versioned V6 artifacts on CPU."""
+
+    repo_root = native.repo_root_from_args(args)
+    inventory = _inventory(repo_root, args.manifest)
+    source_root = Path(args.source_root).resolve()
+    target_root = native.eval_root(repo_root, inventory)
+    if source_root == target_root:
+        raise RuntimeError("source and target eval roots must differ")
+    benchmark = source_root / "_control/eval_benchmarks/math500.jsonl"
+    if native.sha256_file(benchmark) != inventory["dataset"][
+        "axolotl_canonical_jsonl_sha256"
+    ]:
+        raise RuntimeError("source benchmark hash differs from the dataset pin")
+    full_rows = native.read_jsonl(benchmark)
+    if len(full_rows) != 500:
+        raise RuntimeError(f"source benchmark has {len(full_rows)} rows")
+    expected_ids = [str(row["problem_id"]) for row in full_rows]
+    gold_failures = [
+        row["problem_id"]
+        for row in full_rows
+        if not verify_symmetric(
+            (str(row["correct_answer"]),), str(row["correct_answer"])
+        )["equivalent"]
+    ]
+    if gold_failures:
+        raise RuntimeError(f"V6 gold self-verification failed: {gold_failures}")
+
+    policy = native.load_json(POLICY)
+    policy_sha = native.sha256_bytes(native.canonical_json(policy).encode())
+    tokenizer_provenance = (
+        source_root
+        / "_control"
+        / f"tokenizer_{inventory['base_model']['revision']}"
+        / "TOKENIZER_PROVENANCE.json"
+    )
+    if not tokenizer_provenance.is_file():
+        raise FileNotFoundError(tokenizer_provenance)
+
+    decision_changes: list[dict[str, Any]] = []
+    source_hashes: dict[str, dict[str, str]] = {}
+    for item in inventory["checkpoints"]:
+        variant = item["variant"]
+        paths = _paths(repo_root, item)
+        source_merged = source_root / variant / "merged"
+        source_predictions_path = source_merged / "predictions.jsonl"
+        native_predictions_path = source_merged / "native_predictions.jsonl"
+        raw_generations_path = source_merged / "raw_generations.jsonl"
+        source_summary_path = source_merged / "summary.json"
+        source_provenance_path = source_merged / "provenance.json"
+        required = (
+            source_predictions_path,
+            native_predictions_path,
+            raw_generations_path,
+            source_summary_path,
+            source_provenance_path,
+        )
+        missing = [str(path) for path in required if not path.is_file()]
+        if missing:
+            raise FileNotFoundError(f"missing V5 source artifacts: {missing}")
+
+        source_predictions = native.read_jsonl(source_predictions_path)
+        native_predictions = native.read_jsonl(native_predictions_path)
+        raw_rows = native.read_jsonl(raw_generations_path)
+        source_summary = native.load_json(source_summary_path)
+        source_provenance = native.load_json(source_provenance_path)
+        if (
+            source_summary.get("scorer_version") != SOURCE_SCORER_VERSION
+            or source_provenance.get("scorer_version") != SOURCE_SCORER_VERSION
+        ):
+            raise RuntimeError(f"{variant} is not a V5 source result")
+        for name, rows in (
+            ("source predictions", source_predictions),
+            ("native predictions", native_predictions),
+            ("raw generations", raw_rows),
+        ):
+            if [str(row["problem_id"]) for row in rows] != expected_ids:
+                raise RuntimeError(f"{variant} {name} order differs from MATH-500")
+
+        rescored = _score_rows(
+            full_rows, native_predictions, raw_rows, variant
+        )
+        for old, new in zip(source_predictions, rescored, strict=True):
+            old_trace = old["score_trace"]
+            new_trace = new["score_trace"]
+            for key in (
+                "official_extracted_components_raw",
+                "official_extracted_source_raw",
+                "official_extracted_source_span",
+            ):
+                if old_trace[key] != new_trace[key]:
+                    raise RuntimeError(
+                        f"V6 changed extraction for {variant} {new['problem_id']}: {key}"
+                    )
+            if old["cap_hit"] != new["cap_hit"]:
+                raise RuntimeError(
+                    f"V6 changed cap status for {variant} {new['problem_id']}"
+                )
+            if old["is_correct"] != new["is_correct"]:
+                decision_changes.append(
+                    {
+                        "cap_hit": new["cap_hit"],
+                        "correct_answer": new["correct_answer"],
+                        "extracted_components_raw": new_trace[
+                            "official_extracted_components_raw"
+                        ],
+                        "new_correct": new["is_correct"],
+                        "new_reason": new_trace["official_decision_reason"],
+                        "old_correct": old["is_correct"],
+                        "old_reason": old_trace["official_decision_reason"],
+                        "problem_id": new["problem_id"],
+                        "variant": variant,
+                    }
+                )
+
+        checkpoint = native.load_json(paths["manifest"])
+        native.checkpoint_manifests.validate_manifest(checkpoint)
+        summary = _summary(
+            item, checkpoint, inventory, policy_sha, rescored
+        )
+        target_merged = paths["output"] / "merged"
+        native.atomic_text(
+            target_merged / "predictions.jsonl", native.jsonl_text(rescored)
+        )
+        native.atomic_text(
+            target_merged / "summary.json", native.canonical_json(summary)
+        )
+        native.atomic_text(
+            target_merged / "summary.sha256",
+            native.sha256_file(target_merged / "summary.json") + "\n",
+        )
+        hashes = {
+            "native_predictions_sha256": native.sha256_file(
+                native_predictions_path
+            ),
+            "raw_generations_sha256": native.sha256_file(raw_generations_path),
+            "source_predictions_sha256": native.sha256_file(
+                source_predictions_path
+            ),
+            "source_provenance_sha256": native.sha256_file(
+                source_provenance_path
+            ),
+            "source_summary_sha256": native.sha256_file(source_summary_path),
+        }
+        source_hashes[variant] = hashes
+        provenance = {
+            "artifact_schema_version": 1,
+            "checkpoint_manifest": str(paths["manifest"]),
+            "checkpoint_manifest_sha256": checkpoint[
+                "checkpoint_manifest_sha256"
+            ],
+            "dataset_jsonl": str(benchmark),
+            "dataset_jsonl_sha256": native.sha256_file(benchmark),
+            "policy_sha256": policy_sha,
+            "raw_results": str(target_merged),
+            "repository_commit": args.scorer_commit,
+            "rescore": {
+                "generation_reused_verbatim": True,
+                "source_root": str(source_root),
+                "source_scorer_version": SOURCE_SCORER_VERSION,
+                **hashes,
+            },
+            "scorer_path": str(SCORER),
+            "scorer_sha256": native.sha256_file(SCORER),
+            "scorer_version": SCORER_VERSION,
+            "stage": item["id"],
+            "tokenizer_provenance_sha256": native.sha256_file(
+                tokenizer_provenance
+            ),
+            "trace_schema_version": TRACE_SCHEMA_VERSION,
+        }
+        native.atomic_text(
+            target_merged / "provenance.json",
+            native.canonical_json(provenance),
+        )
+        native.install_compact_result(
+            paths["result"],
+            _compact_files(summary, provenance, checkpoint, policy),
+        )
+        print(
+            f"MATH500_V6_RESCORE_COMPLETE variant={variant} "
+            f"correct={summary['correct']}/500 result={paths['result']}",
+            flush=True,
+        )
+
+    actual_changes = {
+        (row["variant"], row["problem_id"]) for row in decision_changes
+    }
+    if actual_changes != EXPECTED_V6_DECISION_CHANGES or any(
+        not row["old_correct"] or row["new_correct"]
+        for row in decision_changes
+    ):
+        raise RuntimeError(
+            "V6 decision delta differs from the reviewed eight false positives: "
+            f"actual={sorted(actual_changes)}"
+        )
+    for variant, hashes in source_hashes.items():
+        source_raw = source_root / variant / "merged/raw_generations.jsonl"
+        if native.sha256_file(source_raw) != hashes["raw_generations_sha256"]:
+            raise RuntimeError(f"V5 source changed during rescore: {variant}")
+
+    control = native.control_root(repo_root, inventory)
+    comparison = {
+        "artifact_schema_version": 1,
+        "decision_change_count": len(decision_changes),
+        "decision_changes": decision_changes,
+        "new_scorer_version": SCORER_VERSION,
+        "old_scorer_version": SOURCE_SCORER_VERSION,
+        "repository_commit": args.scorer_commit,
+        "source_hashes": source_hashes,
+        "status": "complete",
+    }
+    native.atomic_text(
+        control / "RESCORE_COMPARISON.json",
+        native.canonical_json(comparison),
+    )
+    audit(args)
+    report_root = next(
+        iter(
+            {
+                _paths(repo_root, item)["result"].parent
+                for item in inventory["checkpoints"]
+            }
+        )
+    )
+    native.atomic_text(
+        report_root / "COMPARISON.json", native.canonical_json(comparison)
+    )
+    lines = [
+        "# MATH-500 V5 to V6 scorer comparison",
+        "",
+        "The saved generations and extracted boxed spans are unchanged. "
+        "V6 reverses eight V5 false positives.",
+        "",
+        "| Checkpoint | Problem | V5 | V6 | Extracted answer | Gold |",
+        "|---|---|---:|---:|---|---|",
+    ]
+    for row in decision_changes:
+        extracted = " / ".join(row["extracted_components_raw"])
+        lines.append(
+            f"| {row['variant']} | `{row['problem_id']}` | "
+            f"{int(row['old_correct'])} | {int(row['new_correct'])} | "
+            f"`{extracted}` | `{row['correct_answer']}` |"
+        )
+    native.atomic_text(
+        report_root / "COMPARISON.md", "\n".join(lines) + "\n"
+    )
+    print(
+        f"MATH500_V6_RESCORE_AUDITED rows={len(full_rows) * len(EXPECTED_VARIANTS)} "
+        f"decision_changes={len(decision_changes)} report={report_root}",
         flush=True,
     )
 
@@ -497,10 +762,16 @@ def audit(args: argparse.Namespace) -> None:
         "status": "complete",
     }
     native.atomic_text(output_root / "FINAL_AUDIT.json", native.canonical_json(audit_value))
-    report_root = repo_root / "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5"
+    report_roots = {
+        _paths(repo_root, item)["result"].parent
+        for item in inventory["checkpoints"]
+    }
+    if len(report_roots) != 1:
+        raise RuntimeError(f"result paths do not share one root: {report_roots}")
+    report_root = next(iter(report_roots))
     native.atomic_text(report_root / "RESULTS.json", native.canonical_json(audit_value))
     lines = [
-        "# Qwen3-0.6B MATH-500 V5 results",
+        f"# Qwen3-0.6B MATH-500 {SCORER_VERSION} results",
         "",
         "| Checkpoint | Correct | Accuracy | Valid box | Cap hits | "
         "Correct cap hits | Cap-hit accuracy | Parse failures |",
@@ -513,7 +784,11 @@ def audit(args: argparse.Namespace) -> None:
             f"{row['cap_hit_correct']} | {row['cap_hit_accuracy']:.2%} | {row['parse_failure_count']} |"
         )
     native.atomic_text(report_root / "RESULTS.md", "\n".join(lines) + "\n")
-    print(f"MATH500_V5_ALL_RESULTS_COMPLETE count={len(rows)} audit={output_root / 'FINAL_AUDIT.json'}", flush=True)
+    print(
+        f"MATH500_ALL_RESULTS_COMPLETE scorer={SCORER_VERSION} "
+        f"count={len(rows)} audit={output_root / 'FINAL_AUDIT.json'}",
+        flush=True,
+    )
 
 
 def mark_canary(args: argparse.Namespace) -> None:
@@ -544,7 +819,7 @@ def mark_canary(args: argparse.Namespace) -> None:
         "trace": trace,
     }
     native.atomic_text(root / "CANARY_READY.json", native.canonical_json(ready))
-    print(f"MATH500_V5_CANARY_READY output={root / 'CANARY_READY.json'}", flush=True)
+    print(f"MATH500_V6_CANARY_READY output={root / 'CANARY_READY.json'}", flush=True)
 
 
 def check_canary(args: argparse.Namespace) -> None:
@@ -555,7 +830,7 @@ def check_canary(args: argparse.Namespace) -> None:
     ready = native.load_json(root / "CANARY_READY.json")
     if ready.get("status") != "ready" or ready.get("scorer_version") != SCORER_VERSION:
         raise RuntimeError("generation/scoring canary is not ready")
-    print(f"MATH500_V5_CANARY_VERIFIED status={root / 'CANARY_READY.json'}", flush=True)
+    print(f"MATH500_V6_CANARY_VERIFIED status={root / 'CANARY_READY.json'}", flush=True)
 
 
 def record_submission(args: argparse.Namespace) -> None:
@@ -602,7 +877,7 @@ def record_submission(args: argparse.Namespace) -> None:
             }
         ),
     )
-    print(f"MATH500_V5_SUBMISSION_RECORDED journal={output}", flush=True)
+    print(f"MATH500_V6_SUBMISSION_RECORDED journal={output}", flush=True)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -621,6 +896,9 @@ def build_parser() -> argparse.ArgumentParser:
     repair_parser.add_argument("--output-dir", required=True)
     merge_parser = subparsers.add_parser("merge")
     merge_parser.add_argument("--variant", required=True)
+    rescore_parser = subparsers.add_parser("rescore-existing")
+    rescore_parser.add_argument("--source-root", required=True)
+    rescore_parser.add_argument("--scorer-commit", required=True)
     subparsers.add_parser("audit")
     preflight_parser = subparsers.add_parser("mark-preflight")
     preflight_parser.add_argument("--job-id", required=True)
@@ -664,6 +942,7 @@ def main() -> None:
         "validate-gold": validate_gold,
         "repair-shard": native.repair_shard,
         "merge": merge,
+        "rescore-existing": rescore_existing,
         "audit": audit,
         "mark-preflight": native.mark_preflight,
         "check-preflight": native.check_preflight,

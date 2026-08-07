@@ -19,96 +19,96 @@
       "id": "base_0p6b",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/base_0p6b.json",
       "model": "checkpoints/models/Qwen3-0.6B-Base",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/base_0p6b",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/base_0p6b",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/base_0p6b",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/base_0p6b",
       "variant": "base_0p6b"
     },
     {
       "id": "2k_correct_only",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/correct_only.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/correct_only/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/correct_only",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/correct_only",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/correct_only",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/correct_only",
       "variant": "correct_only"
     },
     {
       "id": "2k_unmasked",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/unmasked.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/unmasked/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/unmasked",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/unmasked",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/unmasked",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/unmasked",
       "variant": "unmasked"
     },
     {
       "id": "2k_random_mask_25",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/random_mask_25.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/random_mask_25/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/random_mask_25",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/random_mask_25",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/random_mask_25",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/random_mask_25",
       "variant": "random_mask_25"
     },
     {
       "id": "2k_random_mask_50",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/random_mask_50.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/random_mask_50/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/random_mask_50",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/random_mask_50",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/random_mask_50",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/random_mask_50",
       "variant": "random_mask_50"
     },
     {
       "id": "2k_random_mask_70",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/random_mask_70.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/random_mask_70/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/random_mask_70",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/random_mask_70",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/random_mask_70",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/random_mask_70",
       "variant": "random_mask_70"
     },
     {
       "id": "2k_random_mask_80",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/random_mask_80.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/random_mask_80/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/random_mask_80",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/random_mask_80",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/random_mask_80",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/random_mask_80",
       "variant": "random_mask_80"
     },
     {
       "id": "2k_random_mask_90",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/random_mask_90.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/random_mask_90/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/random_mask_90",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/random_mask_90",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/random_mask_90",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/random_mask_90",
       "variant": "random_mask_90"
     },
     {
       "id": "2k_inverse_tau_0p20",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/inverse_tau_0p20.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/inverse_tau_0p20/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/inverse_tau_0p20",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/inverse_tau_0p20",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/inverse_tau_0p20",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/inverse_tau_0p20",
       "variant": "inverse_tau_0p20"
     },
     {
       "id": "2k_inverse_tau_0p05",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/inverse_tau_0p05.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/inverse_tau_0p05/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/inverse_tau_0p05",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/inverse_tau_0p05",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/inverse_tau_0p05",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/inverse_tau_0p05",
       "variant": "inverse_tau_0p05"
     },
     {
       "id": "2k_margin_mask",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/margin_mask.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/margin_mask/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/margin_mask",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/margin_mask",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/margin_mask",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/margin_mask",
       "variant": "margin_mask"
     },
     {
       "id": "2k_prob_ratio_mask",
       "manifest": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/prob_ratio_mask.json",
       "model": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/training/prob_ratio_mask/weights/iter_0000124",
-      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/prob_ratio_mask",
-      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v5/prob_ratio_mask",
+      "output": "checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/prob_ratio_mask",
+      "result": "examples/qwen3_0_6b_openr1_math220k_masked_sft_2k/results/math500_v6/prob_ratio_mask",
       "variant": "prob_ratio_mask"
     }
   ],

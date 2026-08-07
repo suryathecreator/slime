@@ -2,8 +2,10 @@
 
 This handoff evaluates the transferred `base_0p6b` model and all eleven final
 iteration-124 Full-SFT checkpoints.  It uses the same Axolotl/vLLM generation
-path as the earlier masked-SFT evaluations and the versioned
-`math500_last_boxed_symmetric_scorer_v5` policy.
+path as the earlier masked-SFT evaluations.  The original generation run used
+the versioned `math500_last_boxed_symmetric_scorer_v5` policy; the current
+policy is the stricter `math500_last_boxed_symmetric_scorer_v6` post-hoc
+scorer over those immutable generations.
 
 ## Generation contract
 
@@ -47,14 +49,18 @@ boxes, malformed-only boxes, parser failures, and mismatches are incorrect.
 Candidate and gold are independently passed through the same fixed
 interpreter.  No parser, type, or row override is chosen from the gold:
 
-1. The LaTeX lane wraps the normalized value in `$...$` and calls `parse`
+1. Decimal literals are rewritten as exact rational LaTeX on derived
+   verification copies; a terminal percent sign is treated as a presentation
+   unit.  Extracted source text remains unchanged.
+2. The sole mathematical lane wraps the complete normalized value in `$...$`
+   and calls `parse`
    with only `LatexExtractionConfig`, `fallback_mode="no_fallback"`,
    `extraction_mode="first_match"`, a five-second timeout, and raised errors.
-2. The expression lane calls the same API on the unwrapped value with only
-   `ExprExtractionConfig` and the same failure settings.
-3. Only lanes returning exactly one object survive.  Same-type objects are
-   checked using `verify(strict=True, allow_set_relation_comp=False,
-   timeout_seconds=5)`.
+   `ExprExtractionConfig` is intentionally not used because it extracts a
+   numeric substring from symbolic answers such as `2x+2`.
+3. The lane must return exactly one object.  Same-type objects are checked
+   using `verify(strict=True, allow_set_relation_comp=False,
+   float_rounding=15, numeric_precision=30, timeout_seconds=5)`.
 4. Text uses fixed whole-value categorical/MCQ normalization.  It never seeds
    `StringExtractionConfig` from the gold.
 
@@ -100,3 +106,24 @@ Final tables report correct/500, accuracy, valid-box rate, cap-hit count/rate,
 correct cap hits, cap-hit accuracy, and parse failures.  Raw generations and
 full traces remain under the ignored checkpoint tree; compact results are
 installed under the 0.6B example results directory.
+
+## Versioned post-hoc rescore
+
+The committed `results/math500_v5` tree preserves the first scoring snapshot.
+V6 reuses the complete V5 `raw_generations.jsonl` files and writes independent
+full traces and compact results under `math500_v6`; it never regenerates or
+modifies a model response.  Run the pinned CPU rescore after committing the V6
+scorer so its commit can be recorded in provenance:
+
+```bash
+checkpoints/runtime/qwen25-math500-llama-gate-v1/venv/bin/python \
+  examples/qwen3_0_6b_openr1_math220k_masked_sft_eval_handoff/math500_eval.py \
+  --repo-root "$PWD" rescore-existing \
+  --source-root checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5 \
+  --scorer-commit "$(git rev-parse HEAD)"
+```
+
+The rescore refuses to publish unless all 500 gold answers self-verify, all
+6,000 response IDs and extracted spans are unchanged, the V5 source hashes
+remain stable, and the decision delta is exactly the eight reviewed V5 false
+positives.

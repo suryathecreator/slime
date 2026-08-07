@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=q06-m500-v5-preflight
+#SBATCH --job-name=q06-m500-v6-preflight
 #SBATCH --account=raivn-ckpt
 #SBATCH --partition=ckpt-all
 #SBATCH --qos=ckpt
@@ -29,13 +29,14 @@ import importlib.metadata as m
 expected={"vllm":"0.10.2","torch":"2.8.0","transformers":"4.57.6","math-verify":"0.9.0"}
 actual={name:m.version(name) for name in expected}
 assert actual == expected, (actual, expected)
-print("MATH500_V5_RUNTIME_EXACT", actual, flush=True)
+print("MATH500_V6_RUNTIME_EXACT", actual, flush=True)
 '
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" verify-checkpoints \
   --full --status "$VERIFY_STATUS"
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" validate-gold
 "$RUNTIME_PYTHON" -m pytest -q \
-  examples/qwen3_8b_32b_full_repro/tests/test_math500_last_boxed_scorer_v5.py
+  examples/qwen3_8b_32b_full_repro/tests/test_math500_last_boxed_scorer_v5.py \
+  examples/qwen3_8b_32b_full_repro/tests/test_math500_last_boxed_scorer_v6.py
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" mark-preflight \
   --job-id "${SLURM_JOB_ID:?}"
-echo "MATH500_V5_PREFLIGHT_COMPLETE job=$SLURM_JOB_ID at=$(date -Is)"
+echo "MATH500_V6_PREFLIGHT_COMPLETE job=$SLURM_JOB_ID at=$(date -Is)"

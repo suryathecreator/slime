@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=q06-m500-v5-canary
+#SBATCH --job-name=q06-m500-v6-canary
 #SBATCH --account=raivn-ckpt
 #SBATCH --partition=ckpt-all
 #SBATCH --qos=ckpt
@@ -31,7 +31,7 @@ export HF_HOME="${HF_HOME:-/gscratch/scrubbed/suryadv/hf_cache}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
 export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
 export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
-export SCRUBBED_CACHE_ROOT="${SCRUBBED_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/q06-math500-v5}"
+export SCRUBBED_CACHE_ROOT="${SCRUBBED_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/q06-math500-v6}"
 TASK_CACHE_ROOT="$SCRUBBED_CACHE_ROOT/tasks/job_${SLURM_JOB_ID:?}/canary"
 export XDG_CACHE_HOME="$TASK_CACHE_ROOT/xdg"
 export VLLM_CACHE_ROOT="$TASK_CACHE_ROOT/vllm"
@@ -48,7 +48,7 @@ export PYTHONPATH="$REPO_ROOT:$AXOLOTL_ROOT/scripts/openr1_axolotl:${PYTHONPATH:
 
 mkdir -p "$CANARY_OUTPUT" "$TMPDIR" "$XDG_CACHE_HOME" "$VLLM_CACHE_ROOT"
 mkdir -p "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR"
-echo "MATH500_V5_CACHE_NAMESPACE variant=canary_base_0p6b root=$TASK_CACHE_ROOT tmp=$TMPDIR"
+echo "MATH500_V6_CACHE_NAMESPACE variant=canary_base_0p6b root=$TASK_CACHE_ROOT tmp=$TMPDIR"
 cd "$REPO_ROOT"
 
 child_pid=""
@@ -83,4 +83,4 @@ if [[ ! -f "$CANARY_OUTPUT/metrics.json" ]]; then
 fi
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" mark-canary \
   --job-id "${SLURM_JOB_ID:?}"
-echo "MATH500_V5_CANARY_COMPLETE job=$SLURM_JOB_ID at=$(date -Is)"
+echo "MATH500_V6_CANARY_COMPLETE job=$SLURM_JOB_ID at=$(date -Is)"
