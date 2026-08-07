@@ -15,6 +15,9 @@ path as the earlier masked-SFT evaluations and the versioned
   model context/output request, and EOS/`<|im_end|>` stopping.
 - Four contiguous 125-row shards per checkpoint, 32-row durable chunks,
   Slurm requeue, and one H200 per shard.
+- Every H200 task has an exclusive persistent vLLM, TorchInductor, Triton, XDG,
+  and temporary cache namespace keyed by submission and shard.  The namespace
+  survives requeue but cannot collide with another concurrent worker.
 - The approved runtime is vLLM 0.10.2, Transformers 4.57.6, Torch 2.8.0,
   Math-Verify 0.9.0, and Axolotl commit
   `6b8f0e3314e3d162260cdc35d84741c3da163f30`.
@@ -79,10 +82,17 @@ bash examples/qwen3_0_6b_openr1_math220k_masked_sft_eval_handoff/submit.sh \
   --submit
 ```
 
+If a submitted DAG must be superseded after a verified infrastructure failure,
+run the same launcher with `--resubmit`.  That mode validates the recorded
+failure, cancels the old DAG, archives its journal and canary, and submits the
+full standard DAG again.  Durable complete shard chunks remain in place and
+are reused; only incomplete or missing rows are generated again.
+
 Each H200 request is two hours, 8 CPUs, and 96 GB, with a ten-minute requeue
 signal.  The launcher refuses a dirty or unpushed SLIME branch, a changed
-Axolotl commit, incomplete checkpoints, a stale benchmark, or a duplicate
-submission journal.
+Axolotl commit, incomplete checkpoints, or a stale benchmark.  A normal submit
+also refuses a duplicate journal; a guarded resubmit archives it and rolls back
+any new jobs if the replacement DAG cannot be recorded completely.
 
 Final tables report correct/500, accuracy, valid-box rate, cap-hit count/rate,
 correct cap hits, cap-hit accuracy, and parse failures.  Raw generations and

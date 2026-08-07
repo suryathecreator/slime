@@ -93,3 +93,29 @@ def test_submission_shape_is_48_unthrottled_h200_tasks() -> None:
     assert "MATH500_V5_SLURM_SHAPES_VALID checkpoints=12 shards=48" in text
     assert "--array=0-3%" not in text
     assert "--dependency=\"afterok:$canary_job\"" in text
+
+
+def test_h200_workers_use_exclusive_persistent_compile_caches() -> None:
+    run = (HANDOFF / "run_h200.sbatch").read_text()
+    canary = (HANDOFF / "canary_h200.sbatch").read_text()
+    assert "tasks/array_${SLURM_ARRAY_JOB_ID:?}/$EVAL_VARIANT/shard_" in run
+    assert "tasks/job_${SLURM_JOB_ID:?}/canary" in canary
+    for text in (run, canary):
+        assert 'export VLLM_CACHE_ROOT="$TASK_CACHE_ROOT/vllm"' in text
+        assert 'export TORCHINDUCTOR_CACHE_DIR="$TASK_CACHE_ROOT/torchinductor"' in text
+        assert 'export TRITON_CACHE_DIR="$TASK_CACHE_ROOT/triton"' in text
+        assert 'export XDG_CACHE_HOME="$TASK_CACHE_ROOT/xdg"' in text
+        assert 'export TMPDIR="$TASK_CACHE_ROOT/tmp"' in text
+        assert "MATH500_V5_CACHE_NAMESPACE" in text
+
+
+def test_resubmission_is_guarded_and_archives_prior_attempt() -> None:
+    text = (HANDOFF / "submit.sh").read_text()
+    assert '"--resubmit"' in text
+    assert "torch._dynamo.exc.BackendCompilerFailed" in text
+    assert "/q06-math500-v5/vllm/torch_compile_cache/" in text
+    assert 'scancel "${ACTIVE_PRIOR_JOBS[@]}"' in text
+    assert "rollback_unrecorded_submission" in text
+    assert 'scancel "${SUBMITTED_JOBS[@]}"' in text
+    assert "submission_attempts/$attempt_stamp" in text
+    assert 'mv "$CONTROL_ROOT/canary" "$ATTEMPT_ARCHIVE/canary"' in text
