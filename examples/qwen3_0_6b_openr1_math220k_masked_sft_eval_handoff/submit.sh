@@ -129,19 +129,29 @@ PY
     echo "Expected 27 jobs in prior submission; found ${#PRIOR_JOBS[@]}" >&2
     exit 2
   }
-  CACHE_RACE_LOG=""
+  INFRA_FAILURE_LOG=""
+  INFRA_FAILURE_KIND=""
   for prior_job in "${PRIOR_JOBS[@]}"; do
-    for candidate_log in "$LOG_DIR"/*-"$prior_job"_*.out; do
+    for candidate_log in \
+      "$LOG_DIR"/*-"$prior_job".out \
+      "$LOG_DIR"/*-"$prior_job"_*.out; do
       [[ -f "$candidate_log" ]] || continue
-      if grep -Fq "torch._dynamo.exc.BackendCompilerFailed" "$candidate_log" \
+      if grep -Fq "zmq.error.ZMQError" "$candidate_log" \
+        && grep -Fq "is longer than 107 characters" "$candidate_log" \
+        && grep -Fq "/q06-math500-v5/tasks/job_" "$candidate_log"; then
+        INFRA_FAILURE_LOG="$candidate_log"
+        INFRA_FAILURE_KIND="zmq_ipc_path_too_long"
+        break 2
+      elif grep -Fq "torch._dynamo.exc.BackendCompilerFailed" "$candidate_log" \
         && grep -Fq "/q06-math500-v5/vllm/torch_compile_cache/" "$candidate_log"; then
-        CACHE_RACE_LOG="$candidate_log"
+        INFRA_FAILURE_LOG="$candidate_log"
+        INFRA_FAILURE_KIND="shared_compile_cache_race"
         break 2
       fi
     done
   done
-  [[ -n "$CACHE_RACE_LOG" ]] || {
-    echo "No approved shared compile-cache race was found in prior array logs" >&2
+  [[ -n "$INFRA_FAILURE_LOG" ]] || {
+    echo "No approved infrastructure failure was found in prior job logs" >&2
     exit 2
   }
   prior_csv="$(IFS=,; echo "${PRIOR_JOBS[*]}")"
@@ -168,7 +178,7 @@ PY
   if [[ -d "$CONTROL_ROOT/canary" ]]; then
     mv "$CONTROL_ROOT/canary" "$ATTEMPT_ARCHIVE/canary"
   fi
-  echo "MATH500_V5_SUPERSEDED archive=$ATTEMPT_ARCHIVE failure_log=$CACHE_RACE_LOG jobs=${PRIOR_JOBS[*]}"
+  echo "MATH500_V5_SUPERSEDED archive=$ATTEMPT_ARCHIVE failure_kind=$INFRA_FAILURE_KIND failure_log=$INFRA_FAILURE_LOG jobs=${PRIOR_JOBS[*]}"
 fi
 
 SUBMITTED_JOBS=()

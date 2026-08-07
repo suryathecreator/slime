@@ -37,7 +37,8 @@ export XDG_CACHE_HOME="$TASK_CACHE_ROOT/xdg"
 export VLLM_CACHE_ROOT="$TASK_CACHE_ROOT/vllm"
 export TORCHINDUCTOR_CACHE_DIR="$TASK_CACHE_ROOT/torchinductor"
 export TRITON_CACHE_DIR="$TASK_CACHE_ROOT/triton"
-export TMPDIR="$TASK_CACHE_ROOT/tmp"
+TMPDIR="$(mktemp -d "/tmp/q06m5-${SLURM_JOB_ID:?}.XXXXXX")"
+export TMPDIR
 export HF_HUB_DISABLE_XET=1
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
@@ -47,7 +48,7 @@ export PYTHONPATH="$REPO_ROOT:$AXOLOTL_ROOT/scripts/openr1_axolotl:${PYTHONPATH:
 
 mkdir -p "$CANARY_OUTPUT" "$TMPDIR" "$XDG_CACHE_HOME" "$VLLM_CACHE_ROOT"
 mkdir -p "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR"
-echo "MATH500_V5_CACHE_NAMESPACE variant=canary_base_0p6b root=$TASK_CACHE_ROOT"
+echo "MATH500_V5_CACHE_NAMESPACE variant=canary_base_0p6b root=$TASK_CACHE_ROOT tmp=$TMPDIR"
 cd "$REPO_ROOT"
 
 child_pid=""

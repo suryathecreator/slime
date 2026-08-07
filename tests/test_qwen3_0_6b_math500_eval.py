@@ -105,8 +105,22 @@ def test_h200_workers_use_exclusive_persistent_compile_caches() -> None:
         assert 'export TORCHINDUCTOR_CACHE_DIR="$TASK_CACHE_ROOT/torchinductor"' in text
         assert 'export TRITON_CACHE_DIR="$TASK_CACHE_ROOT/triton"' in text
         assert 'export XDG_CACHE_HOME="$TASK_CACHE_ROOT/xdg"' in text
-        assert 'export TMPDIR="$TASK_CACHE_ROOT/tmp"' in text
+        assert '$TASK_CACHE_ROOT/tmp' not in text
         assert "MATH500_V5_CACHE_NAMESPACE" in text
+    assert 'mktemp -d "/tmp/q06m5-${SLURM_JOB_ID:?}.XXXXXX"' in canary
+    assert (
+        'mktemp -d "/tmp/q06m5-${SLURM_ARRAY_JOB_ID:?}-${SHARD_INDEX}.XXXXXX"'
+        in run
+    )
+
+
+def test_vllm_ipc_paths_fit_the_unix_socket_limit() -> None:
+    uuid = "x" * 36
+    longest_slurm_id = "9" * 20
+    canary = f"/tmp/q06m5-{longest_slurm_id}.XXXXXX/{uuid}"
+    shard = f"/tmp/q06m5-{longest_slurm_id}-3.XXXXXX/{uuid}"
+    assert len(canary) < 107
+    assert len(shard) < 107
 
 
 def test_resubmission_is_guarded_and_archives_prior_attempt() -> None:
@@ -114,6 +128,9 @@ def test_resubmission_is_guarded_and_archives_prior_attempt() -> None:
     assert '"--resubmit"' in text
     assert "torch._dynamo.exc.BackendCompilerFailed" in text
     assert "/q06-math500-v5/vllm/torch_compile_cache/" in text
+    assert "zmq.error.ZMQError" in text
+    assert "is longer than 107 characters" in text
+    assert "zmq_ipc_path_too_long" in text
     assert 'scancel "${ACTIVE_PRIOR_JOBS[@]}"' in text
     assert "rollback_unrecorded_submission" in text
     assert 'scancel "${SUBMITTED_JOBS[@]}"' in text

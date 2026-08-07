@@ -15,9 +15,11 @@ path as the earlier masked-SFT evaluations and the versioned
   model context/output request, and EOS/`<|im_end|>` stopping.
 - Four contiguous 125-row shards per checkpoint, 32-row durable chunks,
   Slurm requeue, and one H200 per shard.
-- Every H200 task has an exclusive persistent vLLM, TorchInductor, Triton, XDG,
-  and temporary cache namespace keyed by submission and shard.  The namespace
-  survives requeue but cannot collide with another concurrent worker.
+- Every H200 task has an exclusive persistent vLLM, TorchInductor, Triton, and
+  XDG cache namespace keyed by submission and shard.  It survives requeue but
+  cannot collide with another concurrent worker.  `TMPDIR` is instead a short,
+  task-exclusive node-local directory so vLLM's Unix IPC path remains below
+  the 107-character kernel limit.
 - The approved runtime is vLLM 0.10.2, Transformers 4.57.6, Torch 2.8.0,
   Math-Verify 0.9.0, and Axolotl commit
   `6b8f0e3314e3d162260cdc35d84741c3da163f30`.
