@@ -51,3 +51,46 @@
 - Initial scheduler validation found the expected resources and dependency
   graph, with no `DependencyNeverSatisfied` jobs.  Preflight was pending for
   priority and all downstream jobs were pending on valid dependencies.
+
+## Short-IPC-path replacement — 2026-08-07
+
+- Follow-up patch: `50dcc5106ae92c9c7a463d8a909e9e5b6e46328e`
+  (`Shorten MATH-500 vLLM IPC paths`), pushed before submission.
+- Reason for replacement: canary `38278878` failed while binding a ZeroMQ IPC
+  socket.  Its persistent cache-based temporary path was 114 characters, over
+  `zmq.IPC_PATH_MAX_LEN=107`; all twelve dependent arrays consequently became
+  `DependencyNeverSatisfied` without running.
+- Persistent vLLM, TorchInductor, Triton, and XDG caches remain isolated by
+  submission, variant, and shard.  Only `TMPDIR` moved to a secure short
+  node-local `mktemp` path under `/tmp/q06m5-...`.
+- The guarded launcher classified the failure as `zmq_ipc_path_too_long`,
+  canceled jobs `38278877`–`38278903` from that submission journal, archived
+  the attempt, and preserved all durable generation chunks.
+- Corrected replacement submitted at `2026-08-07T08:11:48Z` with the unchanged
+  48-task H200 shape and scoring/generation contract.
+
+| Checkpoint | H200 array | CPU finalizer |
+| --- | ---: | ---: |
+| `base_0p6b` | `38279369` | `38279370` |
+| `correct_only` | `38279371` | `38279372` |
+| `unmasked` | `38279373` | `38279374` |
+| `random_mask_25` | `38279375` | `38279376` |
+| `random_mask_50` | `38279377` | `38279378` |
+| `random_mask_70` | `38279379` | `38279380` |
+| `random_mask_80` | `38279381` | `38279382` |
+| `random_mask_90` | `38279383` | `38279384` |
+| `inverse_tau_0p20` | `38279385` | `38279386` |
+| `inverse_tau_0p05` | `38279387` | `38279388` |
+| `margin_mask` | `38279389` | `38279390` |
+| `prob_ratio_mask` | `38279391` | `38279392` |
+
+- Preflight `38279367` completed successfully in 1m12s.
+- Canary `38279368` used persistent cache
+  `tasks/job_38279368/canary` with temporary directory
+  `/tmp/q06m5-38279368.K8siKr`; it compiled, generated, scored, wrote
+  `CANARY_READY.json`, and completed successfully in 2m57s.
+- The successful canary released every array to normal scheduler priority.
+  Base shard `38279369_0` then used
+  `/tmp/q06m5-38279369-0.XR3mvc` and wrote its first durable progress record,
+  `completed=32 total=125`.
+- Final audit: `38279393`, dependent on all twelve corrected finalizers.
