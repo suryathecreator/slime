@@ -1,0 +1,45 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "c89794eb5644c4534527683eacfef2abee9dcd8ceee4b0126fead9969104990d",
+  "contract_hash": "9c736f35abc76095",
+  "created_at": "2026-08-04T21:49:58.245008+00:00",
+  "family": "2k",
+  "files": [
+    {
+      "bytes": 4116,
+      "name": "chat_template.jinja",
+      "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+    },
+    {
+      "bytes": 1441,
+      "name": "config.json",
+      "sha256": "2ef72b777467b5747e58414b7f0d7b62833a35f2915f357e2a3a7d1f5a645edc"
+    },
+    {
+      "bytes": 167,
+      "name": "generation_config.json",
+      "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+    },
+    {
+      "bytes": 1192135064,
+      "name": "model.safetensors",
+      "sha256": "74c6c07866f7562b449c00d40c6580432067ab0d416dd4b4c20e24756ca5b47b"
+    },
+    {
+      "bytes": 11422650,
+      "name": "tokenizer.json",
+      "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+    },
+    {
+      "bytes": 695,
+      "name": "tokenizer_config.json",
+      "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    }
+  ],
+  "final_iteration": 124,
+  "full_sft": true,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "repo_commit": "4a75cb12d71f56eb1119a04f2827ce3e019a0ac5",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen3-0_6b-openr1-masked-sft-2k/v1/9c736f35abc76095/outputs/training/prob_ratio_mask/weights/iter_0000124",
+  "variant": "prob_ratio_mask"
+}
