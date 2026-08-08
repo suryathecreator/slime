@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -26,6 +28,11 @@ from examples.qwen_correct_only_openr1_math220k_sft_2k.validate_schedule import 
 
 
 NUM_GPUS = 0
+EXPERIMENT_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "examples"
+    / "qwen_correct_only_openr1_math220k_sft_2k"
+)
 
 
 class FakeTokenizer:
@@ -183,6 +190,17 @@ def test_four_epoch_schedule_resolves_to_125_global_updates(tmp_path, monkeypatc
     assert value["global_examples"] == 8000
     assert value["optimizer_updates"] == 125
     assert value["examples_per_global_update"] == 64
+
+
+def test_gpu_jobs_respect_eight_cpus_per_gpu_cluster_policy():
+    for sbatch_path in EXPERIMENT_DIR.glob("*.sbatch"):
+        text = sbatch_path.read_text(encoding="utf-8")
+        gpu_match = re.search(r"^#SBATCH --gres=gpu:h200:(\d+)$", text, re.MULTILINE)
+        if gpu_match is None:
+            continue
+        cpu_match = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.MULTILINE)
+        assert cpu_match is not None
+        assert int(cpu_match.group(1)) <= 8 * int(gpu_match.group(1)), sbatch_path
 
 
 if __name__ == "__main__":
