@@ -85,6 +85,7 @@ dp_size=$((SFT_ACTOR_GPUS / SFT_TENSOR_MODEL_PARALLEL_SIZE))
 "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/audit_runtime_batches.py" \
   --tokenizer "${STUDENT_HF_DIR}" --loss-mask-type "${SFT_LOSS_MASK_TYPE}" \
   --template-kwargs "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON}" --dp-size "${dp_size}" \
+  --tensor-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}" \
   --custom-source "${CANARY_CUSTOM_JSONL}" --stock-source "${CANARY_MESSAGES_JSONL}" \
   --custom-details "${CANARY_ROOT}/custom_pretokenized/details" \
   --stock-details "${CANARY_ROOT}/stock_messages/details" \

@@ -81,6 +81,19 @@ bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_canary_oom
 bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_canary_oom.sh
 ```
 
+The Qwen2.5-7B canary completed both one-step training paths but its runtime
+audit initially counted tensor-parallel replicas as independent DP dumps. The
+TP-aware audit now verifies all four model-rank files, requires exact equality
+within each TP pair, and audits one representative per DP rank. Repair attempt
+`tp_audit_r1` reuses the completed checkpoints and runs only the audit and
+diagnostic generation; the failed job `212334` and its artifacts are not
+overwritten.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_tp_audit_failure.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_tp_audit_failure.sh
+```
+
 After the training chain finalizes, checkpoint transfer is manual and
 content-verified:
 

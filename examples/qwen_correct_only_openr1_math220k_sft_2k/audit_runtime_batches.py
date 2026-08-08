@@ -22,7 +22,13 @@ END_OF_TEXT = 151643
 
 
 def plain(value: Any) -> Any:
-    return value.tolist() if hasattr(value, "tolist") else value
+    if hasattr(value, "tolist"):
+        return plain(value.tolist())
+    if isinstance(value, dict):
+        return {key: plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [plain(item) for item in value]
+    return value
 
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -72,11 +78,44 @@ def expected_stock(
     return result
 
 
-def dump_files(path: Path, dp_size: int) -> list[Path]:
+def representative_dp_payloads(path: Path, dp_size: int, tensor_parallel_size: int) -> list[dict[str, Any]]:
+    import torch
+
+    if dp_size <= 0 or tensor_parallel_size <= 0:
+        raise ValueError("DP and tensor-parallel sizes must be positive")
     files = sorted((path / "train_data").glob("*_*.pt"))
-    if len(files) != dp_size:
-        raise ValueError(f"expected {dp_size} DP dumps in {path}, found {len(files)}")
-    return files
+    world_size = dp_size * tensor_parallel_size
+    if len(files) != world_size:
+        raise ValueError(f"expected {world_size} model-rank dumps in {path}, found {len(files)}")
+    payloads: dict[int, dict[str, Any]] = {}
+    for file in files:
+        payload = torch.load(file, map_location="cpu", weights_only=False)
+        rank = int(payload["rank"])
+        if rank in payloads:
+            raise ValueError(f"duplicate model-rank dump rank={rank} in {path}")
+        payloads[rank] = payload
+    expected_ranks = set(range(world_size))
+    if set(payloads) != expected_ranks:
+        raise ValueError(
+            f"model-rank dump inventory drift in {path}: "
+            f"expected={sorted(expected_ranks)} actual={sorted(payloads)}"
+        )
+
+    representatives: list[dict[str, Any]] = []
+    for dp_rank in range(dp_size):
+        ranks = range(
+            dp_rank * tensor_parallel_size,
+            (dp_rank + 1) * tensor_parallel_size,
+        )
+        representative = payloads[ranks.start]
+        expected_rollout_id = int(representative["rollout_id"])
+        expected_data = plain(representative["rollout_data"])
+        for rank in ranks:
+            replica = payloads[rank]
+            if int(replica["rollout_id"]) != expected_rollout_id or plain(replica["rollout_data"]) != expected_data:
+                raise ValueError(f"tensor-parallel replica drift in {path}: " f"dp_rank={dp_rank} model_rank={rank}")
+        representatives.append(representative)
+    return representatives
 
 
 def token_rows(
@@ -120,17 +159,15 @@ def audit_path(
     expected: dict[tuple[int, ...], dict[str, Any]],
     tokenizer: Any,
     dp_size: int,
+    tensor_parallel_size: int,
     rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    import torch
-
     seen: Counter[str] = Counter()
     microbatch_histogram: Counter[int] = Counter()
     sequence_lengths: list[int] = []
     response_lengths: list[int] = []
     total_supervised_weight = 0.0
-    for file in dump_files(details, dp_size):
-        payload = torch.load(file, map_location="cpu", weights_only=False)
+    for payload in representative_dp_payloads(details, dp_size, tensor_parallel_size):
         if int(payload["rollout_id"]) != 0:
             raise ValueError(f"{name} contains a nonzero canary rollout")
         rank = int(payload["rank"])
@@ -209,6 +246,7 @@ def main() -> None:
     parser.add_argument("--loss-mask-type", choices=["qwen", "qwen3"], required=True)
     parser.add_argument("--template-kwargs", default="{}")
     parser.add_argument("--dp-size", type=int, required=True)
+    parser.add_argument("--tensor-parallel-size", type=int, required=True)
     parser.add_argument("--custom-source", type=Path, required=True)
     parser.add_argument("--stock-source", type=Path, required=True)
     parser.add_argument("--custom-details", type=Path, required=True)
@@ -233,6 +271,7 @@ def main() -> None:
             expected_custom(args.custom_source),
             tokenizer,
             args.dp_size,
+            args.tensor_parallel_size,
             rows,
         ),
         "stock_messages": audit_path(
@@ -243,6 +282,7 @@ def main() -> None:
             ),
             tokenizer,
             args.dp_size,
+            args.tensor_parallel_size,
             rows,
         ),
         "causal_alignment": (

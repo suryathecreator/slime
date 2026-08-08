@@ -148,6 +148,19 @@ def main() -> None:
         example / "canary_generate.py",
         ('"policy": "diagnostic_only_does_not_block_training"',),
     )
+    require_text(
+        example / "02_canary.sbatch",
+        ('--tensor-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"',),
+    )
+    require_text(
+        example / "02b_resume_canary_audit.sbatch",
+        (
+            'readonly CANARY_INPUT_ROOT="${OUTPUT_ROOT}/canaries/${RUN_KEY}"',
+            'readonly AUDIT_ROOT="${CANARY_INPUT_ROOT}/attempts/${CANARY_AUDIT_ATTEMPT}"',
+            '--tensor-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"',
+            'echo "CANARY_AUDIT_RESUME_COMPLETE',
+        ),
+    )
     for script in sorted(example.glob("*.sbatch")) + sorted(example.glob("*.sh")):
         subprocess.run(["bash", "-n", str(script)], check=True)
     if args.require_pushed_clean:

@@ -9,6 +9,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from examples.qwen_correct_only_openr1_math220k_sft_2k.audit_runtime_batches import (
+    representative_dp_payloads,
+)
 from examples.qwen_correct_only_openr1_math220k_sft_2k.correct_only_sft_rollout import (
     generate_rollout,
 )
@@ -270,6 +273,60 @@ def test_canary_oom_repair_isolates_retry_and_rewires_only_first_blocked_job():
     assert 'JobId="${BLOCKED_CANARY_JOB}"' in repair
     assert 'Dependency="afterok:${replacement_canary_job}"' in repair
     assert 'scancel "${replacement_canary_job}"' in repair
+
+
+def test_tp_runtime_audit_validates_replicas_and_selects_one_payload_per_dp_rank(
+    tmp_path,
+):
+    import torch
+
+    details = tmp_path / "details"
+    train_data = details / "train_data"
+    train_data.mkdir(parents=True)
+
+    def write_payload(rank, tokens):
+        torch.save(
+            {
+                "rank": rank,
+                "rollout_id": 0,
+                "rollout_data": {
+                    "num_microbatches": [2],
+                    "tokens": tokens,
+                    "response_lengths": [1],
+                    "loss_masks": [[1.0]],
+                },
+            },
+            train_data / f"0_{rank}.pt",
+        )
+
+    write_payload(0, [[10, 11]])
+    write_payload(1, [[10, 11]])
+    write_payload(2, [[20, 21]])
+    write_payload(3, [[20, 21]])
+    representatives = representative_dp_payloads(details, dp_size=2, tensor_parallel_size=2)
+    assert [payload["rank"] for payload in representatives] == [0, 2]
+
+    write_payload(1, [[10, 12]])
+    with pytest.raises(ValueError, match="tensor-parallel replica drift"):
+        representative_dp_payloads(details, dp_size=2, tensor_parallel_size=2)
+
+
+def test_tp_audit_repair_reuses_checkpoints_and_rewires_only_first_blocked_job():
+    canary = (EXPERIMENT_DIR / "02_canary.sbatch").read_text(encoding="utf-8")
+    resume = (EXPERIMENT_DIR / "02b_resume_canary_audit.sbatch").read_text(encoding="utf-8")
+    repair = (EXPERIMENT_DIR / "resubmit_after_tp_audit_failure.sh").read_text(encoding="utf-8")
+    assert '--tensor-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"' in canary
+    assert 'readonly CANARY_INPUT_ROOT="${OUTPUT_ROOT}/canaries/${RUN_KEY}"' in resume
+    assert 'readonly AUDIT_ROOT="${CANARY_INPUT_ROOT}/attempts/${CANARY_AUDIT_ATTEMPT}"' in resume
+    assert "audit_runtime_batches.py" in resume
+    assert "canary_generate.py" in resume
+    assert "04_run_sft_100k_8xh200.sbatch" not in resume
+    assert "readonly FAILED_CANARY_JOB=212334" in repair
+    assert "readonly BLOCKED_CANARY_JOB=212335" in repair
+    assert 'CANARY_AUDIT_ATTEMPT="${AUDIT_ATTEMPT}"' in repair
+    assert 'JobId="${BLOCKED_CANARY_JOB}"' in repair
+    assert 'Dependency="afterok:${replacement_job}"' in repair
+    assert 'scancel "${replacement_job}"' in repair
 
 
 if __name__ == "__main__":
