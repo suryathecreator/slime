@@ -107,6 +107,22 @@ bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_4b_o
 bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_4b_oom.sh
 ```
 
+The Qwen3-8B canary completed both one-step training paths and exported both
+checkpoints, but its original Slurm script snapshot omitted the now-required
+tensor-parallel-size argument to the runtime auditor. That same original
+submission also froze full-training scripts which check unversioned schedule
+audits instead of the active `memory_r2` audits. Repair attempt
+`snapshot_audit_r1` therefore reuses the completed canary checkpoints, runs only
+the corrected audit and verbatim diagnostic generation, and replaces the six
+never-started training/finalization jobs with a fresh serial tail from the
+patched commit. Prompt-copy detection remains diagnostic and cannot fail the
+chain.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_8b_audit_failure.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_8b_audit_failure.sh
+```
+
 After the training chain finalizes, checkpoint transfer is manual and
 content-verified:
 

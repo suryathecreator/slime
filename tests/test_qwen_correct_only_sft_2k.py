@@ -345,5 +345,30 @@ def test_qwen3_4b_oom_repair_isolates_retry_and_rewires_only_blocked_job():
     assert 'scancel "${replacement_canary_job}"' in repair
 
 
+def test_qwen3_8b_audit_repair_reuses_canary_and_replaces_stale_training_tail():
+    resume = (EXPERIMENT_DIR / "02b_resume_canary_audit.sbatch").read_text(
+        encoding="utf-8"
+    )
+    train = (EXPERIMENT_DIR / "03_train.sbatch").read_text(encoding="utf-8")
+    repair = (
+        EXPERIMENT_DIR / "resubmit_after_qwen3_8b_audit_failure.sh"
+    ).read_text(encoding="utf-8")
+    assert '--tensor-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"' in resume
+    assert "04_run_sft_100k_8xh200.sbatch" not in resume
+    assert 'test -f "${SCHEDULE_AUDIT_DIR}/${RUN_KEY}.json"' in train
+    assert "readonly FAILED_CANARY_JOB=212336" in repair
+    assert "readonly AUDIT_ATTEMPT=snapshot_audit_r1" in repair
+    assert "readonly -a STALE_JOBS=(212337 212338 212339 212340 212341 212342)" in repair
+    assert 'CANARY_AUDIT_ATTEMPT="${AUDIT_ATTEMPT}"' in repair
+    assert '"${SCRIPT_DIR}/02b_resume_canary_audit.sbatch"' in repair
+    assert '"${SCRIPT_DIR}/03_train.sbatch"' in repair
+    assert "for run_key in \"${RUN_KEYS[@]}\"" in repair
+    assert repair.index("replacement_chain_verified=1") < repair.index(
+        'scancel "${STALE_JOBS[@]}"'
+    )
+    assert "stale_retirement_started=1" in repair
+    assert '"${SCRIPT_DIR}/04_finalize.sbatch"' in repair
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))

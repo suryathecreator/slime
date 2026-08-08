@@ -161,6 +161,21 @@ def main() -> None:
             'echo "CANARY_AUDIT_RESUME_COMPLETE',
         ),
     )
+    require_text(
+        example / "03_train.sbatch",
+        ('test -f "${SCHEDULE_AUDIT_DIR}/${RUN_KEY}.json"',),
+    )
+    require_text(
+        example / "resubmit_after_qwen3_8b_audit_failure.sh",
+        (
+            "readonly FAILED_CANARY_JOB=212336",
+            "readonly AUDIT_ATTEMPT=snapshot_audit_r1",
+            '"${SCRIPT_DIR}/02b_resume_canary_audit.sbatch"',
+            '"${SCRIPT_DIR}/03_train.sbatch"',
+            "replacement_chain_verified=1",
+            'scancel "${STALE_JOBS[@]}"',
+        ),
+    )
     for script in sorted(example.glob("*.sbatch")) + sorted(example.glob("*.sh")):
         subprocess.run(["bash", "-n", str(script)], check=True)
     if args.require_pushed_clean:
