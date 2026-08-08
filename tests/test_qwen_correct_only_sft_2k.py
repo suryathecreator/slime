@@ -196,8 +196,7 @@ def test_gpu_jobs_respect_cluster_resource_policy():
     for sbatch_path in EXPERIMENT_DIR.glob("*.sbatch"):
         text = sbatch_path.read_text(encoding="utf-8")
         gpu_match = re.search(r"^#SBATCH --gres=gpu:h200:(\d+)$", text, re.MULTILINE)
-        if gpu_match is None:
-            continue
+        assert gpu_match is not None
         cpu_match = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.MULTILINE)
         assert cpu_match is not None
         gpu_count = int(gpu_match.group(1))
@@ -206,6 +205,12 @@ def test_gpu_jobs_respect_cluster_resource_policy():
         assert memory_match is not None
         memory_gb = int(memory_match.group(1))
         assert memory_gb == 0 or memory_gb <= 240 * gpu_count, sbatch_path
+
+
+def test_submission_preflights_every_unique_sbatch_before_creating_manifest_root():
+    text = (EXPERIMENT_DIR / "submit_training_only.sh").read_text(encoding="utf-8")
+    assert "sbatch --test-only" in text
+    assert text.index("sbatch --test-only") < text.index('mkdir -p "${MANIFEST_ROOT}"')
 
 
 if __name__ == "__main__":

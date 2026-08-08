@@ -37,6 +37,15 @@ SUBMISSION_MANIFEST="${MANIFEST_ROOT}/training_chain.json"
   echo "Refusing to reuse existing experiment root ${EXPERIMENT_ROOT}" >&2
   exit 1
 }
+
+for batch_script in \
+  00_prepare_model.sbatch 01_prepare_data.sbatch 02_canary.sbatch \
+  03_train.sbatch 04_finalize.sbatch; do
+  sbatch --test-only --chdir="${SLIME_REPO_ROOT}" --account="${ACCOUNT}" \
+    --partition="${PARTITION}" --qos="${QOS}" "${SCRIPT_DIR}/${batch_script}"
+done
+echo "SBATCH_PREFLIGHT_COMPLETE scripts=5"
+
 mkdir -p "${MANIFEST_ROOT}"
 
 submitted_jobs=()
