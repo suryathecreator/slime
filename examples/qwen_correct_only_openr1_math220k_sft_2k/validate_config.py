@@ -90,7 +90,7 @@ def main() -> None:
         "qwen2_5_3b_8k": "1:16384:0",
         "qwen2_5_3b_16k": "1:16384:0",
         "qwen2_5_7b_8k": "2:16384:1",
-        "qwen3_4b_8k": "1:16384:0",
+        "qwen3_4b_8k": "1:9216:0",
         "qwen3_8b_8k": "2:16384:1",
     }
     env_command = (
@@ -110,7 +110,7 @@ def main() -> None:
         ).splitlines()
     )
     if not resolved.pop("schedule_audit_dir", "").endswith(
-        "/schedule_audits/memory_r1"
+        "/schedule_audits/memory_r2"
     ):
         raise ValueError("schedule-audit memory profile drift")
     if resolved != expected_runtime:

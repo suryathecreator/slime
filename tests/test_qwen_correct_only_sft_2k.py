@@ -248,12 +248,12 @@ def test_runtime_memory_profile_resolves_for_every_run():
         text=True,
     )
     resolved = dict(line.split("=", 1) for line in output.splitlines())
-    assert resolved.pop("schedule_audit_dir").endswith("/schedule_audits/memory_r1")
+    assert resolved.pop("schedule_audit_dir").endswith("/schedule_audits/memory_r2")
     assert resolved == {
         "qwen2_5_3b_8k": "1:16384:0",
         "qwen2_5_3b_16k": "1:16384:0",
         "qwen2_5_7b_8k": "2:16384:1",
-        "qwen3_4b_8k": "1:16384:0",
+        "qwen3_4b_8k": "1:9216:0",
         "qwen3_8b_8k": "2:16384:1",
     }
 
@@ -327,6 +327,22 @@ def test_tp_audit_repair_reuses_checkpoints_and_rewires_only_first_blocked_job()
     assert 'JobId="${BLOCKED_CANARY_JOB}"' in repair
     assert 'Dependency="afterok:${replacement_job}"' in repair
     assert 'scancel "${replacement_job}"' in repair
+
+
+def test_qwen3_4b_oom_repair_isolates_retry_and_rewires_only_blocked_job():
+    repair = (EXPERIMENT_DIR / "resubmit_after_qwen3_4b_oom.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "readonly FAILED_CANARY_JOB=212335" in repair
+    assert "readonly BLOCKED_CANARY_JOB=212336" in repair
+    assert "readonly NEXT_JOB=212337" in repair
+    assert '[[ "${SFT_MEMORY_PROFILE}" == "memory_r2" ]]' in repair
+    assert "1:9216:0" in repair
+    assert "REUSE_PREPARED_DATA=1" in repair
+    assert "CANARY_ATTEMPT=oom_r1" in repair
+    assert 'JobId="${BLOCKED_CANARY_JOB}"' in repair
+    assert 'Dependency="afterok:${replacement_canary_job}"' in repair
+    assert 'scancel "${replacement_canary_job}"' in repair
 
 
 if __name__ == "__main__":

@@ -94,6 +94,19 @@ bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_tp_audit_f
 bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_tp_audit_failure.sh
 ```
 
+The Qwen3-4B canary then exhausted H200 memory in fused cross-entropy backward
+when a 16,000-token TP1 microbatch left only 2.21 GiB free before a 4.53 GiB
+allocation. The `memory_r2` profile preserves TP1, optimizer placement, the
+10,240-token sequence limit, and every scientific hyperparameter while lowering
+only this run's dynamic-batch cap from 16,384 to 9,216 tokens. Prepared rows are
+reused verbatim, fresh schedules are audited for all five queued full runs, and
+the Qwen3-4B retry is isolated as attempt `oom_r1`.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_4b_oom.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_4b_oom.sh
+```
+
 After the training chain finalizes, checkpoint transfer is manual and
 content-verified:
 
