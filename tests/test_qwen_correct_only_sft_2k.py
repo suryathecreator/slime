@@ -192,7 +192,7 @@ def test_four_epoch_schedule_resolves_to_125_global_updates(tmp_path, monkeypatc
     assert value["examples_per_global_update"] == 64
 
 
-def test_gpu_jobs_respect_eight_cpus_per_gpu_cluster_policy():
+def test_gpu_jobs_respect_cluster_resource_policy():
     for sbatch_path in EXPERIMENT_DIR.glob("*.sbatch"):
         text = sbatch_path.read_text(encoding="utf-8")
         gpu_match = re.search(r"^#SBATCH --gres=gpu:h200:(\d+)$", text, re.MULTILINE)
@@ -200,7 +200,12 @@ def test_gpu_jobs_respect_eight_cpus_per_gpu_cluster_policy():
             continue
         cpu_match = re.search(r"^#SBATCH --cpus-per-task=(\d+)$", text, re.MULTILINE)
         assert cpu_match is not None
-        assert int(cpu_match.group(1)) <= 8 * int(gpu_match.group(1)), sbatch_path
+        gpu_count = int(gpu_match.group(1))
+        assert int(cpu_match.group(1)) <= 8 * gpu_count, sbatch_path
+        memory_match = re.search(r"^#SBATCH --mem=(\d+)(?:G)?$", text, re.MULTILINE)
+        assert memory_match is not None
+        memory_gb = int(memory_match.group(1))
+        assert memory_gb == 0 or memory_gb <= 240 * gpu_count, sbatch_path
 
 
 if __name__ == "__main__":
