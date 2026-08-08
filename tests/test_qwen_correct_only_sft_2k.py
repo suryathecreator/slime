@@ -182,7 +182,7 @@ def test_four_epoch_schedule_resolves_to_125_global_updates(tmp_path, monkeypatc
             "--dp-size",
             "4",
             "--max-tokens-per-gpu",
-            "32768",
+            "128",
         ],
     )
     validate_schedule()
@@ -190,6 +190,8 @@ def test_four_epoch_schedule_resolves_to_125_global_updates(tmp_path, monkeypatc
     assert value["global_examples"] == 8000
     assert value["optimizer_updates"] == 125
     assert value["examples_per_global_update"] == 64
+    assert value["microbatches_per_rank"] == 500
+    assert value["microbatches_per_update_histogram"] == {"4": 125}
 
 
 def test_gpu_jobs_respect_cluster_resource_policy():
@@ -211,6 +213,21 @@ def test_submission_preflights_every_unique_sbatch_before_creating_manifest_root
     text = (EXPERIMENT_DIR / "submit_training_only.sh").read_text(encoding="utf-8")
     assert "sbatch --test-only" in text
     assert text.index("sbatch --test-only") < text.index('mkdir -p "${MANIFEST_ROOT}"')
+
+
+def test_data_repair_reuses_artifacts_and_rewires_only_first_blocked_job():
+    data_job = (EXPERIMENT_DIR / "01_prepare_data.sbatch").read_text(encoding="utf-8")
+    repair = (EXPERIMENT_DIR / "resubmit_after_data_schedule_audit.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'REUSE_PREPARED_DATA="${REUSE_PREPARED_DATA:-0}"' in data_job
+    assert "DATA_PREP_REUSE_EXISTING" in data_job
+    assert "readonly FAILED_DATA_JOB=212331" in repair
+    assert "readonly BLOCKED_CANARY_JOB=212332" in repair
+    assert '--export=ALL,REUSE_PREPARED_DATA=1' in repair
+    assert 'JobId="${BLOCKED_CANARY_JOB}"' in repair
+    assert 'Dependency="afterok:${replacement_job}"' in repair
+    assert 'scancel "${replacement_job}"' in repair
 
 
 if __name__ == "__main__":

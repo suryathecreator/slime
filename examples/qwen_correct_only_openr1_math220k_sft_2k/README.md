@@ -57,8 +57,20 @@ bash examples/qwen_correct_only_openr1_math220k_sft_2k/submit_training_only.sh
 ```
 
 The submitted chain is strictly serial with `afterok`, uses at most four H200s,
-and contains no evaluation jobs. After finalization, checkpoint transfer is
-manual and content-verified:
+and contains no evaluation jobs.
+
+The original data job `212331` completed selection and tokenization but failed
+in its dynamic-schedule audit. Its narrow repair reuses those hash-validated
+artifacts, replaces only the data-audit stage, and rewires the first blocked
+canary while preserving jobs `212332` through `212342`:
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_data_schedule_audit.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_data_schedule_audit.sh
+```
+
+After the training chain finalizes, checkpoint transfer is manual and
+content-verified:
 
 ```bash
 bash examples/qwen_correct_only_openr1_math220k_sft_2k/rsync_to_klone.sh --check

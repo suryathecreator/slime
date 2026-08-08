@@ -56,8 +56,9 @@ def main() -> None:
         raise ValueError("optimizer-update/global-batch schedule drift")
     if sum(map(len, partitions)) != 8000:
         raise ValueError("dynamic schedule does not cover four epochs")
-    if any(len(rank_batches) != 125 for rank_batches in micro_indices):
-        raise ValueError("per-rank optimizer update count drift")
+    microbatches_per_rank = sum(num_microbatches)
+    if any(len(rank_batches) != microbatches_per_rank for rank_batches in micro_indices):
+        raise ValueError("per-rank microbatch count drift")
     histogram = {str(key): value for key, value in sorted(Counter(num_microbatches).items())}
     atomic_json(
         args.output,
@@ -67,6 +68,7 @@ def main() -> None:
             "examples_per_global_update": 64,
             "global_examples": 8000,
             "max_tokens_per_gpu": args.max_tokens_per_gpu,
+            "microbatches_per_rank": microbatches_per_rank,
             "microbatches_per_update_histogram": histogram,
             "optimizer_updates": 125,
             "rows_per_rank": [len(partition) for partition in partitions],
