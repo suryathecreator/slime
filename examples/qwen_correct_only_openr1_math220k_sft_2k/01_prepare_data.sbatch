@@ -38,7 +38,7 @@ else
     --rows "${CORRECT_ONLY_ROWS}" --seed "${DATA_SEED}"
 fi
 
-mkdir -p "${DATA_ROOT}/schedule_audits"
+mkdir -p "${SCHEDULE_AUDIT_DIR}"
 for run_key in \
   qwen2_5_3b_8k qwen2_5_3b_16k qwen2_5_7b_8k qwen3_4b_8k qwen3_8b_8k; do
   resolve_run "${run_key}"
@@ -47,7 +47,7 @@ for run_key in \
     --data "${SFT_PARQUET}" --run-key "${RUN_KEY}" --stats "${PREP_STATS_JSON}"
   "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/validate_schedule.py" \
     --data "${SFT_PARQUET}" \
-    --output "${DATA_ROOT}/schedule_audits/${RUN_KEY}.json" \
+    --output "${SCHEDULE_AUDIT_DIR}/${RUN_KEY}.json" \
     --dp-size "${dp_size}" --max-tokens-per-gpu "${SFT_MAX_TOKENS_PER_GPU}" \
     --seed "${DATA_SEED}"
 done

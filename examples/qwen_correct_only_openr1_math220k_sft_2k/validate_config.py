@@ -86,6 +86,35 @@ def main() -> None:
         raise ValueError("shared 8K comparison policy drift")
     if contract["runs"]["qwen2_5_3b_16k"]["max_sequence_length"] != 18432:
         raise ValueError("16K training context drift")
+    expected_runtime = {
+        "qwen2_5_3b_8k": "1:16384:0",
+        "qwen2_5_3b_16k": "1:16384:0",
+        "qwen2_5_7b_8k": "2:16384:1",
+        "qwen3_4b_8k": "1:16384:0",
+        "qwen3_8b_8k": "2:16384:1",
+    }
+    env_command = (
+        'source "$1"; '
+        "for run_key in qwen2_5_3b_8k qwen2_5_3b_16k qwen2_5_7b_8k "
+        "qwen3_4b_8k qwen3_8b_8k; do "
+        'resolve_run "${run_key}"; '
+        "printf '%s=%s:%s:%s\\n' \"${run_key}\" "
+        '"${SFT_TENSOR_MODEL_PARALLEL_SIZE}" "${SFT_MAX_TOKENS_PER_GPU}" '
+        '"${SFT_OPTIMIZER_CPU_OFFLOAD}"; done; '
+        "printf 'schedule_audit_dir=%s\\n' \"${SCHEDULE_AUDIT_DIR}\""
+    )
+    resolved = dict(
+        line.split("=", 1)
+        for line in subprocess.check_output(
+            ["bash", "-c", env_command, "bash", str(example / "env.sh")], text=True
+        ).splitlines()
+    )
+    if not resolved.pop("schedule_audit_dir", "").endswith(
+        "/schedule_audits/memory_r1"
+    ):
+        raise ValueError("schedule-audit memory profile drift")
+    if resolved != expected_runtime:
+        raise ValueError(f"runtime memory profile drift: {resolved}")
     for model_key, script in {
         "qwen2_5_3b": "scripts/models/qwen2.5-3B.sh",
         "qwen2_5_7b": "scripts/models/qwen2.5-7B.sh",

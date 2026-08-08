@@ -32,7 +32,7 @@ exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
 
 "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/validate_dataset.py" \
   --data "${SFT_PARQUET}" --run-key "${RUN_KEY}" --stats "${PREP_STATS_JSON}"
-test -f "${DATA_ROOT}/schedule_audits/${RUN_KEY}.json"
+test -f "${SCHEDULE_AUDIT_DIR}/${RUN_KEY}.json"
 echo "TRAIN_CORRECT_ONLY run=${RUN_KEY} initialization=${STUDENT_TORCH_DIST_DIR} full_sft=1"
 bash "${SHARED_RUNNER}"
 python3 "${HANDOFF_TOOL}" record \

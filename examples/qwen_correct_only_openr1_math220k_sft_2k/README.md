@@ -69,6 +69,18 @@ bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_data_sched
 bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_data_schedule_audit.sh
 ```
 
+The first Qwen2.5-3B 8K canary then exhausted H200 memory on its first training
+microbatch at the original 32,768-token dynamic-batch cap. The `memory_r1`
+runtime profile lowers the 3B and 4B caps to 16,384 tokens without changing the
+dataset, global batch, optimizer, loss, or model topology. Fresh schedule audits
+are versioned under that profile, and the retry is preserved separately as
+attempt `oom_r1`; the failed canary remains verbatim at its original path.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_canary_oom.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_canary_oom.sh
+```
+
 After the training chain finalizes, checkpoint transfer is manual and
 content-verified:
 

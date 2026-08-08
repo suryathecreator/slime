@@ -15,6 +15,11 @@ SHARED_RUNNER="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_opd_tillicum/04_run_sft_100
 source "${SCRIPT_DIR}/env.sh"
 : "${RUN_KEY:?Set RUN_KEY}"
 : "${SLURM_JOB_ID:?Canary must run under Slurm}"
+CANARY_ATTEMPT="${CANARY_ATTEMPT:-}"
+if [[ -n "${CANARY_ATTEMPT}" && ! "${CANARY_ATTEMPT}" =~ ^[a-z0-9_]+$ ]]; then
+  echo "CANARY_ATTEMPT must contain only lowercase letters, digits, and underscores" >&2
+  exit 2
+fi
 resolve_run "${RUN_KEY}"
 export TMPDIR="/tmp/${USER:-suryadv}/qco-canary-${SLURM_JOB_ID}"
 export RAY_TMPDIR="${TMPDIR}/ray"
@@ -28,7 +33,11 @@ export SFT_FINAL_ROLLOUT_ID=0
 export SFT_MILESTONE_ROLLOUT_IDS=0
 export SFT_SAVE_INTERVAL=1
 export SFT_LR_DECAY_ITERS=1
-export CANARY_ROOT="${OUTPUT_ROOT}/canaries/${RUN_KEY}"
+if [[ -n "${CANARY_ATTEMPT}" ]]; then
+  export CANARY_ROOT="${OUTPUT_ROOT}/canaries/${RUN_KEY}/attempts/${CANARY_ATTEMPT}"
+else
+  export CANARY_ROOT="${OUTPUT_ROOT}/canaries/${RUN_KEY}"
+fi
 export CANARY_CUSTOM_JSONL="${CANARY_ROOT}/source/custom_pretokenized.jsonl"
 export CANARY_MESSAGES_JSONL="${CANARY_ROOT}/source/stock_messages.jsonl"
 export CANARY_AUDIT_JSON="${CANARY_ROOT}/runtime_batch_audit.json"

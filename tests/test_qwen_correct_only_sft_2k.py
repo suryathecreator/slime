@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -228,6 +229,47 @@ def test_data_repair_reuses_artifacts_and_rewires_only_first_blocked_job():
     assert 'JobId="${BLOCKED_CANARY_JOB}"' in repair
     assert 'Dependency="afterok:${replacement_job}"' in repair
     assert 'scancel "${replacement_job}"' in repair
+
+
+def test_runtime_memory_profile_resolves_for_every_run():
+    command = (
+        'source "$1"; shift; '
+        'for run_key in "$@"; do resolve_run "${run_key}"; '
+        "printf '%s=%s:%s:%s\\n' \"${run_key}\" "
+        '"${SFT_TENSOR_MODEL_PARALLEL_SIZE}" "${SFT_MAX_TOKENS_PER_GPU}" '
+        '"${SFT_OPTIMIZER_CPU_OFFLOAD}"; done; '
+        "printf 'schedule_audit_dir=%s\\n' \"${SCHEDULE_AUDIT_DIR}\""
+    )
+    output = subprocess.check_output(
+        ["bash", "-c", command, "bash", str(EXPERIMENT_DIR / "env.sh"), *RUN_ORDER],
+        text=True,
+    )
+    resolved = dict(line.split("=", 1) for line in output.splitlines())
+    assert resolved.pop("schedule_audit_dir").endswith("/schedule_audits/memory_r1")
+    assert resolved == {
+        "qwen2_5_3b_8k": "1:16384:0",
+        "qwen2_5_3b_16k": "1:16384:0",
+        "qwen2_5_7b_8k": "2:16384:1",
+        "qwen3_4b_8k": "1:16384:0",
+        "qwen3_8b_8k": "2:16384:1",
+    }
+
+
+def test_canary_oom_repair_isolates_retry_and_rewires_only_first_blocked_job():
+    canary = (EXPERIMENT_DIR / "02_canary.sbatch").read_text(encoding="utf-8")
+    train = (EXPERIMENT_DIR / "03_train.sbatch").read_text(encoding="utf-8")
+    repair = (EXPERIMENT_DIR / "resubmit_after_canary_oom.sh").read_text(
+        encoding="utf-8"
+    )
+    assert '/attempts/${CANARY_ATTEMPT}' in canary
+    assert '${SCHEDULE_AUDIT_DIR}/${RUN_KEY}.json' in train
+    assert "readonly FAILED_CANARY_JOB=212332" in repair
+    assert "readonly BLOCKED_CANARY_JOB=212333" in repair
+    assert "REUSE_PREPARED_DATA=1" in repair
+    assert "CANARY_ATTEMPT=oom_r1" in repair
+    assert 'JobId="${BLOCKED_CANARY_JOB}"' in repair
+    assert 'Dependency="afterok:${replacement_canary_job}"' in repair
+    assert 'scancel "${replacement_canary_job}"' in repair
 
 
 if __name__ == "__main__":
