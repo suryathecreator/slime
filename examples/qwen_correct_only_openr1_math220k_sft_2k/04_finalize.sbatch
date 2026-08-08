@@ -17,5 +17,5 @@ mkdir -p "${SLURM_LOG_DIR}"
 exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
 python3 "${SCRIPT_DIR}/finalize.py" \
   --experiment-root "${EXPERIMENT_ROOT}" --contract-hash "${CONTRACT_HASH}" \
-  --repo-root "${SLIME_REPO_ROOT}"
+  --repo-root "${SLIME_REPO_ROOT}" --memory-profile "${SFT_MEMORY_PROFILE}"
 echo "FINALIZE_COMPLETE at=$(date -Is)"

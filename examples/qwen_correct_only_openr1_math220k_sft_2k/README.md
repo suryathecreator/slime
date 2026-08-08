@@ -123,6 +123,28 @@ bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_8b_a
 bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_8b_audit_failure.sh
 ```
 
+The first Qwen2.5-3B 8K full run completed optimizer steps 0 through 2, then a
+16K-token packed microbatch exhausted memory while fused cross-entropy allocated
+its 4.64 GiB logits-gradient buffer. The `memory_r3` profile keeps TP1 and all
+scientific hyperparameters, enables optimizer CPU offload for both 3B runs, and
+lowers only the 8K run's dynamic-batch cap to 10,240 tokens. Before full
+training, each 3B run replays its exact first five shuffled updates from the
+full dataset under the new profile.
+
+This repair also makes the shared runner honor the configured 125 optimizer
+updates directly. Relying on `--num-epoch 4` floors each 2,000-row epoch to 31
+updates, yielding only 124 updates instead of the required 125 over 8,000
+examples. The failed full-run artifacts remain at their original path, while
+retry `oom_r1` is isolated under `attempts/oom_r1`. Finalization follows the
+checkpoint path recorded in each content manifest and the successful canary
+paths recorded by the repair manifests. Copy diagnostics remain verbatim and
+non-blocking.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen2_5_3b_oom.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen2_5_3b_oom.sh
+```
+
 After the training chain finalizes, checkpoint transfer is manual and
 content-verified:
 

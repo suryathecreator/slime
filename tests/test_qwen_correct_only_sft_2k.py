@@ -22,6 +22,10 @@ from examples.qwen_correct_only_openr1_math220k_sft_2k.experiment import (
     RUN_ORDER,
     load_contract,
 )
+from examples.qwen_correct_only_openr1_math220k_sft_2k.finalize import (
+    canary_evidence_root,
+    trained_checkpoint,
+)
 from examples.qwen_correct_only_openr1_math220k_sft_2k.prepare_data import (
     deterministic_order,
     eligible_ref,
@@ -248,10 +252,10 @@ def test_runtime_memory_profile_resolves_for_every_run():
         text=True,
     )
     resolved = dict(line.split("=", 1) for line in output.splitlines())
-    assert resolved.pop("schedule_audit_dir").endswith("/schedule_audits/memory_r2")
+    assert resolved.pop("schedule_audit_dir").endswith("/schedule_audits/memory_r3")
     assert resolved == {
-        "qwen2_5_3b_8k": "1:16384:0",
-        "qwen2_5_3b_16k": "1:16384:0",
+        "qwen2_5_3b_8k": "1:10240:1",
+        "qwen2_5_3b_16k": "1:16384:1",
         "qwen2_5_7b_8k": "2:16384:1",
         "qwen3_4b_8k": "1:9216:0",
         "qwen3_8b_8k": "2:16384:1",
@@ -367,6 +371,92 @@ def test_qwen3_8b_audit_repair_reuses_canary_and_replaces_stale_training_tail():
         'scancel "${STALE_JOBS[@]}"'
     )
     assert "stale_retirement_started=1" in repair
+    assert '"${SCRIPT_DIR}/04_finalize.sbatch"' in repair
+
+
+def test_shared_runner_honors_explicit_rollout_count():
+    runner = (
+        EXPERIMENT_DIR.parent / "qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch"
+    ).read_text(encoding="utf-8")
+    assert 'if [[ -n "${SFT_NUM_ROLLOUT:-}" ]]' in runner
+    assert 'SFT_ARGS+=(--num-rollout "${SFT_NUM_ROLLOUT}")' in runner
+    assert 'SFT_ARGS+=(--num-epoch "${SFT_NUM_EPOCH}")' in runner
+
+
+def test_training_prefix_canary_replays_five_full_dataset_updates():
+    prefix = (EXPERIMENT_DIR / "02c_training_prefix_canary.sbatch").read_text(
+        encoding="utf-8"
+    )
+    assert "qwen2_5_3b_8k|qwen2_5_3b_16k" in prefix
+    assert "export SFT_NUM_ROLLOUT=5" in prefix
+    assert "export SFT_FINAL_ROLLOUT_ID=4" in prefix
+    assert 'export SFT_PARQUET=' not in prefix
+    assert "prepare_canaries.py" not in prefix
+    assert "canary_generate.py" not in prefix
+
+
+def test_training_retry_is_isolated_and_finalizer_uses_manifest_provenance():
+    train = (EXPERIMENT_DIR / "03_train.sbatch").read_text(encoding="utf-8")
+    finalize = (EXPERIMENT_DIR / "finalize.py").read_text(encoding="utf-8")
+    finalize_job = (EXPERIMENT_DIR / "04_finalize.sbatch").read_text(encoding="utf-8")
+    assert 'TRAINING_ATTEMPT="${TRAINING_ATTEMPT:-}"' in train
+    assert 'export TRAINING_ROOT="${CORRECT_ONLY_ROOT}/attempts/${TRAINING_ATTEMPT}"' in train
+    assert '"${TRAINED_HANDOFF_MANIFEST}"' in train
+    assert 'checkpoint = Path(value["source_checkpoint"]).resolve()' in finalize
+    assert 'evidence_root = canary_evidence_root(args.experiment_root, run_key)' in finalize
+    assert '"qwen3_8b_8k": ("qwen3_8b_audit_repair.json", "audit_root")' in finalize
+    assert '--memory-profile "${SFT_MEMORY_PROFILE}"' in finalize_job
+
+
+def test_finalizer_accepts_recorded_retry_paths_but_rejects_escapes(tmp_path):
+    experiment_root = tmp_path / "experiment"
+    manifest = experiment_root / "handoff/checkpoints/qwen2_5_3b_8k.json"
+    manifest.parent.mkdir(parents=True)
+    checkpoint = (
+        experiment_root
+        / "outputs/training/qwen2_5_3b_8k/correct_only/attempts/oom_r1"
+        / "weights/iter_0000124"
+    )
+    manifest.write_text(json.dumps({"source_checkpoint": str(checkpoint)}))
+    assert trained_checkpoint(manifest, experiment_root, "qwen2_5_3b_8k") == checkpoint
+
+    manifest.write_text(
+        json.dumps({"source_checkpoint": str(tmp_path / "outside/weights/iter_0000124")})
+    )
+    with pytest.raises(ValueError, match="escapes run root"):
+        trained_checkpoint(manifest, experiment_root, "qwen2_5_3b_8k")
+
+
+def test_finalizer_resolves_repaired_canary_evidence_but_rejects_escapes(tmp_path):
+    experiment_root = tmp_path / "experiment"
+    repair_manifest = experiment_root / "manifests/canary_oom_repair.json"
+    repair_manifest.parent.mkdir(parents=True)
+    retry_root = experiment_root / "outputs/canaries/qwen2_5_3b_8k/attempts/oom_r1"
+    repair_manifest.write_text(json.dumps({"retry_root": str(retry_root)}))
+    assert canary_evidence_root(experiment_root, "qwen2_5_3b_8k") == retry_root
+
+    repair_manifest.write_text(json.dumps({"retry_root": str(tmp_path / "outside")}))
+    with pytest.raises(ValueError, match="escapes run root"):
+        canary_evidence_root(experiment_root, "qwen2_5_3b_8k")
+
+
+def test_qwen2_5_3b_oom_repair_replays_prefixes_and_replaces_frozen_tail():
+    repair = (EXPERIMENT_DIR / "resubmit_after_qwen2_5_3b_oom.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "readonly COMPLETED_AUDIT_JOB=212698" in repair
+    assert "readonly FAILED_TRAINING_JOB=212699" in repair
+    assert "readonly PREFIX_ATTEMPT=optimizer_offload_r1" in repair
+    assert "readonly -a STALE_JOBS=(212700 212701 212702 212703 212704)" in repair
+    assert "SFT max tokens per GPU: 16384" in repair
+    assert "Tried to allocate 4.64 GiB" in repair
+    assert "1:10240:1" in repair
+    assert "1:16384:1" in repair
+    assert '"${SCRIPT_DIR}/02c_training_prefix_canary.sbatch"' in repair
+    assert "TRAINING_ATTEMPT=oom_r1" in repair
+    assert repair.index("replacement_chain_verified=1") < repair.index(
+        'scancel "${STALE_JOBS[@]}"'
+    )
     assert '"${SCRIPT_DIR}/04_finalize.sbatch"' in repair
 
 

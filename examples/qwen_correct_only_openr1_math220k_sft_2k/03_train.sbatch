@@ -16,28 +16,46 @@ HANDOFF_TOOL="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_openr1_math220k_masked_sft_e
 source "${SCRIPT_DIR}/env.sh"
 : "${RUN_KEY:?Set RUN_KEY}"
 : "${SLURM_JOB_ID:?Training must run under Slurm}"
+TRAINING_ATTEMPT="${TRAINING_ATTEMPT:-}"
+if [[ -n "${TRAINING_ATTEMPT}" && ! "${TRAINING_ATTEMPT}" =~ ^[a-z0-9_]+$ ]]; then
+  echo "TRAINING_ATTEMPT must contain only lowercase letters, digits, and underscores" >&2
+  exit 2
+fi
 resolve_run "${RUN_KEY}"
 export TMPDIR="/tmp/${USER:-suryadv}/qco-train-${SLURM_JOB_ID}"
 export RAY_TMPDIR="${TMPDIR}/ray"
-export SFT_SAVE_DIR="${OUTPUT_ROOT}/training/${RUN_KEY}/correct_only/full_state"
-export SFT_HF_SNAPSHOT_DIR="${OUTPUT_ROOT}/training/${RUN_KEY}/correct_only/weights"
+export CORRECT_ONLY_ROOT="${OUTPUT_ROOT}/training/${RUN_KEY}/correct_only"
+if [[ -n "${TRAINING_ATTEMPT}" ]]; then
+  export TRAINING_ROOT="${CORRECT_ONLY_ROOT}/attempts/${TRAINING_ATTEMPT}"
+  export SFT_WANDB_GROUP="${RUN_KEY}-correct-only-${TRAINING_ATTEMPT}"
+else
+  export TRAINING_ROOT="${CORRECT_ONLY_ROOT}"
+fi
+export SFT_SAVE_DIR="${TRAINING_ROOT}/full_state"
+export SFT_HF_SNAPSHOT_DIR="${TRAINING_ROOT}/weights"
 export SFT_HF_SNAPSHOT_TEMPLATE="${SFT_HF_SNAPSHOT_DIR}/iter_{rollout_id:07d}"
 export SFT_FINAL_HF_DIR="${SFT_HF_SNAPSHOT_DIR}/iter_0000124"
 export SFT_FINAL_FULL_CKPT_DIR="${SFT_SAVE_DIR}/iter_0000124"
-export SFT_DETAILS_DIR="${OUTPUT_ROOT}/training/${RUN_KEY}/correct_only/details"
-export CHECKPOINT_REPORT_DIR="${OUTPUT_ROOT}/training/${RUN_KEY}/correct_only/checkpoint_reports"
+export SFT_DETAILS_DIR="${TRAINING_ROOT}/details"
+export CHECKPOINT_REPORT_DIR="${TRAINING_ROOT}/checkpoint_reports"
+export TRAINED_HANDOFF_MANIFEST="${HANDOFF_ROOT}/checkpoints/${RUN_KEY}.json"
+for target in \
+  "${SFT_SAVE_DIR}" "${SFT_HF_SNAPSHOT_DIR}" "${SFT_DETAILS_DIR}" \
+  "${CHECKPOINT_REPORT_DIR}" "${TRAINED_HANDOFF_MANIFEST}"; do
+  [[ ! -e "${target}" ]] || { echo "Refusing to overwrite ${target}" >&2; exit 1; }
+done
 mkdir -p "${TMPDIR}" "${RAY_TMPDIR}" "${SLURM_LOG_DIR}" \
-  "${OUTPUT_ROOT}/training/${RUN_KEY}/correct_only"
+  "${TRAINING_ROOT}"
 exec >"${SLURM_LOG_DIR}/${SLURM_JOB_NAME}_${SLURM_JOB_ID}.log" 2>&1
 
 "${SCRIPT_DIR}/container_exec.sh" python3 "${SCRIPT_DIR}/validate_dataset.py" \
   --data "${SFT_PARQUET}" --run-key "${RUN_KEY}" --stats "${PREP_STATS_JSON}"
 test -f "${SCHEDULE_AUDIT_DIR}/${RUN_KEY}.json"
-echo "TRAIN_CORRECT_ONLY run=${RUN_KEY} initialization=${STUDENT_TORCH_DIST_DIR} full_sft=1"
+echo "TRAIN_CORRECT_ONLY run=${RUN_KEY} attempt=${TRAINING_ATTEMPT:-canonical} initialization=${STUDENT_TORCH_DIST_DIR} full_sft=1"
 bash "${SHARED_RUNNER}"
 python3 "${HANDOFF_TOOL}" record \
   --checkpoint "${SFT_FINAL_HF_DIR}" \
-  --output "${HANDOFF_ROOT}/checkpoints/${RUN_KEY}.json" \
+  --output "${TRAINED_HANDOFF_MANIFEST}" \
   --family 2k --variant "${RUN_KEY}.correct_only" \
   --final-iteration "${SFT_FINAL_ROLLOUT_ID}" \
   --contract-hash "${CONTRACT_HASH}" --repo-root "${SLIME_REPO_ROOT}" --full-sft

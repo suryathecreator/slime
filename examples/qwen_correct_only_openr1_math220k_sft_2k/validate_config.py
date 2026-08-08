@@ -87,8 +87,8 @@ def main() -> None:
     if contract["runs"]["qwen2_5_3b_16k"]["max_sequence_length"] != 18432:
         raise ValueError("16K training context drift")
     expected_runtime = {
-        "qwen2_5_3b_8k": "1:16384:0",
-        "qwen2_5_3b_16k": "1:16384:0",
+        "qwen2_5_3b_8k": "1:10240:1",
+        "qwen2_5_3b_16k": "1:16384:1",
         "qwen2_5_7b_8k": "2:16384:1",
         "qwen3_4b_8k": "1:9216:0",
         "qwen3_8b_8k": "2:16384:1",
@@ -110,7 +110,7 @@ def main() -> None:
         ).splitlines()
     )
     if not resolved.pop("schedule_audit_dir", "").endswith(
-        "/schedule_audits/memory_r2"
+        "/schedule_audits/memory_r3"
     ):
         raise ValueError("schedule-audit memory profile drift")
     if resolved != expected_runtime:
@@ -131,6 +131,7 @@ def main() -> None:
             '--lr-decay-iters "${SFT_LR_DECAY_ITERS}"',
             '--adam-eps "${SFT_ADAM_EPS}"',
             'SFT_ARGS+=(--start-rollout-id 0)',
+            'SFT_ARGS+=(--num-rollout "${SFT_NUM_ROLLOUT}")',
         ),
     )
     require_text(
@@ -163,7 +164,27 @@ def main() -> None:
     )
     require_text(
         example / "03_train.sbatch",
-        ('test -f "${SCHEDULE_AUDIT_DIR}/${RUN_KEY}.json"',),
+        (
+            'TRAINING_ATTEMPT="${TRAINING_ATTEMPT:-}"',
+            'export TRAINING_ROOT="${CORRECT_ONLY_ROOT}/attempts/${TRAINING_ATTEMPT}"',
+            'test -f "${SCHEDULE_AUDIT_DIR}/${RUN_KEY}.json"',
+        ),
+    )
+    require_text(
+        example / "02c_training_prefix_canary.sbatch",
+        (
+            "export SFT_NUM_ROLLOUT=5",
+            "export SFT_FINAL_ROLLOUT_ID=4",
+            'test "$(cat "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt")" = 4',
+        ),
+    )
+    require_text(
+        example / "finalize.py",
+        (
+            'checkpoint = Path(value["source_checkpoint"]).resolve()',
+            'evidence_root = canary_evidence_root(args.experiment_root, run_key)',
+            '/ args.memory_profile',
+        ),
     )
     require_text(
         example / "resubmit_after_qwen3_8b_audit_failure.sh",
@@ -172,6 +193,17 @@ def main() -> None:
             "readonly AUDIT_ATTEMPT=snapshot_audit_r1",
             '"${SCRIPT_DIR}/02b_resume_canary_audit.sbatch"',
             '"${SCRIPT_DIR}/03_train.sbatch"',
+            "replacement_chain_verified=1",
+            'scancel "${STALE_JOBS[@]}"',
+        ),
+    )
+    require_text(
+        example / "resubmit_after_qwen2_5_3b_oom.sh",
+        (
+            "readonly FAILED_TRAINING_JOB=212699",
+            "readonly PREFIX_ATTEMPT=optimizer_offload_r1",
+            "readonly -a STALE_JOBS=(212700 212701 212702 212703 212704)",
+            'TRAINING_ATTEMPT=oom_r1',
             "replacement_chain_verified=1",
             'scancel "${STALE_JOBS[@]}"',
         ),

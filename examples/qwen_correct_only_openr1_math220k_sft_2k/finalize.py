@@ -18,6 +18,14 @@ from examples.qwen_correct_only_openr1_math220k_sft_2k.experiment import (
 )
 
 
+CANARY_EVIDENCE = {
+    "qwen2_5_3b_8k": ("canary_oom_repair.json", "retry_root"),
+    "qwen2_5_7b_8k": ("tp_audit_repair.json", "audit_root"),
+    "qwen3_4b_8k": ("qwen3_4b_oom_repair.json", "retry_root"),
+    "qwen3_8b_8k": ("qwen3_8b_audit_repair.json", "audit_root"),
+}
+
+
 def verify(tool: Path, manifest: Path, checkpoint: Path) -> dict[str, Any]:
     subprocess.run(
         [
@@ -34,11 +42,39 @@ def verify(tool: Path, manifest: Path, checkpoint: Path) -> dict[str, Any]:
     return json.loads(manifest.read_text(encoding="utf-8"))
 
 
+def trained_checkpoint(manifest: Path, experiment_root: Path, run_key: str) -> Path:
+    value = json.loads(manifest.read_text(encoding="utf-8"))
+    checkpoint = Path(value["source_checkpoint"]).resolve()
+    allowed_root = (
+        experiment_root / "outputs" / "training" / run_key / "correct_only"
+    ).resolve()
+    if not checkpoint.is_relative_to(allowed_root):
+        raise ValueError(f"trained checkpoint escapes run root: {checkpoint}")
+    if checkpoint.name != "iter_0000124" or checkpoint.parent.name != "weights":
+        raise ValueError(f"unexpected trained checkpoint path: {checkpoint}")
+    return checkpoint
+
+
+def canary_evidence_root(experiment_root: Path, run_key: str) -> Path:
+    canonical = (experiment_root / "outputs" / "canaries" / run_key).resolve()
+    repair = CANARY_EVIDENCE.get(run_key)
+    if repair is None:
+        return canonical
+    manifest_name, root_key = repair
+    manifest = experiment_root / "manifests" / manifest_name
+    value = json.loads(manifest.read_text(encoding="utf-8"))
+    root = Path(value[root_key]).resolve()
+    if not root.is_relative_to(canonical):
+        raise ValueError(f"canary evidence escapes run root: {root}")
+    return root
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment-root", type=Path, required=True)
     parser.add_argument("--contract-hash", required=True)
     parser.add_argument("--repo-root", type=Path, required=True)
+    parser.add_argument("--memory-profile", required=True)
     args = parser.parse_args()
     contract = load_contract()
     tool = (
@@ -76,16 +112,8 @@ def main() -> None:
         )
     copy_diagnostics: dict[str, Any] = {}
     for run_key in RUN_ORDER:
-        checkpoint = (
-            args.experiment_root
-            / "outputs"
-            / "training"
-            / run_key
-            / "correct_only"
-            / "weights"
-            / "iter_0000124"
-        )
         manifest = handoff / "checkpoints" / f"{run_key}.json"
+        checkpoint = trained_checkpoint(manifest, args.experiment_root, run_key)
         value = verify(tool, manifest, checkpoint)
         identities[run_key] = value["checkpoint_manifest_sha256"]
         records.append(
@@ -103,15 +131,16 @@ def main() -> None:
                 "variant": "correct_only",
             }
         )
-        schedule = args.experiment_root / "data" / "schedule_audits" / f"{run_key}.json"
-        audit = args.experiment_root / "outputs" / "canaries" / run_key / "runtime_batch_audit.json"
-        generation = (
+        schedule = (
             args.experiment_root
-            / "outputs"
-            / "canaries"
-            / run_key
-            / "generation_before_after.json"
+            / "data"
+            / "schedule_audits"
+            / args.memory_profile
+            / f"{run_key}.json"
         )
+        evidence_root = canary_evidence_root(args.experiment_root, run_key)
+        audit = evidence_root / "runtime_batch_audit.json"
+        generation = evidence_root / "generation_before_after.json"
         for required in (schedule, audit, generation):
             if not required.is_file():
                 raise FileNotFoundError(f"missing completed run evidence: {required}")
@@ -150,6 +179,7 @@ def main() -> None:
             "final_iteration": 124,
             "finalized_at": datetime.now(timezone.utc).isoformat(),
             "full_parameter_sft": True,
+            "memory_profile": args.memory_profile,
             "repo_commit": commit,
             "shared_8k_ordered_trace_sha256": selection_stats["selection"]["8k_shared"][
                 "ordered_trace_sha256"

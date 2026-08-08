@@ -203,7 +203,6 @@ SFT_ARGS=(
   --input-key "${SFT_INPUT_KEY:-messages}"
   --rollout-shuffle
   --rollout-seed "${DATA_SEED}"
-  --num-epoch "${SFT_NUM_EPOCH}"
   --rollout-batch-size "${SFT_ROLLOUT_BATCH_SIZE}"
   --global-batch-size "${SFT_GLOBAL_BATCH_SIZE}"
   --loss-type sft_loss
@@ -214,6 +213,14 @@ SFT_ARGS=(
   --debug-train-only
   --dump-details "${SFT_DETAILS_DIR}"
 )
+if [[ -n "${SFT_NUM_ROLLOUT:-}" ]]; then
+  SFT_ARGS+=(--num-rollout "${SFT_NUM_ROLLOUT}")
+  echo "SFT rollout schedule: explicit num_rollout=${SFT_NUM_ROLLOUT}"
+else
+  : "${SFT_NUM_EPOCH:?Set SFT_NUM_EPOCH when SFT_NUM_ROLLOUT is unset}"
+  SFT_ARGS+=(--num-epoch "${SFT_NUM_EPOCH}")
+  echo "SFT rollout schedule: inferred from num_epoch=${SFT_NUM_EPOCH}"
+fi
 if [[ "${SFT_LOAD_KIND}" == "base_megatron_torch_dist_initial" ]]; then
   # Converted base checkpoints carry checkpoint iteration 0, but no optimizer
   # step has run. Override the inferred next actor rollout so fresh SFT

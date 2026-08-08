@@ -50,7 +50,7 @@ export CORRECT_ONLY_ROWS=2000
 export SHARED_8K_SELECTED="${DATA_ROOT}/selected/8k_shared.jsonl"
 export QWEN25_3B_16K_SELECTED="${DATA_ROOT}/selected/16k_qwen2_5_3b.jsonl"
 export PREP_STATS_JSON="${DATA_ROOT}/selection_and_tokenization_stats.json"
-export SFT_MEMORY_PROFILE=memory_r2
+export SFT_MEMORY_PROFILE=memory_r3
 export SCHEDULE_AUDIT_DIR="${DATA_ROOT}/schedule_audits/${SFT_MEMORY_PROFILE}"
 
 export SFT_SIZE=2000
@@ -148,14 +148,14 @@ resolve_run() {
     qwen2_5_3b_8k)
       resolve_model qwen2_5_3b
       export TRACE_TOKEN_CAP=8192 MAX_SEQUENCE_LENGTH=10240
-      export SFT_TENSOR_MODEL_PARALLEL_SIZE=1 SFT_MAX_TOKENS_PER_GPU=16384
-      export SFT_OPTIMIZER_CPU_OFFLOAD=0
+      export SFT_TENSOR_MODEL_PARALLEL_SIZE=1 SFT_MAX_TOKENS_PER_GPU=10240
+      export SFT_OPTIMIZER_CPU_OFFLOAD=1
       ;;
     qwen2_5_3b_16k)
       resolve_model qwen2_5_3b
       export TRACE_TOKEN_CAP=16384 MAX_SEQUENCE_LENGTH=18432
       export SFT_TENSOR_MODEL_PARALLEL_SIZE=1 SFT_MAX_TOKENS_PER_GPU=16384
-      export SFT_OPTIMIZER_CPU_OFFLOAD=0
+      export SFT_OPTIMIZER_CPU_OFFLOAD=1
       ;;
     qwen2_5_7b_8k)
       resolve_model qwen2_5_7b
