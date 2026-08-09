@@ -1,12 +1,22 @@
 # Correct-only Qwen MATH-500 evaluation
 
-This is submission attempt 2 and writes to `math500_greedy_sampled_v2`.
+This is submission attempt 3 and writes to `math500_greedy_sampled_v3`.
 Attempt 1 is retained as provenance but produced no generation records: its
 preflight completed, then the Qwen2.5 canary exhausted its requeues when the
 vLLM architecture-inspection child process imported `mistral-common` and found
 the transitive `pycountry` dependency missing. The original submission and
 startup-intervention metadata are preserved in the `attempt_01_*` files; its
 failed `math500_greedy_sampled_v1` output is not reused.
+
+Attempt 2 also produced no generation records. It confirmed the repaired
+Qwen2 architecture import on a real H200, then vLLM rejected startup because
+the node had 128.49 GiB free while the 0.92 utilization request required
+128.62 GiB. Attempt 3 lowers the fixed utilization fraction to 0.90, leaving
+about 2.7 GiB of headroom under that observed free-memory level without
+changing model precision, context length, prompts, decoding, seeds, stopping,
+or scoring. Its submission and failure details are preserved in the
+`attempt_02_*` files; the failed `math500_greedy_sampled_v2` output is not
+reused.
 
 This handoff evaluates four pretrained bases and five final iteration-124
 `correct_only` checkpoints transferred under contract `3568736a3743c319`.
@@ -43,8 +53,9 @@ that imports the vLLM generation surface plus both `Qwen2ForCausalLM` and
 `Qwen3ForCausalLM`. The 30-minute H200 canary then performs one real greedy
 Qwen2.5 generation and one real sampled Qwen3 generation before any arrays are
 released. H200 jobs exclude node `g3130`, which preempted two attempt-1 canary
-runs before Python startup; generation arrays retain the two-hour/requeue
-allocation.
+runs before Python startup. The canary requests 0.90 GPU-memory utilization
+and receives its requeue signal five minutes before timeout; generation arrays
+retain the two-hour/requeue allocation.
 
 Scoring does not inspect the gold answer to choose a parser or route. Candidate
 and gold independently enter the same fixed interpretation ensemble. It

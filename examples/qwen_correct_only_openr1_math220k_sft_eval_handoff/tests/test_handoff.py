@@ -98,6 +98,13 @@ def test_total_context_budget_is_prompt_dependent_without_margin() -> None:
         generation.effective_response_budget(32768)
 
 
+def test_engine_memory_request_leaves_h200_startup_headroom() -> None:
+    source = (HANDOFF / "generate_math500.py").read_text()
+    policy = json.loads((HANDOFF / "eval_policy.json").read_text())
+    assert 'default=0.90' in source
+    assert policy["engine"]["gpu_memory_utilization"] == 0.9
+
+
 def test_decoding_and_seed_contract() -> None:
     assert generation.decoding("greedy") == {
         "temperature": 0.0,
@@ -168,6 +175,7 @@ def test_submission_scripts_freeze_shape_and_stop_contract() -> None:
     assert "qwen3:base_qwen3_4b:sampled:0" in canary
     assert "#SBATCH --time=00:30:00" in canary
     assert "#SBATCH --exclude=g3130" in canary
+    assert "#SBATCH --signal=B:USR1@300" in canary
     assert 'STOP_TOKENS = {"<|endoftext|>": 151643, "<|im_end|>": 151645}' in generator
     assert "ignore_eos=False" in generator
     assert "python3.11" in runtime

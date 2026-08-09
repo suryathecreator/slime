@@ -1,0 +1,49 @@
+{
+  "artifact_schema_version": 1,
+  "attempt": 2,
+  "cancelled_at": "2026-08-09T17:06:07Z",
+  "canary": {
+    "elapsed": "00:09:28",
+    "exit_code": "1:0",
+    "final_node": "g3125",
+    "job_id": "38330481",
+    "restarts": 1,
+    "state": "FAILED"
+  },
+  "failure": {
+    "detail": "vLLM found 128.49 GiB free on the 139.8 GiB H200, below the 128.62 GiB required by gpu_memory_utilization=0.92.",
+    "generation_records_created": 0,
+    "stage": "qwen2_5_canary_gpu_memory_admission"
+  },
+  "obsolete_descendant_jobs": [
+    "38330482",
+    "38330483",
+    "38330484",
+    "38330485",
+    "38330486",
+    "38330487",
+    "38330488",
+    "38330490",
+    "38330491",
+    "38330492",
+    "38330493",
+    "38330494",
+    "38330495",
+    "38330496",
+    "38330497",
+    "38330498",
+    "38330499",
+    "38330500",
+    "38330501"
+  ],
+  "obsolete_descendant_status": "cancelled",
+  "output_name": "math500_greedy_sampled_v2",
+  "preflight": {
+    "elapsed": "00:07:05",
+    "exit_code": "0:0",
+    "job_id": "38330480",
+    "node": "n3249",
+    "state": "COMPLETED"
+  },
+  "status": "superseded"
+}

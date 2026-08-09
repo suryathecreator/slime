@@ -35,8 +35,8 @@ POLICY = HANDOFF / "eval_policy.json"
 EXPERIMENT = Path(
     "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319"
 )
-OUTPUT_NAME = "math500_greedy_sampled_v2"
-RESULT_NAME = "math500_greedy_sampled_v2"
+OUTPUT_NAME = "math500_greedy_sampled_v3"
+RESULT_NAME = "math500_greedy_sampled_v3"
 TARGETS = (
     "base_qwen2_5_3b",
     "qwen2_5_3b_8k",
@@ -728,7 +728,7 @@ def record_submission(args: argparse.Namespace) -> None:
         raise RuntimeError("submission does not cover all targets")
     value = {
         "artifact_schema_version": 1,
-        "attempt": 2,
+        "attempt": 3,
         "array_jobs": arrays,
         "audit_job": args.audit_job,
         "canary_job": args.canary_job,
@@ -740,6 +740,7 @@ def record_submission(args: argparse.Namespace) -> None:
         "slurm": {
             "account": "raivn-ckpt",
             "array": "0-15",
+            "canary_requeue_signal_lead_seconds": 300,
             "canary_walltime": "00:30:00",
             "excluded_h200_nodes": ["g3130"],
             "generation_walltime": "02:00:00",

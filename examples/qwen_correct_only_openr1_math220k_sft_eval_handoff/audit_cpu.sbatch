@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=qco2-m500-audit
+#SBATCH --job-name=qco3-m500-audit
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -13,4 +13,4 @@ HANDOFF="$REPO_ROOT/examples/qwen_correct_only_openr1_math220k_sft_eval_handoff"
 RUNTIME_PYTHON="${RUNTIME_PYTHON:-$HANDOFF/runtime_python.sh}"
 cd "$REPO_ROOT"
 "$RUNTIME_PYTHON" "$HANDOFF/math500_eval.py" --repo-root "$REPO_ROOT" audit
-echo "QCO2_MATH500_AUDIT_COMPLETE job=$SLURM_JOB_ID at=$(date -Is)"
+echo "QCO3_MATH500_AUDIT_COMPLETE job=$SLURM_JOB_ID at=$(date -Is)"

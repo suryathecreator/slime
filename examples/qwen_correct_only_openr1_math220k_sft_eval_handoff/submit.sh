@@ -42,7 +42,7 @@ if [[ "$MODE" == --test-only-shapes ]]; then
   sbatch --test-only "${COMMON[@]}" --array=0-15 --gpus=h200:1 --exclude=g3130 --export=ALL,EVAL_TARGET=base_qwen2_5_3b --output="$LOG_DIR/%x-%A_%a.out" "$HANDOFF/run_h200.sbatch"
   sbatch --test-only "${COMMON[@]}" --export=ALL,EVAL_TARGET=base_qwen2_5_3b,EVAL_GIT_COMMIT=0000000000000000000000000000000000000000 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/finalize_cpu.sbatch"
   sbatch --test-only "${COMMON[@]}" --output="$LOG_DIR/%x-%j.out" "$HANDOFF/audit_cpu.sbatch"
-  echo "QCO2_MATH500_SLURM_SHAPES_VALID targets=9 tasks=144 canary_families=2"
+  echo "QCO3_MATH500_SLURM_SHAPES_VALID targets=9 tasks=144 canary_families=2"
   exit 0
 fi
 
@@ -73,12 +73,12 @@ canary_job="$LAST_JOB"
 array_jobs=(); finalizer_jobs=(); array_assignments=(); finalizer_assignments=()
 for target in "${TARGETS[@]}"; do
   slug="${target//_/-}"
-  submit_job "${COMMON[@]}" --dependency="afterok:$canary_job" --job-name="qco2-m5-$slug" \
+  submit_job "${COMMON[@]}" --dependency="afterok:$canary_job" --job-name="qco3-m5-$slug" \
     --array=0-15 --gpus=h200:1 --exclude=g3130 --cpus-per-task=8 --mem=96G --time=02:00:00 \
     --signal=B:USR1@600 --export=ALL,EVAL_TARGET="$target" \
     --output="$LOG_DIR/%x-%A_%a.out" "$HANDOFF/run_h200.sbatch"
   array_job="$LAST_JOB"
-  submit_job "${COMMON[@]}" --dependency="afterok:$array_job" --job-name="qco2-m5-$slug-final" \
+  submit_job "${COMMON[@]}" --dependency="afterok:$array_job" --job-name="qco3-m5-$slug-final" \
     --cpus-per-task=8 --mem=64G --time=02:00:00 \
     --export=ALL,EVAL_TARGET="$target",EVAL_GIT_COMMIT="$git_commit" \
     --output="$LOG_DIR/%x-%j.out" "$HANDOFF/finalize_cpu.sbatch"
@@ -88,11 +88,11 @@ for target in "${TARGETS[@]}"; do
   finalizer_assignments+=(--finalizer-job "$target=$finalizer_job")
 done
 dependency="afterok:$(IFS=:; echo "${finalizer_jobs[*]}")"
-submit_job "${COMMON[@]}" --dependency="$dependency" --job-name=qco2-m500-audit --cpus-per-task=8 --mem=64G --time=02:00:00 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/audit_cpu.sbatch"
+submit_job "${COMMON[@]}" --dependency="$dependency" --job-name=qco3-m500-audit --cpus-per-task=8 --mem=64G --time=02:00:00 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/audit_cpu.sbatch"
 audit_job="$LAST_JOB"
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" record-submission \
   --preflight-job "$preflight_job" --canary-job "$canary_job" \
   "${array_assignments[@]}" "${finalizer_assignments[@]}" \
   --audit-job "$audit_job" --git-commit "$git_commit"
 RECORDED=1; trap - EXIT
-echo "QCO2_MATH500_SUBMITTED commit=$git_commit preflight=$preflight_job canary=$canary_job arrays=${array_jobs[*]} finalizers=${finalizer_jobs[*]} audit=$audit_job"
+echo "QCO3_MATH500_SUBMITTED commit=$git_commit preflight=$preflight_job canary=$canary_job arrays=${array_jobs[*]} finalizers=${finalizer_jobs[*]} audit=$audit_job"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=qco2-m500-canary
+#SBATCH --job-name=qco3-m500-canary
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -8,7 +8,7 @@
 #SBATCH --time=00:30:00
 #SBATCH --exclude=g3130
 #SBATCH --requeue
-#SBATCH --signal=B:USR1@600
+#SBATCH --signal=B:USR1@300
 
 set -euo pipefail
 REPO_ROOT="${REPO_ROOT:-${SLURM_SUBMIT_DIR:?Submit from the SLIME repository}}"
@@ -21,7 +21,7 @@ SMOKE="$("$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" path --field smok
 export HF_HOME="${HF_HOME:-/gscratch/scrubbed/suryadv/hf_cache}"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1
 export TOKENIZERS_PARALLELISM=false VLLM_WORKER_MULTIPROC_METHOD=spawn
-CACHE_ROOT="${SCRUBBED_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/qco2-math500}/job_${SLURM_JOB_ID:?}/canary"
+CACHE_ROOT="${SCRUBBED_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/qco3-math500}/job_${SLURM_JOB_ID:?}/canary"
 export XDG_CACHE_HOME="$CACHE_ROOT/xdg" VLLM_CACHE_ROOT="$CACHE_ROOT/vllm"
 export TORCHINDUCTOR_CACHE_DIR="$CACHE_ROOT/torchinductor" TRITON_CACHE_DIR="$CACHE_ROOT/triton"
 export TMPDIR="$(mktemp -d "/tmp/qcom5-${SLURM_JOB_ID:?}.XXXXXX")"
@@ -53,4 +53,4 @@ for canary_case in \
   child_pid="$!"; wait "$child_pid"; child_pid=""
 done
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" mark-canary --job-id "$SLURM_JOB_ID"
-echo "QCO2_MATH500_CANARY_COMPLETE job=$SLURM_JOB_ID cases=2 at=$(date -Is)"
+echo "QCO3_MATH500_CANARY_COMPLETE job=$SLURM_JOB_ID cases=2 at=$(date -Is)"

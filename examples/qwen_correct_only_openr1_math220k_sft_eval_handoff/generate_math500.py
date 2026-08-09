@@ -306,7 +306,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--chunk-size", type=int, default=32)
     parser.add_argument("--max-num-seqs", type=int, default=8)
-    parser.add_argument("--gpu-memory-utilization", type=float, default=0.92)
+    parser.add_argument("--gpu-memory-utilization", type=float, default=0.90)
     args = parser.parse_args()
     sample_seed(args.mode, args.repeat, 0)
     return args
