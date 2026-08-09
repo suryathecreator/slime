@@ -10,6 +10,8 @@ import json
 import math
 import os
 import statistics
+import subprocess
+import sys
 import tempfile
 from collections import Counter
 from datetime import datetime, timezone
@@ -33,8 +35,8 @@ POLICY = HANDOFF / "eval_policy.json"
 EXPERIMENT = Path(
     "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319"
 )
-OUTPUT_NAME = "math500_greedy_sampled_v1"
-RESULT_NAME = "math500_greedy_sampled_v1"
+OUTPUT_NAME = "math500_greedy_sampled_v2"
+RESULT_NAME = "math500_greedy_sampled_v2"
 TARGETS = (
     "base_qwen2_5_3b",
     "qwen2_5_3b_8k",
@@ -64,6 +66,26 @@ PAIRS = (
     ("Qwen3-4B 8K", "base_qwen3_4b", "qwen3_4b_8k"),
     ("Qwen3-8B 8K", "base_qwen3_8b", "qwen3_8b_8k"),
 )
+CANARY_CASES = (
+    ("qwen2_5", "base_qwen2_5_3b", "greedy", 0),
+    ("qwen3", "base_qwen3_4b", "sampled", 0),
+)
+RUNTIME_DISTRIBUTIONS = {
+    "cffi": "cffi",
+    "math_verify": "math-verify",
+    "mistral_common": "mistral-common",
+    "numpy": "numpy",
+    "pycountry": "pycountry",
+    "pycparser": "pycparser",
+    "pydantic_extra_types": "pydantic-extra-types",
+    "soundfile": "soundfile",
+    "soxr": "soxr",
+    "tokenizers": "tokenizers",
+    "torch": "torch",
+    "transformers": "transformers",
+    "triton": "triton",
+    "vllm": "vllm",
+}
 
 
 def now_iso() -> str:
@@ -165,12 +187,7 @@ def load_inventory(root: Path, path: str | Path = MANIFEST) -> dict[str, Any]:
         raise RuntimeError("training contract hash changed")
     if value.get("dataset", {}).get("revision") != "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be":
         raise RuntimeError("MATH-500 revision changed")
-    if value.get("runtime") != {
-        "math_verify": "0.9.0",
-        "torch": "2.8.0",
-        "transformers": "4.57.6",
-        "vllm": "0.10.2",
-    }:
+    if set(value.get("runtime", {})) != set(RUNTIME_DISTRIBUTIONS):
         raise RuntimeError("evaluation runtime pin changed")
     if value.get("sharding") != {
         "array_tasks_per_checkpoint": 16,
@@ -249,6 +266,41 @@ def pass_key(mode: str, repeat: int) -> str:
 
 def pass_output(root: Path, target: str, mode: str, repeat: int) -> Path:
     return eval_root(root) / target / pass_key(mode, repeat)
+
+
+def canary_output(root: Path, family: str, mode: str, repeat: int) -> Path:
+    return control_root(root) / "canary" / family / pass_key(mode, repeat)
+
+
+def validate_runtime_contract(inventory: dict[str, Any]) -> dict[str, str]:
+    versions = {
+        name: importlib.metadata.version(distribution)
+        for name, distribution in RUNTIME_DISTRIBUTIONS.items()
+    }
+    if versions != inventory["runtime"]:
+        raise RuntimeError(
+            f"runtime mismatch: actual={versions} expected={inventory['runtime']}"
+        )
+    subprocess.run([sys.executable, "-m", "pip", "check"], check=True)
+    probe = (
+        "from transformers import AutoTokenizer; "
+        "from vllm import LLM, SamplingParams, TokensPrompt; "
+        "from vllm.model_executor.models.qwen2 import Qwen2ForCausalLM; "
+        "from vllm.model_executor.models.qwen3 import Qwen3ForCausalLM; "
+        "print(Qwen2ForCausalLM.__name__, Qwen3ForCausalLM.__name__)"
+    )
+    subprocess.run([sys.executable, "-c", probe], check=True)
+    return versions
+
+
+def validate_runtime(args: argparse.Namespace) -> None:
+    inventory = load_inventory(repo_root(args), args.manifest)
+    versions = validate_runtime_contract(inventory)
+    print(
+        f"QCO_RUNTIME_VALIDATED distributions={len(versions)} "
+        "architectures=Qwen2ForCausalLM,Qwen3ForCausalLM",
+        flush=True,
+    )
 
 
 def normalized_source_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -606,13 +658,7 @@ def audit(args: argparse.Namespace) -> None:
 def mark_preflight(args: argparse.Namespace) -> None:
     root = repo_root(args)
     inventory = load_inventory(root, args.manifest)
-    versions = {name: importlib.metadata.version(distribution) for name, distribution in (("vllm", "vllm"), ("torch", "torch"), ("transformers", "transformers"), ("math_verify", "math-verify"))}
-    if versions != inventory["runtime"]:
-        raise RuntimeError(f"runtime mismatch: {versions}")
-    # Metadata-only version checks can pass on a damaged environment. Import
-    # the actual runtime surface needed by the worker before releasing GPUs.
-    from transformers import AutoTokenizer  # noqa: F401
-    from vllm import LLM, SamplingParams, TokensPrompt  # noqa: F401
+    versions = validate_runtime_contract(inventory)
     verification = load_json(Path(args.verification))
     if verification.get("full_hash_verification") is not True or set(verification.get("identities", {})) != set(TARGETS):
         raise RuntimeError("full checkpoint verification is incomplete")
@@ -628,11 +674,33 @@ def check_preflight(args: argparse.Namespace) -> None:
 
 def mark_canary(args: argparse.Namespace) -> None:
     root = repo_root(args)
-    for mode, repeat in (("greedy", 0), ("sampled", 0)):
-        rows = read_jsonl(control_root(root) / "canary" / pass_key(mode, repeat) / "records.jsonl")
-        if len(rows) != 1 or rows[0].get("mode") != mode or int(rows[0].get("repeat", -1)) != repeat:
-            raise RuntimeError(f"invalid {mode} canary")
-    atomic_text(control_root(root) / "CANARY_READY.json", canonical_json({"artifact_schema_version": 1, "job_id": args.job_id, "ready_at": now_iso(), "status": "ready"}))
+    completed = []
+    for family, target, mode, repeat in CANARY_CASES:
+        rows = read_jsonl(
+            canary_output(root, family, mode, repeat) / "records.jsonl"
+        )
+        if (
+            len(rows) != 1
+            or rows[0].get("target") != target
+            or rows[0].get("mode") != mode
+            or int(rows[0].get("repeat", -1)) != repeat
+        ):
+            raise RuntimeError(f"invalid {family}/{mode} canary")
+        completed.append(
+            {"family": family, "mode": mode, "repeat": repeat, "target": target}
+        )
+    atomic_text(
+        control_root(root) / "CANARY_READY.json",
+        canonical_json(
+            {
+                "artifact_schema_version": 1,
+                "cases": completed,
+                "job_id": args.job_id,
+                "ready_at": now_iso(),
+                "status": "ready",
+            }
+        ),
+    )
 
 
 def check_canary(args: argparse.Namespace) -> None:
@@ -658,7 +726,28 @@ def record_submission(args: argparse.Namespace) -> None:
     arrays, finalizers = assignments(args.array_job), assignments(args.finalizer_job)
     if set(arrays) != set(TARGETS) or set(finalizers) != set(TARGETS):
         raise RuntimeError("submission does not cover all targets")
-    value = {"artifact_schema_version": 1, "array_jobs": arrays, "audit_job": args.audit_job, "canary_job": args.canary_job, "eval_task_count": 144, "finalizer_jobs": finalizers, "git_commit": args.git_commit, "preflight_job": args.preflight_job, "slurm": {"account": "raivn-ckpt", "array": "0-15", "partition": "ckpt-all", "qos": "ckpt", "walltime": "02:00:00"}, "submitted_at": now_iso()}
+    value = {
+        "artifact_schema_version": 1,
+        "attempt": 2,
+        "array_jobs": arrays,
+        "audit_job": args.audit_job,
+        "canary_job": args.canary_job,
+        "eval_task_count": 144,
+        "finalizer_jobs": finalizers,
+        "git_commit": args.git_commit,
+        "output_name": OUTPUT_NAME,
+        "preflight_job": args.preflight_job,
+        "slurm": {
+            "account": "raivn-ckpt",
+            "array": "0-15",
+            "canary_walltime": "00:30:00",
+            "excluded_h200_nodes": ["g3130"],
+            "generation_walltime": "02:00:00",
+            "partition": "ckpt-all",
+            "qos": "ckpt",
+        },
+        "submitted_at": now_iso(),
+    }
     atomic_text(output, canonical_json(value))
     atomic_text(HANDOFF / "submission_metadata.json", canonical_json(value))
 
@@ -679,6 +768,11 @@ def print_path(args: argparse.Namespace) -> None:
     elif args.field == "checkpoint-identity":
         print(load_json(absolute(root, item_for(inventory, args.target), "manifest"))["checkpoint_manifest_sha256"])
         return
+    elif args.field == "canary-output":
+        item = item_for(inventory, args.target)
+        path = canary_output(
+            root, item["tokenizer_family"], args.mode, args.repeat
+        )
     elif args.field == "pass-output":
         path = pass_output(root, args.target, args.mode, args.repeat)
     else:
@@ -693,6 +787,7 @@ def parser() -> argparse.ArgumentParser:
     commands = value.add_subparsers(dest="command", required=True)
     prepare_cmd = commands.add_parser("prepare"); prepare_cmd.add_argument("--source", required=True)
     verify_cmd = commands.add_parser("verify-checkpoints"); verify_cmd.add_argument("--full", action="store_true"); verify_cmd.add_argument("--status")
+    commands.add_parser("validate-runtime")
     commands.add_parser("validate-gold")
     merge_cmd = commands.add_parser("merge"); merge_cmd.add_argument("--target", required=True, choices=TARGETS); merge_cmd.add_argument("--scorer-commit", required=True)
     commands.add_parser("audit")
@@ -701,13 +796,13 @@ def parser() -> argparse.ArgumentParser:
     canary_cmd = commands.add_parser("mark-canary"); canary_cmd.add_argument("--job-id", required=True)
     commands.add_parser("check-canary")
     record_cmd = commands.add_parser("record-submission"); record_cmd.add_argument("--preflight-job", required=True); record_cmd.add_argument("--canary-job", required=True); record_cmd.add_argument("--array-job", action="append", default=[]); record_cmd.add_argument("--finalizer-job", action="append", default=[]); record_cmd.add_argument("--audit-job", required=True); record_cmd.add_argument("--git-commit", required=True)
-    path_cmd = commands.add_parser("path"); path_cmd.add_argument("--field", required=True, choices=["control", "smoke", "shard", "tokenizer", "model", "manifest", "checkpoint-identity", "pass-output"]); path_cmd.add_argument("--target", choices=TARGETS); path_cmd.add_argument("--mode", choices=["greedy", "sampled"]); path_cmd.add_argument("--repeat", type=int, default=0); path_cmd.add_argument("--shard", type=int, choices=range(4), default=0)
+    path_cmd = commands.add_parser("path"); path_cmd.add_argument("--field", required=True, choices=["control", "smoke", "shard", "tokenizer", "model", "manifest", "checkpoint-identity", "canary-output", "pass-output"]); path_cmd.add_argument("--target", choices=TARGETS); path_cmd.add_argument("--mode", choices=["greedy", "sampled"]); path_cmd.add_argument("--repeat", type=int, default=0); path_cmd.add_argument("--shard", type=int, choices=range(4), default=0)
     return value
 
 
 def main() -> None:
     args = parser().parse_args()
-    handlers = {"prepare": prepare, "verify-checkpoints": verify_checkpoints, "validate-gold": validate_gold, "merge": merge, "audit": audit, "mark-preflight": mark_preflight, "check-preflight": check_preflight, "mark-canary": mark_canary, "check-canary": check_canary, "record-submission": record_submission, "path": print_path}
+    handlers = {"prepare": prepare, "verify-checkpoints": verify_checkpoints, "validate-runtime": validate_runtime, "validate-gold": validate_gold, "merge": merge, "audit": audit, "mark-preflight": mark_preflight, "check-preflight": check_preflight, "mark-canary": mark_canary, "check-canary": check_canary, "record-submission": record_submission, "path": print_path}
     handlers[args.command](args)
 
 

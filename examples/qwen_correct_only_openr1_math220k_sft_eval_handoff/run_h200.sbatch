@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=qco-m500
+#SBATCH --job-name=qco2-m500
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=96G
 #SBATCH --gpus=h200:1
 #SBATCH --time=02:00:00
+#SBATCH --exclude=g3130
 #SBATCH --requeue
 #SBATCH --signal=B:USR1@600
 
@@ -32,7 +33,7 @@ family=qwen2_5; [[ "$EVAL_TARGET" == *qwen3* ]] && family=qwen3
 export HF_HOME="${HF_HOME:-/gscratch/scrubbed/suryadv/hf_cache}"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1
 export TOKENIZERS_PARALLELISM=false VLLM_WORKER_MULTIPROC_METHOD=spawn
-CACHE_ROOT="${SCRUBBED_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/qco-math500}/array_${SLURM_ARRAY_JOB_ID:?}/$EVAL_TARGET/task_$(printf '%02d' "$task")"
+CACHE_ROOT="${SCRUBBED_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/qco2-math500}/array_${SLURM_ARRAY_JOB_ID:?}/$EVAL_TARGET/task_$(printf '%02d' "$task")"
 export XDG_CACHE_HOME="$CACHE_ROOT/xdg" VLLM_CACHE_ROOT="$CACHE_ROOT/vllm"
 export TORCHINDUCTOR_CACHE_DIR="$CACHE_ROOT/torchinductor" TRITON_CACHE_DIR="$CACHE_ROOT/triton"
 export TMPDIR="$(mktemp -d "/tmp/qcom5-${SLURM_ARRAY_JOB_ID:?}-${task}.XXXXXX")"
@@ -53,4 +54,4 @@ trap requeue_job USR1
   --checkpoint-manifest-sha256 "$IDENTITY" --target "$EVAL_TARGET" \
   --mode "$mode" --repeat "$repeat" --eval-file "$EVAL_FILE" --output-dir "$OUTPUT" &
 child_pid="$!"; wait "$child_pid"; child_pid=""
-echo "QCO_MATH500_SHARD_COMPLETE target=$EVAL_TARGET mode=$mode repeat=$repeat shard=$shard job=$SLURM_JOB_ID at=$(date -Is)"
+echo "QCO2_MATH500_SHARD_COMPLETE target=$EVAL_TARGET mode=$mode repeat=$repeat shard=$shard job=$SLURM_JOB_ID at=$(date -Is)"

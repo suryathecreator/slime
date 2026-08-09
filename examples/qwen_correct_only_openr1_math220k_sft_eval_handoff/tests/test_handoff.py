@@ -23,6 +23,61 @@ def test_inventory_covers_nine_unique_targets_and_five_pairs() -> None:
     assert len(control.TARGETS) == 9
     assert len(control.PAIRS) == 5
     assert [base for _, base, _ in control.PAIRS].count("base_qwen2_5_3b") == 2
+    assert inventory["runtime"] == {
+        "cffi": "2.0.0",
+        "math_verify": "0.9.0",
+        "mistral_common": "1.11.7",
+        "numpy": "2.2.6",
+        "pycountry": "26.2.16",
+        "pycparser": "3.0",
+        "pydantic_extra_types": "2.11.1",
+        "soundfile": "0.14.0",
+        "soxr": "1.1.0",
+        "tokenizers": "0.22.2",
+        "torch": "2.8.0",
+        "transformers": "4.57.6",
+        "triton": "3.4.0",
+        "vllm": "0.10.2",
+    }
+
+
+def test_runtime_contract_checks_versions_health_and_both_architectures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inventory = control.load_inventory(ROOT)
+    distribution_versions = {
+        distribution: inventory["runtime"][name]
+        for name, distribution in control.RUNTIME_DISTRIBUTIONS.items()
+    }
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        control.importlib.metadata,
+        "version",
+        lambda distribution: distribution_versions[distribution],
+    )
+    monkeypatch.setattr(
+        control.subprocess,
+        "run",
+        lambda command, check: calls.append(command),
+    )
+
+    assert control.validate_runtime_contract(inventory) == inventory["runtime"]
+    assert calls[0][1:] == ["-m", "pip", "check"]
+    assert "Qwen2ForCausalLM" in calls[1][2]
+    assert "Qwen3ForCausalLM" in calls[1][2]
+
+
+def test_canary_covers_both_model_families_and_decoding_modes() -> None:
+    assert control.CANARY_CASES == (
+        ("qwen2_5", "base_qwen2_5_3b", "greedy", 0),
+        ("qwen3", "base_qwen3_4b", "sampled", 0),
+    )
+    assert control.canary_output(ROOT, "qwen3", "sampled", 0).parts[-4:] == (
+        "canary",
+        "qwen3",
+        "sampled",
+        "repeat_00",
+    )
 
 
 def test_array_layout_is_one_greedy_and_three_sampled_passes() -> None:
@@ -98,12 +153,21 @@ def test_sampled_statistic_is_sample_standard_deviation() -> None:
 def test_submission_scripts_freeze_shape_and_stop_contract() -> None:
     submit = (HANDOFF / "submit.sh").read_text()
     worker = (HANDOFF / "run_h200.sbatch").read_text()
+    canary = (HANDOFF / "canary_h200.sbatch").read_text()
     generator = (HANDOFF / "generate_math500.py").read_text()
     runtime = (HANDOFF / "runtime_python.sh").read_text()
     assert "--array=0-15" in submit
     assert "eval_task_count\": 144" in (HANDOFF / "math500_eval.py").read_text()
     assert "--time=02:00:00" in submit
+    assert "--time=00:30:00" in submit
+    assert "--exclude=g3130" in submit
+    assert "validate-runtime" in submit
     assert "--mode \"$mode\" --repeat \"$repeat\"" in worker
+    assert "#SBATCH --exclude=g3130" in worker
+    assert "qwen2_5:base_qwen2_5_3b:greedy:0" in canary
+    assert "qwen3:base_qwen3_4b:sampled:0" in canary
+    assert "#SBATCH --time=00:30:00" in canary
+    assert "#SBATCH --exclude=g3130" in canary
     assert 'STOP_TOKENS = {"<|endoftext|>": 151643, "<|im_end|>": 151645}' in generator
     assert "ignore_eos=False" in generator
     assert "python3.11" in runtime

@@ -1,0 +1,49 @@
+{
+  "artifact_schema_version": 1,
+  "attempt": 1,
+  "cancelled_at": "2026-08-09T16:25:31Z",
+  "canary": {
+    "elapsed": "00:02:52",
+    "exit_code": "1:0",
+    "final_node": "g3127",
+    "job_id": "38326786",
+    "restarts": 4,
+    "state": "FAILED"
+  },
+  "failure": {
+    "detail": "The vLLM Qwen2 architecture-inspection subprocess imported mistral-common and pydantic-extra-types, then failed because pycountry was absent.",
+    "generation_records_created": 0,
+    "stage": "qwen2_5_canary_runtime_import"
+  },
+  "obsolete_descendant_jobs": [
+    "38326787",
+    "38326788",
+    "38326789",
+    "38326790",
+    "38326791",
+    "38326792",
+    "38326793",
+    "38326794",
+    "38326795",
+    "38326796",
+    "38326797",
+    "38326798",
+    "38326799",
+    "38326800",
+    "38326801",
+    "38326802",
+    "38326803",
+    "38326804",
+    "38326805"
+  ],
+  "obsolete_descendant_status": "cancelled",
+  "output_name": "math500_greedy_sampled_v1",
+  "preflight": {
+    "elapsed": "00:06:59",
+    "exit_code": "0:0",
+    "job_id": "38326785",
+    "node": "n3214",
+    "state": "COMPLETED"
+  },
+  "status": "superseded"
+}

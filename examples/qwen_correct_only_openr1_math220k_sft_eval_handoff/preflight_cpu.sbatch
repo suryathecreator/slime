@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=qco-m500-preflight
+#SBATCH --job-name=qco2-m500-preflight
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8

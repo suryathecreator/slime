@@ -1,5 +1,13 @@
 # Correct-only Qwen MATH-500 evaluation
 
+This is submission attempt 2 and writes to `math500_greedy_sampled_v2`.
+Attempt 1 is retained as provenance but produced no generation records: its
+preflight completed, then the Qwen2.5 canary exhausted its requeues when the
+vLLM architecture-inspection child process imported `mistral-common` and found
+the transitive `pycountry` dependency missing. The original submission and
+startup-intervention metadata are preserved in the `attempt_01_*` files; its
+failed `math500_greedy_sampled_v1` output is not reused.
+
 This handoff evaluates four pretrained bases and five final iteration-124
 `correct_only` checkpoints transferred under contract `3568736a3743c319`.
 The Qwen2.5-3B base is generated once and used for both its 8K and 16K
@@ -19,11 +27,24 @@ generation: tokenizer EOS `<|endoftext|>` (`151643`) and Qwen chat terminator
 `<|im_end|>` (`151645`). `</think>`, boxed answers, and answer text do not stop
 generation.
 
-The runtime is vLLM 0.10.2, Transformers 4.57.6, Torch 2.8.0,
-Math-Verify 0.9.0, Tokenizers 0.22.2, Triton 3.4.0, and NumPy 2.2.6. The
-tracked runtime launcher binds those packages to the cluster's intact Python
-3.11.5 executable; this avoids the installed coenv Python 3.11.9 build, whose
-standard library is missing `_ctypes`.
+The exact runtime is recorded in `runtime_pins.txt` and in the evaluation
+manifest. In addition to vLLM 0.10.2, Transformers 4.57.6, Torch 2.8.0,
+Math-Verify 0.9.0, Tokenizers 0.22.2, Triton 3.4.0, and NumPy 2.2.6, it pins
+the complete import chain that failed in attempt 1: mistral-common 1.11.7,
+pydantic-extra-types 2.11.1, pycountry 26.2.16, SoundFile 0.14.0, soxr 1.1.0,
+cffi 2.0.0, and pycparser 3.0. The tracked runtime launcher binds those
+packages to the cluster's intact Python 3.11.5 executable; this avoids the
+installed coenv Python 3.11.9 build, whose standard library is missing
+`_ctypes`.
+
+Before submission and again in the CPU preflight, the controller checks every
+exact package version, runs `pip check`, and starts a fresh Python subprocess
+that imports the vLLM generation surface plus both `Qwen2ForCausalLM` and
+`Qwen3ForCausalLM`. The 30-minute H200 canary then performs one real greedy
+Qwen2.5 generation and one real sampled Qwen3 generation before any arrays are
+released. H200 jobs exclude node `g3130`, which preempted two attempt-1 canary
+runs before Python startup; generation arrays retain the two-hour/requeue
+allocation.
 
 Scoring does not inspect the gold answer to choose a parser or route. Candidate
 and gold independently enter the same fixed interpretation ensemble. It

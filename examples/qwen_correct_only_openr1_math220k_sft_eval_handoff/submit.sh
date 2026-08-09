@@ -25,6 +25,7 @@ TARGETS=(
 [[ "$(git -C "$AXOLOTL_ROOT" rev-parse HEAD)" == 6b8f0e3314e3d162260cdc35d84741c3da163f30 ]] || { echo "Axolotl commit changed" >&2; exit 2; }
 [[ -z "$(git -C "$AXOLOTL_ROOT" status --porcelain)" ]] || { echo "Axolotl worktree is dirty" >&2; exit 2; }
 
+"$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" validate-runtime
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" prepare --source "$SOURCE_EVAL"
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" verify-checkpoints
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" validate-gold
@@ -37,11 +38,11 @@ COMMON=(
 
 if [[ "$MODE" == --test-only-shapes ]]; then
   sbatch --test-only "${COMMON[@]}" --output="$LOG_DIR/%x-%j.out" "$HANDOFF/preflight_cpu.sbatch"
-  sbatch --test-only "${COMMON[@]}" --gpus=h200:1 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/canary_h200.sbatch"
-  sbatch --test-only "${COMMON[@]}" --array=0-15 --gpus=h200:1 --export=ALL,EVAL_TARGET=base_qwen2_5_3b --output="$LOG_DIR/%x-%A_%a.out" "$HANDOFF/run_h200.sbatch"
+  sbatch --test-only "${COMMON[@]}" --gpus=h200:1 --exclude=g3130 --time=00:30:00 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/canary_h200.sbatch"
+  sbatch --test-only "${COMMON[@]}" --array=0-15 --gpus=h200:1 --exclude=g3130 --export=ALL,EVAL_TARGET=base_qwen2_5_3b --output="$LOG_DIR/%x-%A_%a.out" "$HANDOFF/run_h200.sbatch"
   sbatch --test-only "${COMMON[@]}" --export=ALL,EVAL_TARGET=base_qwen2_5_3b,EVAL_GIT_COMMIT=0000000000000000000000000000000000000000 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/finalize_cpu.sbatch"
   sbatch --test-only "${COMMON[@]}" --output="$LOG_DIR/%x-%j.out" "$HANDOFF/audit_cpu.sbatch"
-  echo "QCO_MATH500_SLURM_SHAPES_VALID targets=9 tasks=144"
+  echo "QCO2_MATH500_SLURM_SHAPES_VALID targets=9 tasks=144 canary_families=2"
   exit 0
 fi
 
@@ -67,17 +68,17 @@ submit_job() {
 
 submit_job "${COMMON[@]}" --output="$LOG_DIR/%x-%j.out" "$HANDOFF/preflight_cpu.sbatch"
 preflight_job="$LAST_JOB"
-submit_job "${COMMON[@]}" --dependency="afterok:$preflight_job" --gpus=h200:1 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/canary_h200.sbatch"
+submit_job "${COMMON[@]}" --dependency="afterok:$preflight_job" --gpus=h200:1 --exclude=g3130 --time=00:30:00 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/canary_h200.sbatch"
 canary_job="$LAST_JOB"
 array_jobs=(); finalizer_jobs=(); array_assignments=(); finalizer_assignments=()
 for target in "${TARGETS[@]}"; do
   slug="${target//_/-}"
-  submit_job "${COMMON[@]}" --dependency="afterok:$canary_job" --job-name="qco-m5-$slug" \
-    --array=0-15 --gpus=h200:1 --cpus-per-task=8 --mem=96G --time=02:00:00 \
+  submit_job "${COMMON[@]}" --dependency="afterok:$canary_job" --job-name="qco2-m5-$slug" \
+    --array=0-15 --gpus=h200:1 --exclude=g3130 --cpus-per-task=8 --mem=96G --time=02:00:00 \
     --signal=B:USR1@600 --export=ALL,EVAL_TARGET="$target" \
     --output="$LOG_DIR/%x-%A_%a.out" "$HANDOFF/run_h200.sbatch"
   array_job="$LAST_JOB"
-  submit_job "${COMMON[@]}" --dependency="afterok:$array_job" --job-name="qco-m5-$slug-final" \
+  submit_job "${COMMON[@]}" --dependency="afterok:$array_job" --job-name="qco2-m5-$slug-final" \
     --cpus-per-task=8 --mem=64G --time=02:00:00 \
     --export=ALL,EVAL_TARGET="$target",EVAL_GIT_COMMIT="$git_commit" \
     --output="$LOG_DIR/%x-%j.out" "$HANDOFF/finalize_cpu.sbatch"
@@ -87,11 +88,11 @@ for target in "${TARGETS[@]}"; do
   finalizer_assignments+=(--finalizer-job "$target=$finalizer_job")
 done
 dependency="afterok:$(IFS=:; echo "${finalizer_jobs[*]}")"
-submit_job "${COMMON[@]}" --dependency="$dependency" --cpus-per-task=8 --mem=64G --time=02:00:00 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/audit_cpu.sbatch"
+submit_job "${COMMON[@]}" --dependency="$dependency" --job-name=qco2-m500-audit --cpus-per-task=8 --mem=64G --time=02:00:00 --output="$LOG_DIR/%x-%j.out" "$HANDOFF/audit_cpu.sbatch"
 audit_job="$LAST_JOB"
 "$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" record-submission \
   --preflight-job "$preflight_job" --canary-job "$canary_job" \
   "${array_assignments[@]}" "${finalizer_assignments[@]}" \
   --audit-job "$audit_job" --git-commit "$git_commit"
 RECORDED=1; trap - EXIT
-echo "QCO_MATH500_SUBMITTED commit=$git_commit preflight=$preflight_job canary=$canary_job arrays=${array_jobs[*]} finalizers=${finalizer_jobs[*]} audit=$audit_job"
+echo "QCO2_MATH500_SUBMITTED commit=$git_commit preflight=$preflight_job canary=$canary_job arrays=${array_jobs[*]} finalizers=${finalizer_jobs[*]} audit=$audit_job"

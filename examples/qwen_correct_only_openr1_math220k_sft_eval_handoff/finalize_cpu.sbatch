@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=qco-m500-finalize
+#SBATCH --job-name=qco2-m500-finalize
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -15,4 +15,4 @@ RUNTIME_PYTHON="${RUNTIME_PYTHON:-$HANDOFF/runtime_python.sh}"
 cd "$REPO_ROOT"
 "$RUNTIME_PYTHON" "$HANDOFF/math500_eval.py" --repo-root "$REPO_ROOT" merge \
   --target "$EVAL_TARGET" --scorer-commit "$EVAL_GIT_COMMIT"
-echo "QCO_MATH500_FINALIZE_COMPLETE target=$EVAL_TARGET job=$SLURM_JOB_ID at=$(date -Is)"
+echo "QCO2_MATH500_FINALIZE_COMPLETE target=$EVAL_TARGET job=$SLURM_JOB_ID at=$(date -Is)"
