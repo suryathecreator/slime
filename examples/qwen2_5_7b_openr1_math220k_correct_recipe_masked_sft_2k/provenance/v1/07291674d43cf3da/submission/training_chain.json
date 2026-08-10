@@ -1,0 +1,72 @@
+{
+  "branch": "qwen-correct-only-openr1-sft-2k",
+  "commit": "047aef83297ee59908fcf2331ade730256fdff51",
+  "contract_hash": "07291674d43cf3da",
+  "jobs_in_dependency_order": [
+    {
+      "job_id": "217663",
+      "name": "prepare_data"
+    },
+    {
+      "job_id": "217664",
+      "name": "score_and_build"
+    },
+    {
+      "job_id": "217665",
+      "name": "prefix_canary"
+    },
+    {
+      "job_id": "217666",
+      "name": "train_unmasked"
+    },
+    {
+      "job_id": "217667",
+      "name": "train_random_mask_70"
+    },
+    {
+      "job_id": "217668",
+      "name": "train_inverse_tau_0p20"
+    },
+    {
+      "job_id": "217669",
+      "name": "train_inverse_tau_0p05"
+    },
+    {
+      "job_id": "217670",
+      "name": "train_random_mask_25"
+    },
+    {
+      "job_id": "217671",
+      "name": "train_random_mask_50"
+    },
+    {
+      "job_id": "217672",
+      "name": "train_random_mask_80"
+    },
+    {
+      "job_id": "217673",
+      "name": "train_random_mask_90"
+    },
+    {
+      "job_id": "217674",
+      "name": "train_margin_mask"
+    },
+    {
+      "job_id": "217675",
+      "name": "train_prob_ratio_mask"
+    },
+    {
+      "job_id": "217676",
+      "name": "finalize_handoff"
+    }
+  ],
+  "protected_supervision": "all added controls and literal think markup bypass masking and remain exact weight 1",
+  "resource_policy": {
+    "dependency": "strict linear afterok chain",
+    "jobs": 14,
+    "maximum_concurrent_gpus": 4,
+    "submits_evaluation": false,
+    "submits_transfer": false
+  },
+  "submitted_at": "2026-08-10T03:26:55.626132+00:00"
+}

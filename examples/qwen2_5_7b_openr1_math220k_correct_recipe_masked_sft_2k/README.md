@@ -46,3 +46,12 @@ bash examples/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/rsync_to_k
 bash examples/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/rsync_to_klone.sh --transfer
 bash examples/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/rsync_to_klone.sh --verify
 ```
+
+Compact final provenance is published under
+`provenance/v1/07291674d43cf3da`. It contains the completed training status,
+submission chain, data and masking audits, tokenizer controls, exact ordered
+trace identities without prompts or assistant text, all ten new checkpoint
+manifests, copies of the base and correct-only checkpoint manifests, and the
+12-target comparison inventory. Checkpoints,
+optimizer state, full selected traces, and pretokenized training datasets remain
+outside Git.

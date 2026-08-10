@@ -1,0 +1,167 @@
+{
+  "artifact_schema_version": 1,
+  "contract_hash": "07291674d43cf3da",
+  "contract_relative_path": "config/experiment_contract.json",
+  "contract_sha256": "07291674d43cf3dab1675c187dbd0c1c389a5b4002702e3c8b8a6a4d1abfabc7",
+  "excluded_large_payloads": {
+    "checkpoints_and_optimizer_state": "transferred by rsync, not stored in Git",
+    "full_selected_trace_text": "excluded from Git; exact source identities and assistant token hashes are published",
+    "pretokenized_training_jsonl": "excluded from Git; dataset hashes are published in the data audits"
+  },
+  "ordered_mixed_trace_ids_sha256": "f3f51daa4e63ee6bc33ba91e97b05c195f9a40ddc641de7abb60408d06bd904a",
+  "publication_time_source": "copied from finalized training status",
+  "published_at": "2026-08-10T17:05:17.014045+00:00",
+  "published_file_count_excluding_self": 21,
+  "published_files": [
+    {
+      "bytes": 1608,
+      "path": "TRAINING_STATUS.json",
+      "sha256": "044d3dc982225c6a6120bceb02b3e1ecc00c7d1b23aec022d682eeacaa02595d",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/TRAINING_STATUS.json",
+      "source_sha256": "044d3dc982225c6a6120bceb02b3e1ecc00c7d1b23aec022d682eeacaa02595d"
+    },
+    {
+      "bytes": 342,
+      "path": "data/schedule_audit.json",
+      "sha256": "d10105f0262396f46165887f52f94db90e95bb6c752ad2c1c7edf8e30130fe40",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/data/schedule_audit.json",
+      "source_sha256": "d10105f0262396f46165887f52f94db90e95bb6c752ad2c1c7edf8e30130fe40"
+    },
+    {
+      "bytes": 840815,
+      "path": "data/selected_trace_manifest.jsonl",
+      "sha256": "fed72c317074fd252d9f36e89d85c139bc659721a1125e251566b5e04210f402",
+      "source_path": null,
+      "source_sha256": null
+    },
+    {
+      "bytes": 1925,
+      "path": "data/selection_and_tokenization_stats.json",
+      "sha256": "57fd47fd7cfac7fbbed3d3b369d78f6cd6ea3109824a413e0ad39ec44e66066d",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/data/selection_and_tokenization_stats.json",
+      "source_sha256": "57fd47fd7cfac7fbbed3d3b369d78f6cd6ea3109824a413e0ad39ec44e66066d"
+    },
+    {
+      "bytes": 1128,
+      "path": "data/tokenizer_control_inventory.json",
+      "sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/data/tokenizer_control_inventory.json",
+      "source_sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85"
+    },
+    {
+      "bytes": 4909,
+      "path": "data/variant_stats.json",
+      "sha256": "081503bbcf125b4c4fdf70a8567c5d21a295b487e955b86b8e40925adaeb4efc",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/data/variant_stats.json",
+      "source_sha256": "081503bbcf125b4c4fdf70a8567c5d21a295b487e955b86b8e40925adaeb4efc"
+    },
+    {
+      "bytes": 5780,
+      "path": "handoff/baseline_manifests/base_qwen2_5_7b.json",
+      "sha256": "d74a074cffaa351f1f4db655a6a4a0f5100971433c2b4fd47db7bc68484ac848",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/handoff/checkpoints/base_qwen2_5_7b.json",
+      "source_sha256": "d74a074cffaa351f1f4db655a6a4a0f5100971433c2b4fd47db7bc68484ac848"
+    },
+    {
+      "bytes": 2262,
+      "path": "handoff/baseline_manifests/qwen2_5_7b_8k_correct_only.json",
+      "sha256": "962f777ecf8a10b9abe429bdc057d2c51f2ac9ddf055f6762a4f4e040ed8facb",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/handoff/checkpoints/qwen2_5_7b_8k.json",
+      "source_sha256": "962f777ecf8a10b9abe429bdc057d2c51f2ac9ddf055f6762a4f4e040ed8facb"
+    },
+    {
+      "bytes": 6887,
+      "path": "handoff/checkpoint_sources.json",
+      "sha256": "c15a62b38d45c96082ec819813212c09d62589129ad6847a30b368a2ca28c549",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoint_sources.json",
+      "source_sha256": "c15a62b38d45c96082ec819813212c09d62589129ad6847a30b368a2ca28c549"
+    },
+    {
+      "bytes": 2264,
+      "path": "handoff/checkpoints/inverse_tau_0p05.json",
+      "sha256": "f1bd2aaa338806c0eecb679fe1c40f26d75fa252c576ca79e1b74c16a30e7868",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/inverse_tau_0p05.json",
+      "source_sha256": "f1bd2aaa338806c0eecb679fe1c40f26d75fa252c576ca79e1b74c16a30e7868"
+    },
+    {
+      "bytes": 2264,
+      "path": "handoff/checkpoints/inverse_tau_0p20.json",
+      "sha256": "fc66d16045330abee248900b12bf6e203d6f84a970c3cdf8fb333998be51b72e",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/inverse_tau_0p20.json",
+      "source_sha256": "fc66d16045330abee248900b12bf6e203d6f84a970c3cdf8fb333998be51b72e"
+    },
+    {
+      "bytes": 2254,
+      "path": "handoff/checkpoints/margin_mask.json",
+      "sha256": "8d6c6632dd6c18640a628030baadec809fb4273a09d180f082badbadef35ff0a",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/margin_mask.json",
+      "source_sha256": "8d6c6632dd6c18640a628030baadec809fb4273a09d180f082badbadef35ff0a"
+    },
+    {
+      "bytes": 2262,
+      "path": "handoff/checkpoints/prob_ratio_mask.json",
+      "sha256": "d4d201e6a3335844c1ee413d371fbaac1faa50cb547c147f05b38ef4fc33d190",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/prob_ratio_mask.json",
+      "source_sha256": "d4d201e6a3335844c1ee413d371fbaac1faa50cb547c147f05b38ef4fc33d190"
+    },
+    {
+      "bytes": 2260,
+      "path": "handoff/checkpoints/random_mask_25.json",
+      "sha256": "a9a3446657787a218684d746f021fb3362c0f0ccf3d6cfa76c3bb201d82fbee6",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_25.json",
+      "source_sha256": "a9a3446657787a218684d746f021fb3362c0f0ccf3d6cfa76c3bb201d82fbee6"
+    },
+    {
+      "bytes": 2260,
+      "path": "handoff/checkpoints/random_mask_50.json",
+      "sha256": "66d8683c3930b6e6d81ef6948d498ad9764220d69ebf4b7fcc22d41bb899405e",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_50.json",
+      "source_sha256": "66d8683c3930b6e6d81ef6948d498ad9764220d69ebf4b7fcc22d41bb899405e"
+    },
+    {
+      "bytes": 2260,
+      "path": "handoff/checkpoints/random_mask_70.json",
+      "sha256": "85a4c5e183ebfb6b3b0626c8abe6dc12913d286d65f02ffa4d9bca18d1d5ac50",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_70.json",
+      "source_sha256": "85a4c5e183ebfb6b3b0626c8abe6dc12913d286d65f02ffa4d9bca18d1d5ac50"
+    },
+    {
+      "bytes": 2260,
+      "path": "handoff/checkpoints/random_mask_80.json",
+      "sha256": "a127031e7d89ad5677391d15bafe74ae6c74101ca056762686cbfc2432079c07",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_80.json",
+      "source_sha256": "a127031e7d89ad5677391d15bafe74ae6c74101ca056762686cbfc2432079c07"
+    },
+    {
+      "bytes": 2260,
+      "path": "handoff/checkpoints/random_mask_90.json",
+      "sha256": "fd50a83ead95e1310f3c8fefab825239772df8274e76245c4a9d9f5267e556c2",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_90.json",
+      "source_sha256": "fd50a83ead95e1310f3c8fefab825239772df8274e76245c4a9d9f5267e556c2"
+    },
+    {
+      "bytes": 2248,
+      "path": "handoff/checkpoints/unmasked.json",
+      "sha256": "f8e2b4a10a0baaf02c08a03de5c55ae679e6d7fa4da5ad5953e8e73407a481d3",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/checkpoints/unmasked.json",
+      "source_sha256": "f8e2b4a10a0baaf02c08a03de5c55ae679e6d7fa4da5ad5953e8e73407a481d3"
+    },
+    {
+      "bytes": 6515,
+      "path": "handoff/comparison_sources.json",
+      "sha256": "4683fa2db3c45cd64b7ca801377c049219d0ccd4c0f0fcacb61b6965627a401e",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/comparison_sources.json",
+      "source_sha256": "4683fa2db3c45cd64b7ca801377c049219d0ccd4c0f0fcacb61b6965627a401e"
+    },
+    {
+      "bytes": 1576,
+      "path": "submission/training_chain.json",
+      "sha256": "dc2dc6191e681c4be09ee6c826f9f993b1506fd7889880b25f1f4adeb877cc21",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/manifests/training_chain.json",
+      "source_sha256": "dc2dc6191e681c4be09ee6c826f9f993b1506fd7889880b25f1f4adeb877cc21"
+    }
+  ],
+  "source_experiment_root": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da",
+  "trace_identity_rows": 2000,
+  "training_repo_commit": "a1faa8d22e57c59a5ede67e5ee6783443b0ce588"
+}

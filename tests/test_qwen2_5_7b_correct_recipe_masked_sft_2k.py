@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import subprocess
@@ -30,6 +31,7 @@ VARIANTS = (
     "margin_mask",
     "prob_ratio_mask",
 )
+PROVENANCE_DIR = EXPERIMENT_DIR / "provenance/v1/07291674d43cf3da"
 
 
 def load_contract() -> dict:
@@ -205,6 +207,67 @@ def test_every_slurm_stage_has_a_strict_two_hour_cap():
     for path in sbatch_paths:
         text = path.read_text(encoding="utf-8")
         assert text.count("#SBATCH --time=02:00:00") == 1, path
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def test_published_provenance_is_complete_and_self_consistent():
+    publication = json.loads((PROVENANCE_DIR / "PROVENANCE_PUBLICATION.json").read_text(encoding="utf-8"))
+    expected_contract_hash = file_sha256(EXPERIMENT_DIR / "config/experiment_contract.json")[:16]
+    assert publication["contract_hash"] == expected_contract_hash == "07291674d43cf3da"
+    files = publication["published_files"]
+    assert publication["published_file_count_excluding_self"] == len(files) == 21
+    actual_paths = {
+        path.relative_to(PROVENANCE_DIR).as_posix()
+        for path in PROVENANCE_DIR.rglob("*")
+        if path.is_file() and path.name != "PROVENANCE_PUBLICATION.json"
+    }
+    assert actual_paths == {item["path"] for item in files}
+    for item in files:
+        path = PROVENANCE_DIR / item["path"]
+        assert path.stat().st_size == item["bytes"]
+        assert file_sha256(path) == item["sha256"]
+        if item["source_path"] is not None:
+            assert item["sha256"] == item["source_sha256"]
+
+    status = json.loads((PROVENANCE_DIR / "TRAINING_STATUS.json").read_text(encoding="utf-8"))
+    inventory = json.loads((PROVENANCE_DIR / "handoff/checkpoint_sources.json").read_text(encoding="utf-8"))
+    comparison = json.loads((PROVENANCE_DIR / "handoff/comparison_sources.json").read_text(encoding="utf-8"))
+    submission = json.loads((PROVENANCE_DIR / "submission/training_chain.json").read_text(encoding="utf-8"))
+    assert status["trained_checkpoints"] == inventory["checkpoint_count"] == 10
+    assert status["comparison_checkpoint_count"] == comparison["comparison_checkpoint_count"] == 12
+    assert len(submission["jobs_in_dependency_order"]) == 14
+    assert [item["id"] for item in inventory["checkpoints"]] == list(VARIANTS)
+    for variant in VARIANTS:
+        manifest = json.loads((PROVENANCE_DIR / f"handoff/checkpoints/{variant}.json").read_text(encoding="utf-8"))
+        assert manifest["final_iteration"] == 124
+        assert manifest["checkpoint_manifest_sha256"] == status["checkpoint_identities"][variant]
+
+    baseline_manifests = {
+        "base_qwen2_5_7b": "base_qwen2_5_7b.json",
+        "qwen2_5_7b_8k_correct_only": "qwen2_5_7b_8k_correct_only.json",
+    }
+    for checkpoint_id, filename in baseline_manifests.items():
+        manifest = json.loads((PROVENANCE_DIR / "handoff/baseline_manifests" / filename).read_text(encoding="utf-8"))
+        assert manifest["checkpoint_manifest_sha256"] == status["checkpoint_identities"][checkpoint_id]
+
+    trace_rows = [
+        json.loads(line)
+        for line in (PROVENANCE_DIR / "data/selected_trace_manifest.jsonl").read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    assert len(trace_rows) == publication["trace_identity_rows"] == 2000
+    assert len({row["trace_id"] for row in trace_rows}) == 2000
+    assert sum(row["is_correct"] for row in trace_rows) == 1000
+    assert all(row["is_correct"] for row in trace_rows[:1000])
+    assert not any(row["is_correct"] for row in trace_rows[1000:])
+    assert not ({"problem", "answer", "assistant_trace"} & set(trace_rows[0]))
 
 
 if __name__ == "__main__":

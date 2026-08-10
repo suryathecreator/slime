@@ -1,0 +1,27 @@
+{
+  "artifact_schema_version": 1,
+  "baseline_checkpoints_reused": 2,
+  "checkpoint_identities": {
+    "base_qwen2_5_7b": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+    "inverse_tau_0p05": "3824b6b8d41acb769325b043d191ff306e49146b271a08ef14b3afc4b342e09f",
+    "inverse_tau_0p20": "4755754e7dd7e5e5e1cc0910a4c19607bf1e39567cd1006a91184f34439f88cc",
+    "margin_mask": "1094539bcc9aa51491157dc9e920830d758a2e062b1eeb280652af1a4fd588e0",
+    "prob_ratio_mask": "512da6974e7fcc5a0b8a6d00f557c1f49f3c5c8e91249bee467cdab06680b41e",
+    "qwen2_5_7b_8k_correct_only": "51faacfc44d8c0c21d1abbc421d6a31d5825e0cf3b1dbb2a7480f97cb1b557ea",
+    "random_mask_25": "d8da8ee6d7ff720d3b9cb9473646283c79bd01e8ef2069d532d2067c2f53f4cf",
+    "random_mask_50": "0cb7ebb581a01b90be0b34e9edde4cfcf4ff89ff45b8c00bc40479baf9f94ffd",
+    "random_mask_70": "082b4770c93e17e9860a820fcc31206ff72d99621abf4422ad3cf94ee71de492",
+    "random_mask_80": "90c8d56ea488b6d7d5e0433fc3b11f1b154b2fd9451a6e50e560622e6c580d76",
+    "random_mask_90": "37ef3bef13981e172d7a5df1325be06d9e283039f0e5e829094719998e81b023",
+    "unmasked": "e7e468bdb8bb24603f4cb686b63d54c36a3feb4945e8d88698a0867a4f7c854a"
+  },
+  "comparison_checkpoint_count": 12,
+  "contract_hash": "07291674d43cf3da",
+  "final_iteration": 124,
+  "finalized_at": "2026-08-10T17:05:17.014045+00:00",
+  "full_parameter_sft": true,
+  "ordered_mixed_trace_ids_sha256": "f3f51daa4e63ee6bc33ba91e97b05c195f9a40ddc641de7abb60408d06bd904a",
+  "repo_commit": "a1faa8d22e57c59a5ede67e5ee6783443b0ce588",
+  "trained_checkpoints": 10,
+  "transfer_checkpoint_count": 10
+}
