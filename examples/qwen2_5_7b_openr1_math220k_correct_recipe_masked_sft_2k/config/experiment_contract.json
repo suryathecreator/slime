@@ -1,0 +1,88 @@
+{
+  "artifact_schema_version": 1,
+  "base_model": {
+    "hf_repo": "Qwen/Qwen2.5-7B",
+    "revision": "d149729398750b98c0af14eb82c78cfe92750796"
+  },
+  "family": "qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k",
+  "masking": {
+    "correct_tokens": "weight_1",
+    "inverse_margin_taus": [0.2, 0.05],
+    "margin_definition": "logp_answer_conditioned_minus_logp_unconditioned",
+    "probability_ratio_mask": "mask_probability=min(1,exp(-margin));keep=stable_draw>=mask_probability",
+    "random_mask_probabilities": [0.25, 0.5, 0.7, 0.8, 0.9],
+    "regular_margin_mask": "keep_iff_margin>0",
+    "seed": 42,
+    "terminal_policy": "all_added_controls_and_literal_think_markup_weight_1;im_end_weight_1;template_newline_weight_0;no_synthetic_endoftext"
+  },
+  "selection": {
+    "correct_rows": 1000,
+    "correct_subset": "first_1000_of_frozen_seed_42_correct_only_order",
+    "mixed_order": "correct_then_wrong",
+    "mode": "balanced_unpaired_from_correct_only_recipe",
+    "source_correct_only_contract_hash": "3568736a3743c319",
+    "source_correct_only_dataset_sha256": "8c4a01dc6e33df4cd2fc2e24d607dd00f94f044b1eaeb6c73c86719aba887a6e",
+    "source_correct_only_prep_stats_sha256": "d799c622185119d0758cfb06bbaffe0d1d550dae789ff4606154f797cf0cd8ac",
+    "source_correct_only_selected_sha256": "e40731581eee819750b2289d3f96ccc814eb202fc5b00cb6a32fbc18158ba5f4",
+    "source_correct_only_trace_order_sha256": "174db3ffab96b4548afe9c09ad6fce500ac2941a520a7ea98d90a3caa530afc5",
+    "source_dataset": {
+      "config": "default",
+      "hf_repo": "open-r1/OpenR1-Math-220k",
+      "revision": "dc748648036c1ed619b020e056dc4b603eb39817",
+      "split": "train"
+    },
+    "wrong_problem_exclusion": "all_2000_frozen_correct_only_problem_ids",
+    "wrong_rows": 1000,
+    "wrong_selection_seed": 42
+  },
+  "source_baselines": {
+    "base_checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+    "base_manifest_sha256": "d74a074cffaa351f1f4db655a6a4a0f5100971433c2b4fd47db7bc68484ac848",
+    "correct_only_checkpoint_identity": "51faacfc44d8c0c21d1abbc421d6a31d5825e0cf3b1dbb2a7480f97cb1b557ea",
+    "correct_only_manifest_sha256": "962f777ecf8a10b9abe429bdc057d2c51f2ac9ddf055f6762a4f4e040ed8facb",
+    "correct_only_status_sha256": "5ca5a95c5a07dad7009f890853fb6322802c4295edc7925a50321af885ad1499",
+    "source_repo_commit": "5203e6a3eb71bb9b8af417e87f0a59cadef7fdd2"
+  },
+  "training": {
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.95,
+    "adam_epsilon": 1e-8,
+    "bf16": true,
+    "context_parallel_size": 1,
+    "data_parallel_size": 2,
+    "epochs": 4,
+    "full_parameter_sft": true,
+    "global_batch_size": 64,
+    "gradient_clip_norm": 1.0,
+    "learning_rate": 5e-6,
+    "lr_decay_iters": 125,
+    "lr_decay_style": "cosine",
+    "max_sequence_length": 10240,
+    "max_tokens_per_gpu": 16384,
+    "min_learning_rate": 1e-6,
+    "optimizer": "AdamW",
+    "optimizer_cpu_offload": true,
+    "optimizer_updates": 125,
+    "pipeline_parallel_size": 1,
+    "recompute_loss_function": true,
+    "rollout_batch_size": 64,
+    "tensor_parallel_size": 2,
+    "trace_token_cap": 8192,
+    "warmup_fraction": 0.03,
+    "warmup_init": 0.0,
+    "weight_decay": 0.0001,
+    "zero_stage": 1
+  },
+  "variants": [
+    "unmasked",
+    "random_mask_70",
+    "inverse_tau_0p20",
+    "inverse_tau_0p05",
+    "random_mask_25",
+    "random_mask_50",
+    "random_mask_80",
+    "random_mask_90",
+    "margin_mask",
+    "prob_ratio_mask"
+  ]
+}
