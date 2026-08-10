@@ -1,0 +1,148 @@
+{
+  "artifact_schema_version": 1,
+  "audited_at": "2026-08-10T04:34:13.412843+00:00",
+  "comparisons": [
+    {
+      "base": "base_qwen2_5_3b",
+      "comparison": "Qwen2.5-3B 8K",
+      "greedy_delta": -0.16600000000000004,
+      "sampled_delta": {
+        "mean": -0.0566666666666667,
+        "sample_std": 0.026633312473917564,
+        "values": [
+          -0.08600000000000002,
+          -0.050000000000000044,
+          -0.03400000000000003
+        ]
+      },
+      "trained": "qwen2_5_3b_8k"
+    },
+    {
+      "base": "base_qwen2_5_3b",
+      "comparison": "Qwen2.5-3B 16K",
+      "greedy_delta": -0.21800000000000003,
+      "sampled_delta": {
+        "mean": -0.09200000000000003,
+        "sample_std": 0.010392304845413272,
+        "values": [
+          -0.08600000000000002,
+          -0.08600000000000002,
+          -0.10400000000000004
+        ]
+      },
+      "trained": "qwen2_5_3b_16k"
+    },
+    {
+      "base": "base_qwen2_5_7b",
+      "comparison": "Qwen2.5-7B 8K",
+      "greedy_delta": 0.06800000000000006,
+      "sampled_delta": {
+        "mean": 0.16333333333333325,
+        "sample_std": 0.013316656236958798,
+        "values": [
+          0.1479999999999999,
+          0.16999999999999993,
+          0.17199999999999993
+        ]
+      },
+      "trained": "qwen2_5_7b_8k"
+    },
+    {
+      "base": "base_qwen3_4b",
+      "comparison": "Qwen3-4B 8K",
+      "greedy_delta": -0.04999999999999993,
+      "sampled_delta": {
+        "mean": 0.02266666666666665,
+        "sample_std": 0.021385353243127212,
+        "values": [
+          0.04599999999999993,
+          0.018000000000000016,
+          0.0040000000000000036
+        ]
+      },
+      "trained": "qwen3_4b_8k"
+    },
+    {
+      "base": "base_qwen3_8b",
+      "comparison": "Qwen3-8B 8K",
+      "greedy_delta": -0.050000000000000044,
+      "sampled_delta": {
+        "mean": 0.08933333333333342,
+        "sample_std": 0.012055427546683426,
+        "values": [
+          0.08800000000000008,
+          0.07800000000000007,
+          0.10200000000000009
+        ]
+      },
+      "trained": "qwen3_8b_8k"
+    }
+  ],
+  "results": [
+    {
+      "greedy_accuracy": 0.542,
+      "greedy_correct": 271,
+      "sampled_accuracy_mean": 0.5306666666666667,
+      "sampled_accuracy_sample_std": 0.006429100507328643,
+      "target": "base_qwen2_5_3b"
+    },
+    {
+      "greedy_accuracy": 0.376,
+      "greedy_correct": 188,
+      "sampled_accuracy_mean": 0.474,
+      "sampled_accuracy_sample_std": 0.021071307505705468,
+      "target": "qwen2_5_3b_8k"
+    },
+    {
+      "greedy_accuracy": 0.324,
+      "greedy_correct": 162,
+      "sampled_accuracy_mean": 0.4386666666666667,
+      "sampled_accuracy_sample_std": 0.014047538337136997,
+      "target": "qwen2_5_3b_16k"
+    },
+    {
+      "greedy_accuracy": 0.58,
+      "greedy_correct": 290,
+      "sampled_accuracy_mean": 0.5566666666666668,
+      "sampled_accuracy_sample_std": 0.0011547005383792525,
+      "target": "base_qwen2_5_7b"
+    },
+    {
+      "greedy_accuracy": 0.648,
+      "greedy_correct": 324,
+      "sampled_accuracy_mean": 0.7200000000000001,
+      "sampled_accuracy_sample_std": 0.014000000000000012,
+      "target": "qwen2_5_7b_8k"
+    },
+    {
+      "greedy_accuracy": 0.722,
+      "greedy_correct": 361,
+      "sampled_accuracy_mean": 0.6920000000000001,
+      "sampled_accuracy_sample_std": 0.015099668870541462,
+      "target": "base_qwen3_4b"
+    },
+    {
+      "greedy_accuracy": 0.672,
+      "greedy_correct": 336,
+      "sampled_accuracy_mean": 0.7146666666666667,
+      "sampled_accuracy_sample_std": 0.008326663997864539,
+      "target": "qwen3_4b_8k"
+    },
+    {
+      "greedy_accuracy": 0.772,
+      "greedy_correct": 386,
+      "sampled_accuracy_mean": 0.694,
+      "sampled_accuracy_sample_std": 0.008717797887081356,
+      "target": "base_qwen3_8b"
+    },
+    {
+      "greedy_accuracy": 0.722,
+      "greedy_correct": 361,
+      "sampled_accuracy_mean": 0.7833333333333333,
+      "sampled_accuracy_sample_std": 0.0061101009266077925,
+      "target": "qwen3_8b_8k"
+    }
+  ],
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "status": "complete"
+}

@@ -1,0 +1,55 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "f2b581538426d88995308193925f3822e424801fc7fda397acadf3b56c92a50b",
+  "contract_hash": "3568736a3743c319",
+  "created_at": "2026-08-08T22:54:49.764479+00:00",
+  "family": "2k",
+  "files": [
+    {
+      "bytes": 2427,
+      "name": "chat_template.jinja",
+      "sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5"
+    },
+    {
+      "bytes": 1598,
+      "name": "config.json",
+      "sha256": "48b394b6d72866a054e59aa3a6ca9000f0771fc46742ed1c85b950db33bbcbd1"
+    },
+    {
+      "bytes": 167,
+      "name": "generation_config.json",
+      "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+    },
+    {
+      "bytes": 3968658912,
+      "name": "model-00001-of-00002.safetensors",
+      "sha256": "896b4dba31a0ad5bbc853a79779812e965cf6061e1de411727093ae7609a189b"
+    },
+    {
+      "bytes": 2203268016,
+      "name": "model-00002-of-00002.safetensors",
+      "sha256": "22fff0d679e89535f13513b5547b727b4ec263b46744909b8e4221910aa0c54d"
+    },
+    {
+      "bytes": 37328,
+      "name": "model.safetensors.index.json",
+      "sha256": "501fe81a5aa2e354ce307bbde67d4afe3f86ca89ee3f3e7cbd6cfabec38bab2f"
+    },
+    {
+      "bytes": 11421892,
+      "name": "tokenizer.json",
+      "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+    },
+    {
+      "bytes": 695,
+      "name": "tokenizer_config.json",
+      "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    }
+  ],
+  "final_iteration": 124,
+  "full_sft": true,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "repo_commit": "5203e6a3eb71bb9b8af417e87f0a59cadef7fdd2",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/outputs/training/qwen2_5_3b_8k/correct_only/attempts/oom_r1/weights/iter_0000124",
+  "variant": "qwen2_5_3b_8k.correct_only"
+}

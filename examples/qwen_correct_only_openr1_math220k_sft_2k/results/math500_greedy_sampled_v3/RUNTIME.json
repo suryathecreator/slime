@@ -1,0 +1,141 @@
+{
+  "accounting": {
+    "command_shape": "sacct -X -D -j <nine array job ids> --starttime 2026-08-09T00:00:00 -o JobID,State,ElapsedRaw,Start,End",
+    "effective_parallel_pass_minutes": "maximum over four shards of cumulative ElapsedRaw across all attempts",
+    "h200_hours": "sum of ElapsedRaw across all array elements and all attempts divided by 3600",
+    "includes_preempted_and_requeued_attempts": true,
+    "source": "Slurm sacct",
+    "timezone": "America/Los_Angeles"
+  },
+  "artifact_schema_version": 1,
+  "job_arrays": {
+    "base_qwen2_5_3b": "38331367",
+    "base_qwen2_5_7b": "38331373",
+    "base_qwen3_4b": "38331377",
+    "base_qwen3_8b": "38331381",
+    "qwen2_5_3b_16k": "38331371",
+    "qwen2_5_3b_8k": "38331369",
+    "qwen2_5_7b_8k": "38331375",
+    "qwen3_4b_8k": "38331379",
+    "qwen3_8b_8k": "38331383"
+  },
+  "observed_wall_clock": {
+    "full_evaluation": {
+      "end": "2026-08-09T21:31:14-07:00",
+      "hours": 10.8703,
+      "start": "2026-08-09T10:39:01-07:00"
+    },
+    "greedy_jobs": {
+      "end": "2026-08-09T16:07:24-07:00",
+      "hours": 5.4731,
+      "start": "2026-08-09T10:39:01-07:00"
+    },
+    "remaining_sampled_wave_after_greedy": {
+      "end": "2026-08-09T21:31:14-07:00",
+      "hours": 5.3814,
+      "start": "2026-08-09T16:08:21-07:00"
+    },
+    "sampled_artifact_span_including_early_work_and_barrier_wait": {
+      "end": "2026-08-09T21:31:14-07:00",
+      "hours": 10.6328,
+      "start": "2026-08-09T10:53:16-07:00"
+    }
+  },
+  "resources": {
+    "greedy_passes": 9,
+    "h200s_per_pass_when_all_shards_run_concurrently": 4,
+    "h200s_per_shard": 1,
+    "problems_per_shard": 125,
+    "sampled_passes": 27,
+    "shards_per_pass": 4
+  },
+  "targets": [
+    {
+      "greedy_effective_parallel_minutes": 19.05,
+      "greedy_h200_hours": 0.9969,
+      "sampled_effective_parallel_minutes_mean": 15.94,
+      "sampled_effective_parallel_minutes_sample_std": 2.21,
+      "sampled_h200_hours_all_three_repeats": 2.4256,
+      "sampled_three_repeat_sequential_equivalent_minutes": 47.82,
+      "target": "base_qwen2_5_3b"
+    },
+    {
+      "greedy_effective_parallel_minutes": 62.97,
+      "greedy_h200_hours": 3.5556,
+      "sampled_effective_parallel_minutes_mean": 79.03,
+      "sampled_effective_parallel_minutes_sample_std": 3.48,
+      "sampled_h200_hours_all_three_repeats": 13.795,
+      "sampled_three_repeat_sequential_equivalent_minutes": 237.08,
+      "target": "qwen2_5_3b_8k"
+    },
+    {
+      "greedy_effective_parallel_minutes": 79.58,
+      "greedy_h200_hours": 4.1597,
+      "sampled_effective_parallel_minutes_mean": 75.99,
+      "sampled_effective_parallel_minutes_sample_std": 10.58,
+      "sampled_h200_hours_all_three_repeats": 13.0133,
+      "sampled_three_repeat_sequential_equivalent_minutes": 227.97,
+      "target": "qwen2_5_3b_16k"
+    },
+    {
+      "greedy_effective_parallel_minutes": 10.25,
+      "greedy_h200_hours": 0.6211,
+      "sampled_effective_parallel_minutes_mean": 12.5,
+      "sampled_effective_parallel_minutes_sample_std": 2.77,
+      "sampled_h200_hours_all_three_repeats": 1.7117,
+      "sampled_three_repeat_sequential_equivalent_minutes": 37.5,
+      "target": "base_qwen2_5_7b"
+    },
+    {
+      "greedy_effective_parallel_minutes": 40.63,
+      "greedy_h200_hours": 2.41,
+      "sampled_effective_parallel_minutes_mean": 30.34,
+      "sampled_effective_parallel_minutes_sample_std": 2.53,
+      "sampled_h200_hours_all_three_repeats": 5.3911,
+      "sampled_three_repeat_sequential_equivalent_minutes": 91.03,
+      "target": "qwen2_5_7b_8k"
+    },
+    {
+      "greedy_effective_parallel_minutes": 20.08,
+      "greedy_h200_hours": 1.1064,
+      "sampled_effective_parallel_minutes_mean": 12.36,
+      "sampled_effective_parallel_minutes_sample_std": 1.9,
+      "sampled_h200_hours_all_three_repeats": 1.9517,
+      "sampled_three_repeat_sequential_equivalent_minutes": 37.07,
+      "target": "base_qwen3_4b"
+    },
+    {
+      "greedy_effective_parallel_minutes": 96.6,
+      "greedy_h200_hours": 6.16,
+      "sampled_effective_parallel_minutes_mean": 67.79,
+      "sampled_effective_parallel_minutes_sample_std": 7.71,
+      "sampled_h200_hours_all_three_repeats": 12.2169,
+      "sampled_three_repeat_sequential_equivalent_minutes": 203.38,
+      "target": "qwen3_4b_8k"
+    },
+    {
+      "greedy_effective_parallel_minutes": 18.6,
+      "greedy_h200_hours": 0.9217,
+      "sampled_effective_parallel_minutes_mean": 17.38,
+      "sampled_effective_parallel_minutes_sample_std": 3.03,
+      "sampled_h200_hours_all_three_repeats": 2.5506,
+      "sampled_three_repeat_sequential_equivalent_minutes": 52.13,
+      "target": "base_qwen3_8b"
+    },
+    {
+      "greedy_effective_parallel_minutes": 121.72,
+      "greedy_h200_hours": 6.9025,
+      "sampled_effective_parallel_minutes_mean": 105.85,
+      "sampled_effective_parallel_minutes_sample_std": 7.37,
+      "sampled_h200_hours_all_three_repeats": 20.4431,
+      "sampled_three_repeat_sequential_equivalent_minutes": 317.55,
+      "target": "qwen3_8b_8k"
+    }
+  ],
+  "totals": {
+    "greedy_effective_parallel_minutes_mean_across_targets": 52.16,
+    "greedy_h200_hours": 26.8339,
+    "sampled_effective_parallel_minutes_mean_across_27_passes": 46.35,
+    "sampled_h200_hours_all_27_passes": 73.4989
+  }
+}

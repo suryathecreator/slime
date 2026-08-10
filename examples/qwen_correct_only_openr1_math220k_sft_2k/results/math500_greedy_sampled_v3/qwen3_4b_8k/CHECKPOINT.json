@@ -1,0 +1,60 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "8ac5b0a9777a54a73be7203e7b0fa23450afdc3a2f854095ad950b024247a108",
+  "contract_hash": "3568736a3743c319",
+  "created_at": "2026-08-08T23:58:16.374635+00:00",
+  "family": "2k",
+  "files": [
+    {
+      "bytes": 4116,
+      "name": "chat_template.jinja",
+      "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+    },
+    {
+      "bytes": 1617,
+      "name": "config.json",
+      "sha256": "40fa62c98a98eb592e15af00fd5d304e997735fb52b25d424c569455fd9020a7"
+    },
+    {
+      "bytes": 167,
+      "name": "generation_config.json",
+      "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+    },
+    {
+      "bytes": 3957900808,
+      "name": "model-00001-of-00003.safetensors",
+      "sha256": "af49c01c8668b944d306d2ddb2a6858d876ead724c3a34f7ff356e9cd4a31ab8"
+    },
+    {
+      "bytes": 3987450496,
+      "name": "model-00002-of-00003.safetensors",
+      "sha256": "ee9001cba1eefbf97a450f7ff862600bb8aef85bb2bd2409b445938519b270c9"
+    },
+    {
+      "bytes": 99630608,
+      "name": "model-00003-of-00003.safetensors",
+      "sha256": "df7f2e6d895ad8a71f5f94c3d1013f5a33274e9bc925d9642203edc6757d4e38"
+    },
+    {
+      "bytes": 34422,
+      "name": "model.safetensors.index.json",
+      "sha256": "214291c8bd329baa7efe839ea6e90ed06adde1d93c4c804b20d302447ee2f160"
+    },
+    {
+      "bytes": 11422650,
+      "name": "tokenizer.json",
+      "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+    },
+    {
+      "bytes": 695,
+      "name": "tokenizer_config.json",
+      "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    }
+  ],
+  "final_iteration": 124,
+  "full_sft": true,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "repo_commit": "5203e6a3eb71bb9b8af417e87f0a59cadef7fdd2",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/outputs/training/qwen3_4b_8k/correct_only/weights/iter_0000124",
+  "variant": "qwen3_4b_8k.correct_only"
+}

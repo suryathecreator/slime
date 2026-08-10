@@ -1,0 +1,147 @@
+{
+  "artifact_schema_version": 1,
+  "benchmark": "HuggingFaceH4/MATH-500",
+  "checkpoint_manifest_sha256": "8ac5b0a9777a54a73be7203e7b0fa23450afdc3a2f854095ad950b024247a108",
+  "dataset_revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+  "greedy": {
+    "accuracy": 0.672,
+    "cap_hit_accuracy": 0.652452025586354,
+    "cap_hit_correct": 306,
+    "cap_hit_rate": 0.938,
+    "cap_hits": 469,
+    "correct": 336,
+    "finish_reasons": {
+      "length": 469,
+      "stop": 31
+    },
+    "generated_length_mean": 32150.634,
+    "mode": "greedy",
+    "parse_failure_count": 7,
+    "repeat": 0,
+    "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+    "target": "qwen3_4b_8k",
+    "total": 500,
+    "valid_box_count": 356,
+    "valid_box_rate": 0.712
+  },
+  "policy_sha256": "edfb542eb028313d2326eda8da23ca3a97358a6a842c8bc330cbcedc836f13a8",
+  "sampled": {
+    "aggregate": {
+      "accuracy": {
+        "mean": 0.7146666666666667,
+        "sample_std": 0.008326663997864539,
+        "values": [
+          0.724,
+          0.708,
+          0.712
+        ]
+      },
+      "cap_hit_accuracy": {
+        "mean": 0.5626485304865748,
+        "sample_std": 0.014656954178570138,
+        "values": [
+          0.5743801652892562,
+          0.5462184873949579,
+          0.5673469387755102
+        ]
+      },
+      "cap_hit_rate": {
+        "mean": 0.48333333333333334,
+        "sample_std": 0.007023769168568499,
+        "values": [
+          0.484,
+          0.476,
+          0.49
+        ]
+      },
+      "generated_length_mean": {
+        "mean": 19471.093333333334,
+        "sample_std": 18.198233137679647,
+        "values": [
+          19488.506,
+          19452.2,
+          19472.574
+        ]
+      },
+      "valid_box_rate": {
+        "mean": 0.77,
+        "sample_std": 0.005291502622129186,
+        "values": [
+          0.766,
+          0.776,
+          0.768
+        ]
+      }
+    },
+    "metric": "mean and sample standard deviation across three complete pass@1 repeats",
+    "repeats": [
+      {
+        "accuracy": 0.724,
+        "cap_hit_accuracy": 0.5743801652892562,
+        "cap_hit_correct": 139,
+        "cap_hit_rate": 0.484,
+        "cap_hits": 242,
+        "correct": 362,
+        "finish_reasons": {
+          "length": 242,
+          "stop": 258
+        },
+        "generated_length_mean": 19488.506,
+        "mode": "sampled",
+        "parse_failure_count": 5,
+        "repeat": 0,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "qwen3_4b_8k",
+        "total": 500,
+        "valid_box_count": 383,
+        "valid_box_rate": 0.766
+      },
+      {
+        "accuracy": 0.708,
+        "cap_hit_accuracy": 0.5462184873949579,
+        "cap_hit_correct": 130,
+        "cap_hit_rate": 0.476,
+        "cap_hits": 238,
+        "correct": 354,
+        "finish_reasons": {
+          "length": 238,
+          "stop": 262
+        },
+        "generated_length_mean": 19452.2,
+        "mode": "sampled",
+        "parse_failure_count": 9,
+        "repeat": 1,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "qwen3_4b_8k",
+        "total": 500,
+        "valid_box_count": 388,
+        "valid_box_rate": 0.776
+      },
+      {
+        "accuracy": 0.712,
+        "cap_hit_accuracy": 0.5673469387755102,
+        "cap_hit_correct": 139,
+        "cap_hit_rate": 0.49,
+        "cap_hits": 245,
+        "correct": 356,
+        "finish_reasons": {
+          "length": 245,
+          "stop": 255
+        },
+        "generated_length_mean": 19472.574,
+        "mode": "sampled",
+        "parse_failure_count": 9,
+        "repeat": 2,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "qwen3_4b_8k",
+        "total": 500,
+        "valid_box_count": 384,
+        "valid_box_rate": 0.768
+      }
+    ]
+  },
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "target": "qwen3_4b_8k",
+  "tokenizer_family": "qwen3",
+  "training_condition": "correct_only_8k"
+}

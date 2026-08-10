@@ -1,0 +1,147 @@
+{
+  "artifact_schema_version": 1,
+  "benchmark": "HuggingFaceH4/MATH-500",
+  "checkpoint_manifest_sha256": "92c468b8d0b5b91336bd13208b809f1acf48bb5cf56cdac2c7b11030dadfb822",
+  "dataset_revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+  "greedy": {
+    "accuracy": 0.324,
+    "cap_hit_accuracy": 0.01834862385321101,
+    "cap_hit_correct": 6,
+    "cap_hit_rate": 0.654,
+    "cap_hits": 327,
+    "correct": 162,
+    "finish_reasons": {
+      "length": 327,
+      "stop": 173
+    },
+    "generated_length_mean": 21953.428,
+    "mode": "greedy",
+    "parse_failure_count": 1,
+    "repeat": 0,
+    "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+    "target": "qwen2_5_3b_16k",
+    "total": 500,
+    "valid_box_count": 182,
+    "valid_box_rate": 0.364
+  },
+  "policy_sha256": "edfb542eb028313d2326eda8da23ca3a97358a6a842c8bc330cbcedc836f13a8",
+  "sampled": {
+    "aggregate": {
+      "accuracy": {
+        "mean": 0.4386666666666667,
+        "sample_std": 0.014047538337136997,
+        "values": [
+          0.452,
+          0.44,
+          0.424
+        ]
+      },
+      "cap_hit_accuracy": {
+        "mean": 0.35106047865052187,
+        "sample_std": 0.017611025763939595,
+        "values": [
+          0.3713592233009709,
+          0.34196891191709844,
+          0.33985330073349634
+        ]
+      },
+      "cap_hit_rate": {
+        "mean": 0.8046666666666665,
+        "sample_std": 0.028448784391135785,
+        "values": [
+          0.824,
+          0.772,
+          0.818
+        ]
+      },
+      "generated_length_mean": {
+        "mean": 27122.242,
+        "sample_std": 888.0076858743952,
+        "values": [
+          27729.228,
+          26103.044,
+          27534.454
+        ]
+      },
+      "valid_box_rate": {
+        "mean": 0.5426666666666667,
+        "sample_std": 0.012858201014657285,
+        "values": [
+          0.548,
+          0.552,
+          0.528
+        ]
+      }
+    },
+    "metric": "mean and sample standard deviation across three complete pass@1 repeats",
+    "repeats": [
+      {
+        "accuracy": 0.452,
+        "cap_hit_accuracy": 0.3713592233009709,
+        "cap_hit_correct": 153,
+        "cap_hit_rate": 0.824,
+        "cap_hits": 412,
+        "correct": 226,
+        "finish_reasons": {
+          "length": 412,
+          "stop": 88
+        },
+        "generated_length_mean": 27729.228,
+        "mode": "sampled",
+        "parse_failure_count": 6,
+        "repeat": 0,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "qwen2_5_3b_16k",
+        "total": 500,
+        "valid_box_count": 274,
+        "valid_box_rate": 0.548
+      },
+      {
+        "accuracy": 0.44,
+        "cap_hit_accuracy": 0.34196891191709844,
+        "cap_hit_correct": 132,
+        "cap_hit_rate": 0.772,
+        "cap_hits": 386,
+        "correct": 220,
+        "finish_reasons": {
+          "length": 386,
+          "stop": 114
+        },
+        "generated_length_mean": 26103.044,
+        "mode": "sampled",
+        "parse_failure_count": 5,
+        "repeat": 1,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "qwen2_5_3b_16k",
+        "total": 500,
+        "valid_box_count": 276,
+        "valid_box_rate": 0.552
+      },
+      {
+        "accuracy": 0.424,
+        "cap_hit_accuracy": 0.33985330073349634,
+        "cap_hit_correct": 139,
+        "cap_hit_rate": 0.818,
+        "cap_hits": 409,
+        "correct": 212,
+        "finish_reasons": {
+          "length": 409,
+          "stop": 91
+        },
+        "generated_length_mean": 27534.454,
+        "mode": "sampled",
+        "parse_failure_count": 7,
+        "repeat": 2,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "qwen2_5_3b_16k",
+        "total": 500,
+        "valid_box_count": 264,
+        "valid_box_rate": 0.528
+      }
+    ]
+  },
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "target": "qwen2_5_3b_16k",
+  "tokenizer_family": "qwen2_5",
+  "training_condition": "correct_only_16k"
+}

@@ -1,0 +1,147 @@
+{
+  "artifact_schema_version": 1,
+  "benchmark": "HuggingFaceH4/MATH-500",
+  "checkpoint_manifest_sha256": "3b53bbc03dbbfde9873dbedb9e67d3ee946d5d8096dae97ddd31320b916d7ea0",
+  "dataset_revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+  "greedy": {
+    "accuracy": 0.722,
+    "cap_hit_accuracy": 0.0,
+    "cap_hit_correct": 0,
+    "cap_hit_rate": 0.028,
+    "cap_hits": 14,
+    "correct": 361,
+    "finish_reasons": {
+      "length": 14,
+      "stop": 486
+    },
+    "generated_length_mean": 1467.214,
+    "mode": "greedy",
+    "parse_failure_count": 4,
+    "repeat": 0,
+    "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+    "target": "base_qwen3_4b",
+    "total": 500,
+    "valid_box_count": 478,
+    "valid_box_rate": 0.956
+  },
+  "policy_sha256": "edfb542eb028313d2326eda8da23ca3a97358a6a842c8bc330cbcedc836f13a8",
+  "sampled": {
+    "aggregate": {
+      "accuracy": {
+        "mean": 0.6920000000000001,
+        "sample_std": 0.015099668870541462,
+        "values": [
+          0.678,
+          0.69,
+          0.708
+        ]
+      },
+      "cap_hit_accuracy": {
+        "mean": 0.025641025641025644,
+        "sample_std": 0.04441155916843275,
+        "values": [
+          0.0,
+          0.07692307692307693,
+          0.0
+        ]
+      },
+      "cap_hit_rate": {
+        "mean": 0.023999999999999997,
+        "sample_std": 0.0034641016151377535,
+        "values": [
+          0.02,
+          0.026,
+          0.026
+        ]
+      },
+      "generated_length_mean": {
+        "mean": 1372.406,
+        "sample_std": 86.93285898899222,
+        "values": [
+          1272.318,
+          1415.808,
+          1429.092
+        ]
+      },
+      "valid_box_rate": {
+        "mean": 0.9499999999999998,
+        "sample_std": 0.011135528725660053,
+        "values": [
+          0.952,
+          0.96,
+          0.938
+        ]
+      }
+    },
+    "metric": "mean and sample standard deviation across three complete pass@1 repeats",
+    "repeats": [
+      {
+        "accuracy": 0.678,
+        "cap_hit_accuracy": 0.0,
+        "cap_hit_correct": 0,
+        "cap_hit_rate": 0.02,
+        "cap_hits": 10,
+        "correct": 339,
+        "finish_reasons": {
+          "length": 10,
+          "stop": 490
+        },
+        "generated_length_mean": 1272.318,
+        "mode": "sampled",
+        "parse_failure_count": 7,
+        "repeat": 0,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "base_qwen3_4b",
+        "total": 500,
+        "valid_box_count": 476,
+        "valid_box_rate": 0.952
+      },
+      {
+        "accuracy": 0.69,
+        "cap_hit_accuracy": 0.07692307692307693,
+        "cap_hit_correct": 1,
+        "cap_hit_rate": 0.026,
+        "cap_hits": 13,
+        "correct": 345,
+        "finish_reasons": {
+          "length": 13,
+          "stop": 487
+        },
+        "generated_length_mean": 1415.808,
+        "mode": "sampled",
+        "parse_failure_count": 4,
+        "repeat": 1,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "base_qwen3_4b",
+        "total": 500,
+        "valid_box_count": 480,
+        "valid_box_rate": 0.96
+      },
+      {
+        "accuracy": 0.708,
+        "cap_hit_accuracy": 0.0,
+        "cap_hit_correct": 0,
+        "cap_hit_rate": 0.026,
+        "cap_hits": 13,
+        "correct": 354,
+        "finish_reasons": {
+          "length": 13,
+          "stop": 487
+        },
+        "generated_length_mean": 1429.092,
+        "mode": "sampled",
+        "parse_failure_count": 9,
+        "repeat": 2,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "base_qwen3_4b",
+        "total": 500,
+        "valid_box_count": 469,
+        "valid_box_rate": 0.938
+      }
+    ]
+  },
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "target": "base_qwen3_4b",
+  "tokenizer_family": "qwen3",
+  "training_condition": "base"
+}

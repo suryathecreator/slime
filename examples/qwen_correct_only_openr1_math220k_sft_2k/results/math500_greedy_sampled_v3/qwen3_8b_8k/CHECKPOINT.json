@@ -1,0 +1,70 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "b57f7f68f4c537deb8ac1606b5140318bacefbc7a835006318ddb970e4af0bb3",
+  "contract_hash": "3568736a3743c319",
+  "created_at": "2026-08-09T00:28:05.321308+00:00",
+  "family": "2k",
+  "files": [
+    {
+      "bytes": 4116,
+      "name": "chat_template.jinja",
+      "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5"
+    },
+    {
+      "bytes": 1619,
+      "name": "config.json",
+      "sha256": "420c6e1bf449fb51f260e95ae27c7e28d8e967f5ce0c33b6d746e969d31e3b2b"
+    },
+    {
+      "bytes": 167,
+      "name": "generation_config.json",
+      "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+    },
+    {
+      "bytes": 3996250720,
+      "name": "model-00001-of-00005.safetensors",
+      "sha256": "a9fd7c0dca70fd7abcea53d0518eb874b208f54086cbc8502cf8ce94e9ebdf11"
+    },
+    {
+      "bytes": 3993160000,
+      "name": "model-00002-of-00005.safetensors",
+      "sha256": "71c39f32473e4b3b81845f085ecc338156ec307986f698d416a69f6e42aa0df2"
+    },
+    {
+      "bytes": 3959604736,
+      "name": "model-00003-of-00005.safetensors",
+      "sha256": "c13ea53b68aa90bedf3dafb5903613582d5af788968fdd3f471ea344fcca3733"
+    },
+    {
+      "bytes": 3187841360,
+      "name": "model-00004-of-00005.safetensors",
+      "sha256": "6676bebb6a5350e3457a1a5a2be6df5d672386f3cff62cf90d5c8a3eff965ece"
+    },
+    {
+      "bytes": 1244659808,
+      "name": "model-00005-of-00005.safetensors",
+      "sha256": "778d3adf3b5654bfe5ed65c5c959c69de999bed415f09ad9922ab42f3524d8e6"
+    },
+    {
+      "bytes": 34485,
+      "name": "model.safetensors.index.json",
+      "sha256": "7a77e474340676813d9b601c42fdca9c7b1a55223d3e2f5d051a0bf6b62f05d1"
+    },
+    {
+      "bytes": 11422650,
+      "name": "tokenizer.json",
+      "sha256": "be75606093db2094d7cd20f3c2f385c212750648bd6ea4fb2bf507a6a4c55506"
+    },
+    {
+      "bytes": 695,
+      "name": "tokenizer_config.json",
+      "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    }
+  ],
+  "final_iteration": 124,
+  "full_sft": true,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "repo_commit": "5203e6a3eb71bb9b8af417e87f0a59cadef7fdd2",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/outputs/training/qwen3_8b_8k/correct_only/weights/iter_0000124",
+  "variant": "qwen3_8b_8k.correct_only"
+}
