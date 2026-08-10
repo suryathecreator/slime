@@ -1,0 +1,131 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoints": [
+    {
+      "id": "unmasked",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/unmasked.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/unmasked/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "unmasked"
+    },
+    {
+      "id": "random_mask_70",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_70.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/random_mask_70/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_70"
+    },
+    {
+      "id": "inverse_tau_0p20",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/inverse_tau_0p20.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/inverse_tau_0p20/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "inverse_tau_0p20"
+    },
+    {
+      "id": "inverse_tau_0p05",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/inverse_tau_0p05.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/inverse_tau_0p05/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "inverse_tau_0p05"
+    },
+    {
+      "id": "random_mask_25",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_25.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/random_mask_25/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_25"
+    },
+    {
+      "id": "random_mask_50",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_50.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/random_mask_50/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_50"
+    },
+    {
+      "id": "random_mask_80",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_80.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/random_mask_80/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_80"
+    },
+    {
+      "id": "random_mask_90",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/random_mask_90.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/random_mask_90/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_90"
+    },
+    {
+      "id": "margin_mask",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/margin_mask.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/margin_mask/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "margin_mask"
+    },
+    {
+      "id": "prob_ratio_mask",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/handoff/checkpoints/prob_ratio_mask.json",
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/training/prob_ratio_mask/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "prob_ratio_mask"
+    }
+  ],
+  "contract_hash": "07291674d43cf3da",
+  "dataset": {
+    "axolotl_canonical_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "split": "test"
+  },
+  "reference_results": [
+    {
+      "checkpoint_manifest_sha256": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+      "eval_policy_path": "examples/qwen_correct_only_openr1_math220k_sft_2k/results/math500_greedy_sampled_v3/base_qwen2_5_7b/EVAL_POLICY.json",
+      "eval_policy_sha256": "872c187ea38127bc3ed9940132c3a48173dbd4338c066b7b06b7a44c19442fcd",
+      "id": "base_qwen2_5_7b",
+      "path": "examples/qwen_correct_only_openr1_math220k_sft_2k/results/math500_greedy_sampled_v3/base_qwen2_5_7b/RESULTS.json",
+      "reported_policy_sha256": "edfb542eb028313d2326eda8da23ca3a97358a6a842c8bc330cbcedc836f13a8",
+      "sha256": "49b917e3eeb3fdca821f265b364b06473e7519344e322130d621592685b97400"
+    },
+    {
+      "checkpoint_manifest_sha256": "51faacfc44d8c0c21d1abbc421d6a31d5825e0cf3b1dbb2a7480f97cb1b557ea",
+      "eval_policy_path": "examples/qwen_correct_only_openr1_math220k_sft_2k/results/math500_greedy_sampled_v3/qwen2_5_7b_8k/EVAL_POLICY.json",
+      "eval_policy_sha256": "872c187ea38127bc3ed9940132c3a48173dbd4338c066b7b06b7a44c19442fcd",
+      "id": "qwen2_5_7b_8k",
+      "path": "examples/qwen_correct_only_openr1_math220k_sft_2k/results/math500_greedy_sampled_v3/qwen2_5_7b_8k/RESULTS.json",
+      "reported_policy_sha256": "edfb542eb028313d2326eda8da23ca3a97358a6a842c8bc330cbcedc836f13a8",
+      "sha256": "34ecadbad9b50e166378210724929b04349d74c9b88bca02db75c42450f42a5a"
+    }
+  ],
+  "runtime": {
+    "cffi": "2.0.0",
+    "math_verify": "0.9.0",
+    "mistral_common": "1.11.7",
+    "numpy": "2.2.6",
+    "pycountry": "26.2.16",
+    "pycparser": "3.0",
+    "pydantic_extra_types": "2.11.1",
+    "soundfile": "0.14.0",
+    "soxr": "1.1.0",
+    "tokenizers": "0.22.2",
+    "torch": "2.8.0",
+    "transformers": "4.57.6",
+    "triton": "3.4.0",
+    "vllm": "0.10.2"
+  },
+  "sharding": {
+    "array_tasks_per_checkpoint": 12,
+    "chunk_size": 32,
+    "count": 4,
+    "layout": "contiguous",
+    "problems_per_shard": 125
+  },
+  "tokenizer": {
+    "chat_template_sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5",
+    "source": "unmasked",
+    "tokenizer_config_sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790",
+    "tokenizer_json_sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+  }
+}
