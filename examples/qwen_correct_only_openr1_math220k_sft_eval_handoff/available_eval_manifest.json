@@ -1,0 +1,132 @@
+{
+  "artifact_schema_version": 1,
+  "axolotl": {
+    "commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
+    "repository": "../Axolotl-Masked-SFT"
+  },
+  "checkpoints": [
+    {
+      "comparison_base": "base_qwen2_5_3b",
+      "id": "base_qwen2_5_3b",
+      "manifest": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/handoff/checkpoints/base_qwen2_5_3b.json",
+      "model": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/models/Qwen2.5-3B",
+      "model_key": "qwen2_5_3b",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "base"
+    },
+    {
+      "comparison_base": "base_qwen2_5_3b",
+      "id": "qwen2_5_3b_8k",
+      "manifest": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/handoff/checkpoints/qwen2_5_3b_8k.json",
+      "model": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/outputs/training/qwen2_5_3b_8k/correct_only/weights/iter_0000124",
+      "model_key": "qwen2_5_3b",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "correct_only_8k"
+    },
+    {
+      "comparison_base": "base_qwen2_5_3b",
+      "id": "qwen2_5_3b_16k",
+      "manifest": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/handoff/checkpoints/qwen2_5_3b_16k.json",
+      "model": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/outputs/training/qwen2_5_3b_16k/correct_only/weights/iter_0000124",
+      "model_key": "qwen2_5_3b",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "correct_only_16k"
+    },
+    {
+      "comparison_base": "base_qwen2_5_7b",
+      "id": "base_qwen2_5_7b",
+      "manifest": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/handoff/checkpoints/base_qwen2_5_7b.json",
+      "model": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/models/Qwen2.5-7B",
+      "model_key": "qwen2_5_7b",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "base"
+    },
+    {
+      "comparison_base": "base_qwen2_5_7b",
+      "id": "qwen2_5_7b_8k",
+      "manifest": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/handoff/checkpoints/qwen2_5_7b_8k.json",
+      "model": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/outputs/training/qwen2_5_7b_8k/correct_only/weights/iter_0000124",
+      "model_key": "qwen2_5_7b",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "correct_only_8k"
+    },
+    {
+      "comparison_base": "base_qwen3_4b",
+      "id": "base_qwen3_4b",
+      "manifest": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/handoff/checkpoints/base_qwen3_4b.json",
+      "model": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/models/Qwen3-4B-Base",
+      "model_key": "qwen3_4b",
+      "tokenizer_family": "qwen3",
+      "training_condition": "base"
+    },
+    {
+      "comparison_base": "base_qwen3_4b",
+      "id": "qwen3_4b_8k",
+      "manifest": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/handoff/checkpoints/qwen3_4b_8k.json",
+      "model": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/outputs/training/qwen3_4b_8k/correct_only/weights/iter_0000124",
+      "model_key": "qwen3_4b",
+      "tokenizer_family": "qwen3",
+      "training_condition": "correct_only_8k"
+    },
+    {
+      "comparison_base": "base_qwen3_8b",
+      "id": "base_qwen3_8b",
+      "manifest": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/handoff/checkpoints/base_qwen3_8b.json",
+      "model": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/models/Qwen3-8B-Base",
+      "model_key": "qwen3_8b",
+      "tokenizer_family": "qwen3",
+      "training_condition": "base"
+    },
+    {
+      "comparison_base": "base_qwen3_8b",
+      "id": "qwen3_8b_8k",
+      "manifest": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/handoff/checkpoints/qwen3_8b_8k.json",
+      "model": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319/outputs/training/qwen3_8b_8k/correct_only/weights/iter_0000124",
+      "model_key": "qwen3_8b",
+      "tokenizer_family": "qwen3",
+      "training_condition": "correct_only_8k"
+    }
+  ],
+  "contract_hash": "3568736a3743c319",
+  "dataset": {
+    "axolotl_canonical_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "split": "test"
+  },
+  "runtime": {
+    "cffi": "2.0.0",
+    "math_verify": "0.9.0",
+    "mistral_common": "1.11.7",
+    "numpy": "2.2.6",
+    "pycountry": "26.2.16",
+    "pycparser": "3.0",
+    "pydantic_extra_types": "2.11.1",
+    "soundfile": "0.14.0",
+    "soxr": "1.1.0",
+    "tokenizers": "0.22.2",
+    "torch": "2.8.0",
+    "transformers": "4.57.6",
+    "triton": "3.4.0",
+    "vllm": "0.10.2"
+  },
+  "sharding": {
+    "array_tasks_per_checkpoint": 16,
+    "chunk_size": 32,
+    "count": 4,
+    "layout": "contiguous",
+    "problems_per_shard": 125
+  },
+  "tokenizer_families": {
+    "qwen2_5": {
+      "base_source": "base_qwen2_5_3b",
+      "expected_trained_only_tokens": [],
+      "trained_source": "qwen2_5_3b_8k"
+    },
+    "qwen3": {
+      "base_source": "base_qwen3_4b",
+      "expected_trained_only_tokens": ["</think>", "</tool_response>", "<think>", "<tool_response>"],
+      "trained_source": "qwen3_4b_8k"
+    }
+  }
+}

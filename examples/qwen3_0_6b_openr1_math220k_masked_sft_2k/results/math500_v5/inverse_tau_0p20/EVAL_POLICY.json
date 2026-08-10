@@ -1,0 +1,100 @@
+{
+  "artifact_schema_version": 1,
+  "dataset": {
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "row_order": "original_500",
+    "split": "test"
+  },
+  "decoding": {
+    "dtype": "bfloat16",
+    "max_model_len": 32768,
+    "max_tokens": 32768,
+    "n": 1,
+    "seed": 0,
+    "stop": [
+      "<|im_end|>"
+    ],
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "temperature": 0.0,
+    "tensor_parallel_size": 1,
+    "top_k": -1,
+    "top_p": 1.0
+  },
+  "engine": {
+    "enable_prefix_caching": true,
+    "evaluator": "Axolotl-Masked-SFT/scripts/openr1_axolotl/evaluate_math_vllm.py",
+    "gpu_memory_utilization": 0.92,
+    "max_num_seqs": 8,
+    "torch_version": "2.8.0",
+    "transformers_version": "4.57.6",
+    "vllm_version": "0.10.2"
+  },
+  "persistence": {
+    "chunk_size": 32,
+    "completed_problem_ids_are_resumed": true,
+    "jsonl_flush_after_each_row": true,
+    "layout": "four_contiguous_125_problem_shards",
+    "slurm_requeue": true
+  },
+  "prompt": {
+    "add_generation_prompt": true,
+    "instruction": "Please reason step by step, and put your final answer within \\boxed{}.",
+    "user_content": "instruction + \"\\n\\nProblem:\\n\" + problem"
+  },
+  "scoring": {
+    "accuracy_denominator": 500,
+    "adjacent_box_group": {
+      "allowed_gap": "whitespace, punctuation, LaTeX spacing, and/or",
+      "maximum_gap_characters": 80
+    },
+    "cap_hits": "score the saved response identically to natural stops",
+    "extraction": "chronologically last complete nonempty boxed group only",
+    "gold_conditioned_routing": false,
+    "non_boxed_fallback": null,
+    "parser_lanes": {
+      "expr": {
+        "config": "ExprExtractionConfig",
+        "extraction_mode": "first_match",
+        "fallback_mode": "no_fallback"
+      },
+      "latex": {
+        "config": "LatexExtractionConfig",
+        "extraction_mode": "first_match",
+        "fallback_mode": "no_fallback",
+        "input_wrapper": "$...$"
+      }
+    },
+    "scorer": "math500_last_boxed_symmetric_scorer_v5",
+    "structural_guards": [
+      "ordered tuple arity and order",
+      "matrix shape",
+      "finite-set and multi-answer exact cardinality with one-to-one matching",
+      "interval endpoints and open/closed boundaries",
+      "interval-union exact component matching",
+      "complete relation type"
+    ],
+    "text": "fixed exact categorical/MCQ normalization; no gold-seeded StringExtractionConfig",
+    "unit_normalization": "symmetric recognized presentation-unit normalization on derived verification copies",
+    "verifier": {
+      "allow_set_relation_comp": false,
+      "math_verify_version": "0.9.0",
+      "strict": true,
+      "timeout_seconds": 5
+    }
+  },
+  "tokenizer": {
+    "base_chat_template_must_match": true,
+    "shared_vocabulary_ids_must_match": true,
+    "source": "correct_only full-SFT checkpoint tokenizer overlay",
+    "trained_only_special_tokens": [
+      "<think>",
+      "</think>",
+      "<tool_response>",
+      "</tool_response>"
+    ]
+  }
+}

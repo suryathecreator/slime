@@ -1,0 +1,26 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/handoff/checkpoints/correct_only.json",
+  "checkpoint_manifest_sha256": "db3eac38f8fb70a4ee6d58a950c3d0da1a94ed10e371893ccd166883ba03339c",
+  "dataset_jsonl": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5/_control/eval_benchmarks/math500.jsonl",
+  "dataset_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+  "policy_sha256": "15dfe2c9aa8e30796f8aa4d54d7c04532ec74e7832e968a6933ee6dcabde1035",
+  "raw_results": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v6/correct_only/merged",
+  "repository_commit": "1a6a06ac7af4700ac632e5c2f4332404828c90ef",
+  "rescore": {
+    "generation_reused_verbatim": true,
+    "native_predictions_sha256": "ed958a939a000a904ed84f37c69e3b696563ece9df74f7a52286b9d535522ae1",
+    "raw_generations_sha256": "5417abfd6eaf89abba0e86982cc45cf70e2c3a970854b194ba8be511d21f9366",
+    "source_predictions_sha256": "809923ec3a18280502c08f51662cd548ca4aec8e76e53b1950f74970a5098260",
+    "source_provenance_sha256": "66d5eb49da7ffe240ea3596fd1ca264efed7218ee4c56f306c92c5fd463b53de",
+    "source_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen3_0_6b_openr1_math220k_masked_sft_2k/v1/9c736f35abc76095/outputs/math500_v5",
+    "source_scorer_version": "math500_last_boxed_symmetric_scorer_v5",
+    "source_summary_sha256": "cb72470865d1784c51516a79e15d363c698a2b44e90dcccc72a9978f91722edb"
+  },
+  "scorer_path": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/examples/qwen3_8b_32b_full_repro/math500_scorer_v6.py",
+  "scorer_sha256": "c76945273ca08e2a33e9b3ca7437e3da4aa3dde71390e5559062e373caea6df5",
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "stage": "2k_correct_only",
+  "tokenizer_provenance_sha256": "d80012c1a4e32ae303fd4af9cb559aa2e0d4a19dbaed50fea004f1e07c5619e0",
+  "trace_schema_version": "math500_last_boxed_symmetric_trace_v6"
+}

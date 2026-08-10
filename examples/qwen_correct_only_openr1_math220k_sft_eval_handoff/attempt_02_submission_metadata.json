@@ -1,0 +1,44 @@
+{
+  "array_jobs": {
+    "base_qwen2_5_3b": "38330482",
+    "base_qwen2_5_7b": "38330488",
+    "base_qwen3_4b": "38330493",
+    "base_qwen3_8b": "38330497",
+    "qwen2_5_3b_16k": "38330486",
+    "qwen2_5_3b_8k": "38330484",
+    "qwen2_5_7b_8k": "38330491",
+    "qwen3_4b_8k": "38330495",
+    "qwen3_8b_8k": "38330499"
+  },
+  "artifact_schema_version": 1,
+  "attempt": 2,
+  "audit_job": "38330501",
+  "canary_job": "38330481",
+  "eval_task_count": 144,
+  "finalizer_jobs": {
+    "base_qwen2_5_3b": "38330483",
+    "base_qwen2_5_7b": "38330490",
+    "base_qwen3_4b": "38330494",
+    "base_qwen3_8b": "38330498",
+    "qwen2_5_3b_16k": "38330487",
+    "qwen2_5_3b_8k": "38330485",
+    "qwen2_5_7b_8k": "38330492",
+    "qwen3_4b_8k": "38330496",
+    "qwen3_8b_8k": "38330500"
+  },
+  "git_commit": "d9b744f04d3f77701dd8f1657816f1d33d7d3958",
+  "output_name": "math500_greedy_sampled_v2",
+  "preflight_job": "38330480",
+  "slurm": {
+    "account": "raivn-ckpt",
+    "array": "0-15",
+    "canary_walltime": "00:30:00",
+    "excluded_h200_nodes": [
+      "g3130"
+    ],
+    "generation_walltime": "02:00:00",
+    "partition": "ckpt-all",
+    "qos": "ckpt"
+  },
+  "submitted_at": "2026-08-09T16:27:20.614237+00:00"
+}

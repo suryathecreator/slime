@@ -1,0 +1,42 @@
+You are the answer-extraction stage for a MATH-500 final-answer gate.
+
+The definitive-answer adjudication has already been made. You are NOT judging mathematical correctness, and you have not been given the gold answer.
+
+The evidence below is the single source region selected by the adjudicator. Return the complete committed answer represented in that evidence. Never solve, simplify, repair, or change its mathematical content.
+
+Choose one mode:
+
+* boxed_exact: the answer is one complete listed or visible outer \boxed{...}; return its content without the wrapper. The program will map presentation differences back to the exact source candidate and pass that source text verbatim.
+* heuristic_exact: the answer is one listed non-box heuristic candidate. The program will map presentation differences back to the exact source candidate and pass that source text verbatim.
+* verbatim_region: neither candidate catalog contains the complete answer. Generate only the answer as represented in the evidence. Formatting may differ, but the non-formatting content must occur in the selected source region.
+
+For a multi-component answer, return the entire tuple, equation, interval, set, list, or equivalent-forms statement. Do not return only one component. Do not include explanatory prose unless it is part of the committed answer itself.
+
+Return JSON only:
+
+{
+"selection_mode": "boxed_exact | heuristic_exact | verbatim_region",
+"final_answer_raw": "answer represented in the evidence"
+}
+
+The JSON grammar guarantees only the output shape. Candidate modes are source-mapped after decoding. Free-form fallback content is rejected unless it is present in the selected evidence modulo presentation-only formatting.
+
+<problem>
+{{PROBLEM}}
+</problem>
+
+<adjudication>
+{{ADJUDICATION}}
+</adjudication>
+
+<evidence>
+{{EVIDENCE}}
+</evidence>
+
+<boxed_candidates>
+{{BOXED_CANDIDATES}}
+</boxed_candidates>
+
+<heuristic_candidates>
+{{HEURISTIC_CANDIDATES}}
+</heuristic_candidates>

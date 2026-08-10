@@ -1,0 +1,27 @@
+{
+  "applied_at": "2026-08-09T12:32:55Z",
+  "array_jobs": [
+    "38326787",
+    "38326789",
+    "38326791",
+    "38326793",
+    "38326795",
+    "38326797",
+    "38326799",
+    "38326801",
+    "38326803"
+  ],
+  "artifact_schema_version": 1,
+  "canary_job": "38326786",
+  "observed": {
+    "attempts_preempted_before_python_or_model_loading": 2,
+    "elapsed_seconds": [12, 23],
+    "node": "g3130"
+  },
+  "overrides": {
+    "all_h200_jobs_excluded_nodes": ["g3130"],
+    "canary_time_limit": "00:30:00",
+    "generation_array_time_limit": "02:00:00"
+  },
+  "reason": "The only free slot selected on g3130 was preempted twice before evaluator startup; exclude that transiently unstable node while preserving the original generation policy and artifacts."
+}

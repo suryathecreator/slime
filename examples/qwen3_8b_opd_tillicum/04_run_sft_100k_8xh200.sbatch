@@ -23,6 +23,16 @@ export SFT_LOSS_MASK_TYPE="${SFT_LOSS_MASK_TYPE:-qwen}"
 export SFT_LOSS_MASK_PREFLIGHT_ENABLED="${SFT_LOSS_MASK_PREFLIGHT_ENABLED:-0}"
 export SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK="${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK:-0}"
 export SFT_LOSS_MASK_PREFLIGHT_SAMPLES="${SFT_LOSS_MASK_PREFLIGHT_SAMPLES:-3}"
+export SFT_OPTIMIZER="${SFT_OPTIMIZER:-adam}"
+export SFT_LR_DECAY_STYLE="${SFT_LR_DECAY_STYLE:-constant}"
+export SFT_MIN_LR="${SFT_MIN_LR:-0.0}"
+export SFT_LR_WARMUP_FRACTION="${SFT_LR_WARMUP_FRACTION:-}"
+export SFT_LR_WARMUP_INIT="${SFT_LR_WARMUP_INIT:-0.0}"
+export SFT_LR_DECAY_ITERS="${SFT_LR_DECAY_ITERS:-}"
+export SFT_WEIGHT_DECAY="${SFT_WEIGHT_DECAY:-0.1}"
+export SFT_ADAM_BETA1="${SFT_ADAM_BETA1:-0.9}"
+export SFT_ADAM_BETA2="${SFT_ADAM_BETA2:-0.95}"
+export SFT_ADAM_EPS="${SFT_ADAM_EPS:-1.0e-8}"
 
 mkdir -p "${SLURM_LOG_DIR}" "${SFT_SAVE_DIR}" "${SFT_HF_SNAPSHOT_DIR}" "${SFT_DETAILS_DIR}" "${CHECKPOINT_REPORT_DIR}"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
@@ -51,7 +61,8 @@ echo "SFT optimizer mode: ${SFT_OPTIMIZER_MODE:-legacy_stage_${SFT_ZERO_STAGE}}"
 echo "SFT legacy sharding stage: ${SFT_ZERO_STAGE}"
 echo "SFT loss mask type: ${SFT_LOSS_MASK_TYPE}"
 echo "SFT loss mask preflight: enabled=${SFT_LOSS_MASK_PREFLIGHT_ENABLED} require_think=${SFT_LOSS_MASK_PREFLIGHT_REQUIRE_THINK} samples=${SFT_LOSS_MASK_PREFLIGHT_SAMPLES}"
-echo "SFT LR: ${SFT_LR}"
+echo "SFT optimizer: ${SFT_OPTIMIZER} beta1=${SFT_ADAM_BETA1} beta2=${SFT_ADAM_BETA2} eps=${SFT_ADAM_EPS} weight_decay=${SFT_WEIGHT_DECAY}"
+echo "SFT LR schedule: lr=${SFT_LR} min_lr=${SFT_MIN_LR} style=${SFT_LR_DECAY_STYLE} warmup_fraction=${SFT_LR_WARMUP_FRACTION:-unset} warmup_init=${SFT_LR_WARMUP_INIT} decay_iters=${SFT_LR_DECAY_ITERS:-inferred}"
 echo "SFT max tokens per GPU: ${SFT_MAX_TOKENS_PER_GPU}"
 echo "SFT sequence length / gradient clip: ${SFT_SEQ_LENGTH}/${SFT_GRAD_CLIP}"
 echo "SFT log probs chunk size: ${SFT_LOG_PROBS_CHUNK_SIZE}"
@@ -85,7 +96,19 @@ else
 fi
 echo "HAS_NVLINK=${HAS_NVLINK} (detected ${NVLINK_COUNT} NVLink references)"
 
-source scripts/models/qwen3-8B.sh
+SFT_MODEL_ARGS_SCRIPT="${SFT_MODEL_ARGS_SCRIPT:-scripts/models/qwen3-8B.sh}"
+[[ -f "${SFT_MODEL_ARGS_SCRIPT}" ]] || {
+  echo "Missing SFT model argument script: ${SFT_MODEL_ARGS_SCRIPT}" >&2
+  exit 1
+}
+source "${SFT_MODEL_ARGS_SCRIPT}"
+if [[ -z "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON:-}" ]]; then
+  SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON="{\"enable_thinking\": true}"
+fi
+python3 -c "import json, sys; value = json.loads(sys.argv[1]); assert isinstance(value, dict), \"SFT chat template kwargs must be a JSON object\"" \
+  "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON}"
+echo "SFT model args script: ${SFT_MODEL_ARGS_SCRIPT}"
+echo "SFT chat template kwargs: ${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON}"
 
 if [[ "${SFT_LOSS_MASK_PREFLIGHT_ENABLED}" == "1" ]]; then
   PREFLIGHT_ARGS=(
@@ -180,17 +203,30 @@ SFT_ARGS=(
   --input-key "${SFT_INPUT_KEY:-messages}"
   --rollout-shuffle
   --rollout-seed "${DATA_SEED}"
-  --num-epoch "${SFT_NUM_EPOCH}"
   --rollout-batch-size "${SFT_ROLLOUT_BATCH_SIZE}"
   --global-batch-size "${SFT_GLOBAL_BATCH_SIZE}"
   --loss-type sft_loss
   --loss-mask-type "${SFT_LOSS_MASK_TYPE}"
-  --apply-chat-template-kwargs "{\"enable_thinking\": true}"
+  --apply-chat-template-kwargs "${SFT_APPLY_CHAT_TEMPLATE_KWARGS_JSON}"
   --calculate-per-token-loss
   --disable-compute-advantages-and-returns
   --debug-train-only
   --dump-details "${SFT_DETAILS_DIR}"
 )
+if [[ -n "${SFT_NUM_ROLLOUT:-}" ]]; then
+  SFT_ARGS+=(--num-rollout "${SFT_NUM_ROLLOUT}")
+  echo "SFT rollout schedule: explicit num_rollout=${SFT_NUM_ROLLOUT}"
+else
+  : "${SFT_NUM_EPOCH:?Set SFT_NUM_EPOCH when SFT_NUM_ROLLOUT is unset}"
+  SFT_ARGS+=(--num-epoch "${SFT_NUM_EPOCH}")
+  echo "SFT rollout schedule: inferred from num_epoch=${SFT_NUM_EPOCH}"
+fi
+if [[ "${SFT_LOAD_KIND}" == "base_megatron_torch_dist_initial" ]]; then
+  # Converted base checkpoints carry checkpoint iteration 0, but no optimizer
+  # step has run. Override the inferred next actor rollout so fresh SFT
+  # executes rollout 0 instead of skipping it.
+  SFT_ARGS+=(--start-rollout-id 0)
+fi
 
 PERF_ARGS=(
   --tensor-model-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"
@@ -209,14 +245,23 @@ PERF_ARGS=(
 )
 
 OPTIMIZER_ARGS=(
-  --optimizer adam
+  --optimizer "${SFT_OPTIMIZER}"
   --lr "${SFT_LR}"
-  --lr-decay-style constant
-  --weight-decay 0.1
-  --adam-beta1 0.9
-  --adam-beta2 0.95
+  --min-lr "${SFT_MIN_LR}"
+  --lr-decay-style "${SFT_LR_DECAY_STYLE}"
+  --lr-warmup-init "${SFT_LR_WARMUP_INIT}"
+  --weight-decay "${SFT_WEIGHT_DECAY}"
+  --adam-beta1 "${SFT_ADAM_BETA1}"
+  --adam-beta2 "${SFT_ADAM_BETA2}"
+  --adam-eps "${SFT_ADAM_EPS}"
   --clip-grad "${SFT_GRAD_CLIP}"
 )
+if [[ -n "${SFT_LR_WARMUP_FRACTION}" ]]; then
+  OPTIMIZER_ARGS+=(--lr-warmup-fraction "${SFT_LR_WARMUP_FRACTION}")
+fi
+if [[ -n "${SFT_LR_DECAY_ITERS}" ]]; then
+  OPTIMIZER_ARGS+=(--lr-decay-iters "${SFT_LR_DECAY_ITERS}")
+fi
 if [[ "${SFT_OPTIMIZER_CPU_OFFLOAD}" == "1" ]]; then
   OPTIMIZER_ARGS+=(
     --optimizer-cpu-offload

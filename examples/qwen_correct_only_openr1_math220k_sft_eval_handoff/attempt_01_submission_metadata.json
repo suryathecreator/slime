@@ -1,0 +1,38 @@
+{
+  "array_jobs": {
+    "base_qwen2_5_3b": "38326787",
+    "base_qwen2_5_7b": "38326793",
+    "base_qwen3_4b": "38326797",
+    "base_qwen3_8b": "38326801",
+    "qwen2_5_3b_16k": "38326791",
+    "qwen2_5_3b_8k": "38326789",
+    "qwen2_5_7b_8k": "38326795",
+    "qwen3_4b_8k": "38326799",
+    "qwen3_8b_8k": "38326803"
+  },
+  "artifact_schema_version": 1,
+  "audit_job": "38326805",
+  "canary_job": "38326786",
+  "eval_task_count": 144,
+  "finalizer_jobs": {
+    "base_qwen2_5_3b": "38326788",
+    "base_qwen2_5_7b": "38326794",
+    "base_qwen3_4b": "38326798",
+    "base_qwen3_8b": "38326802",
+    "qwen2_5_3b_16k": "38326792",
+    "qwen2_5_3b_8k": "38326790",
+    "qwen2_5_7b_8k": "38326796",
+    "qwen3_4b_8k": "38326800",
+    "qwen3_8b_8k": "38326804"
+  },
+  "git_commit": "0e607bb00b4e9880c731d28155568b63b18c3914",
+  "preflight_job": "38326785",
+  "slurm": {
+    "account": "raivn-ckpt",
+    "array": "0-15",
+    "partition": "ckpt-all",
+    "qos": "ckpt",
+    "walltime": "02:00:00"
+  },
+  "submitted_at": "2026-08-09T12:18:36.401719+00:00"
+}

@@ -1,0 +1,107 @@
+{
+  "artifact_schema_version": 1,
+  "base_model": {
+    "hf_repo": "Qwen/Qwen2.5-7B",
+    "revision": "d149729398750b98c0af14eb82c78cfe92750796",
+    "tokenizer_files": {
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "c91efca15ceff6e9ee9424db58a6f59cd41294e550a86cbd07e3c1fb500b34f9"
+    }
+  },
+  "evaluation": {
+    "axolotl_commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
+    "base_evaluation": "evaluate_once_with_all_eleven_trained_variants",
+    "dataset": "HuggingFaceH4/MATH-500",
+    "decoding": "greedy",
+    "evaluator": "scripts/openr1_axolotl/evaluate_math_vllm.py",
+    "max_model_len": 32768,
+    "max_tokens": 32768,
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "runtime": {
+      "math-verify": "0.9.0",
+      "torch": "2.8.0",
+      "transformers": "4.57.6",
+      "vllm": "0.10.2"
+    },
+    "stop_token_ids": [
+      151643,
+      151645
+    ]
+  },
+  "masking": {
+    "correct_tokens": "weight_1",
+    "inverse_margin_taus": [
+      0.2,
+      0.05
+    ],
+    "margin_definition": "logp_answer_conditioned_minus_logp_unconditioned",
+    "probability_ratio_mask": "mask_probability=min(1,exp(-margin));keep=stable_draw>=mask_probability",
+    "random_mask_probabilities": [
+      0.25,
+      0.5,
+      0.7,
+      0.8,
+      0.9
+    ],
+    "regular_margin_mask": "keep_iff_margin>0",
+    "seed": 42
+  },
+  "selection": {
+    "correct_only_rows": 2000,
+    "correct_only_trace_order_sha256": "95c199c745005797627f210b39078058161f3e27531b7af91db5ba4a6cc1bd94",
+    "mixed_correct_rows": 1000,
+    "mixed_trace_order_sha256": "a6020e731bc64f93114d398e4d868f92f0505e7942f52d19fb26aa93b302f46d",
+    "mixed_wrong_rows": 1000,
+    "mode": "canonical_axolotl_unpaired_seed_42",
+    "source_correct_only_sha256": "3219becadaf38337b5fc3b692912a4110679ff763d81abae50b19fe345889315",
+    "source_correct_wrong_unmasked_sha256": "8f888746d48510f601413f83eec0286f7b87d4c8795ee42de56bd4de0b039dbe",
+    "source_repository_commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
+    "source_stats_sha256": "051feaaad99eb69c38e366f3bbe34373010936432ea0f93a59e93096f9830a49",
+    "source_structure": {
+      "correct_only_duplicate_close": 0,
+      "correct_only_missing_close": 1,
+      "mixed_duplicate_close": 1,
+      "mixed_missing_close": 56
+    }
+  },
+  "supervision": {
+    "assistant_added_token_ids": "all tokenizer.get_added_vocab values",
+    "embedded_chat_boundaries": "fail_closed",
+    "im_end": "exact_weight_1",
+    "no_synthetic_endoftext": true,
+    "padding_outside_logical_sequence": "weight_0",
+    "prompt_tokens": "context_only_outside_response_loss",
+    "protected_control_markup": [
+      "<think>",
+      "</think>"
+    ],
+    "protected_positions": "excluded_from_every_masking_and_downweighting_decision",
+    "template_newline_after_im_end": "weight_0"
+  },
+  "training": {
+    "attention_dropout": 0.0,
+    "full_sft": true,
+    "global_batch_size": 200,
+    "hidden_dropout": 0.0,
+    "learning_rate": 1e-06,
+    "lr_schedule": "constant",
+    "max_sequence_length": 32768,
+    "num_epochs": 1,
+    "optimizer": "adam",
+    "rollout_batch_size": 200,
+    "weight_decay": 0.1
+  },
+  "variants": [
+    "correct_only",
+    "unmasked",
+    "random_mask_70",
+    "inverse_tau_0p20",
+    "inverse_tau_0p05",
+    "random_mask_25",
+    "random_mask_50",
+    "random_mask_80",
+    "random_mask_90",
+    "margin_mask",
+    "prob_ratio_mask"
+  ]
+}

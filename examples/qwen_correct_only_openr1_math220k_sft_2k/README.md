@@ -1,0 +1,163 @@
+# Correct-only length-filtered OpenR1 full-SFT
+
+This experiment trains only `correct_only`. There are no wrong-trace,
+unmasked-mixed, random-mask, margin-mask, or probability-ratio variants. Every
+run compares its pinned pretrained base checkpoint with one full-parameter SFT
+checkpoint.
+
+## Scientific contract
+
+OpenR1-Math-220k is pinned at
+`dc748648036c1ed619b020e056dc4b603eb39817`. Selection requires a trace to be
+correct, source-marked reasoning-complete, structurally valid, and free of chat
+control text. Seed 42 samples one trace per unique problem without truncation.
+
+The 8K experiment uses one shared ordered set of exactly 2,000 trace IDs and
+verbatim trace texts for Qwen2.5-3B, Qwen2.5-7B, Qwen3-4B-Base, and
+Qwen3-8B-Base. A trace enters the sampling pool only when every model tokenizer
+places its assistant response at or below 8,192 tokens and its complete rendered
+training sequence at or below 10,240 tokens. This shared-eligibility intersection
+is required so the same 2K examples are used across models, giving a proper
+cross-model comparison. Each model then retokenizes those exact texts with its
+own native chat template.
+
+The independent Qwen2.5-3B 16K experiment allows assistant traces through
+16,384 tokens and complete rendered sequences through 18,432 tokens.
+
+The ordinary prompt is preserved verbatim:
+
+```text
+Please reason step by step, and put your final answer within \boxed{}.
+
+Problem:
+<problem>
+```
+
+All assistant tokens and exactly one `<|im_end|>` have loss weight 1. Prompt
+tokens and the terminal template newline have weight 0. No synthetic
+`<|endoftext|>` is appended. The model parameters are fully updated in BF16.
+
+## Training
+
+All five runs use global batch size 64, four epochs over 2,000 rows, and 125
+optimizer updates. AdamW uses LR `5e-6`, betas `(0.9, 0.95)`, epsilon `1e-8`,
+weight decay `1e-4`, gradient clip `1.0`, 3% linear warmup from zero, then cosine
+decay to `1e-6`. The final zero-based HF snapshot is `iter_0000124`.
+
+Before each full run, a one-update custom-pretokenized versus stock-message
+canary dumps every realized token, shifted label, and loss weight. Boundary or
+weight drift blocks that run. Deterministic before/after completions are retained
+verbatim; prompt-copy detection is diagnostic and never fails the training chain.
+
+## Submission and Hyak handoff
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/submit_training_only.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/submit_training_only.sh
+```
+
+The submitted chain is strictly serial with `afterok`, uses at most four H200s,
+and contains no evaluation jobs.
+
+The original data job `212331` completed selection and tokenization but failed
+in its dynamic-schedule audit. Its narrow repair reuses those hash-validated
+artifacts, replaces only the data-audit stage, and rewires the first blocked
+canary while preserving jobs `212332` through `212342`:
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_data_schedule_audit.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_data_schedule_audit.sh
+```
+
+The first Qwen2.5-3B 8K canary then exhausted H200 memory on its first training
+microbatch at the original 32,768-token dynamic-batch cap. The `memory_r1`
+runtime profile lowers the 3B and 4B caps to 16,384 tokens without changing the
+dataset, global batch, optimizer, loss, or model topology. Fresh schedule audits
+are versioned under that profile, and the retry is preserved separately as
+attempt `oom_r1`; the failed canary remains verbatim at its original path.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_canary_oom.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_canary_oom.sh
+```
+
+The Qwen2.5-7B canary completed both one-step training paths but its runtime
+audit initially counted tensor-parallel replicas as independent DP dumps. The
+TP-aware audit now verifies all four model-rank files, requires exact equality
+within each TP pair, and audits one representative per DP rank. Repair attempt
+`tp_audit_r1` reuses the completed checkpoints and runs only the audit and
+diagnostic generation; the failed job `212334` and its artifacts are not
+overwritten.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_tp_audit_failure.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_tp_audit_failure.sh
+```
+
+The Qwen3-4B canary then exhausted H200 memory in fused cross-entropy backward
+when a 16,000-token TP1 microbatch left only 2.21 GiB free before a 4.53 GiB
+allocation. The `memory_r2` profile preserves TP1, optimizer placement, the
+10,240-token sequence limit, and every scientific hyperparameter while lowering
+only this run's dynamic-batch cap from 16,384 to 9,216 tokens. Prepared rows are
+reused verbatim, fresh schedules are audited for all five queued full runs, and
+the Qwen3-4B retry is isolated as attempt `oom_r1`.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_4b_oom.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_4b_oom.sh
+```
+
+The Qwen3-8B canary completed both one-step training paths and exported both
+checkpoints, but its original Slurm script snapshot omitted the now-required
+tensor-parallel-size argument to the runtime auditor. That same original
+submission also froze full-training scripts which check unversioned schedule
+audits instead of the active `memory_r2` audits. Repair attempt
+`snapshot_audit_r1` therefore reuses the completed canary checkpoints, runs only
+the corrected audit and verbatim diagnostic generation, and replaces the six
+never-started training/finalization jobs with a fresh serial tail from the
+patched commit. Prompt-copy detection remains diagnostic and cannot fail the
+chain.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_8b_audit_failure.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen3_8b_audit_failure.sh
+```
+
+The first Qwen2.5-3B 8K full run completed optimizer steps 0 through 2, then a
+16K-token packed microbatch exhausted memory while fused cross-entropy allocated
+its 4.64 GiB logits-gradient buffer. The `memory_r3` profile keeps TP1 and all
+scientific hyperparameters, enables optimizer CPU offload for both 3B runs, and
+lowers only the 8K run's dynamic-batch cap to 10,240 tokens. Before full
+training, each 3B run replays its exact first five shuffled updates from the
+full dataset under the new profile.
+
+This repair also makes the shared runner honor the configured 125 optimizer
+updates directly. Relying on `--num-epoch 4` floors each 2,000-row epoch to 31
+updates, yielding only 124 updates instead of the required 125 over 8,000
+examples. The failed full-run artifacts remain at their original path, while
+retry `oom_r1` is isolated under `attempts/oom_r1`. Finalization follows the
+checkpoint path recorded in each content manifest and the successful canary
+paths recorded by the repair manifests. Copy diagnostics remain verbatim and
+non-blocking.
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen2_5_3b_oom.sh --dry-run
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/resubmit_after_qwen2_5_3b_oom.sh
+```
+
+After the training chain finalizes, checkpoint transfer is manual and
+content-verified:
+
+```bash
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/rsync_to_klone.sh --check
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/rsync_to_klone.sh --transfer
+bash examples/qwen_correct_only_openr1_math220k_sft_2k/rsync_to_klone.sh --verify
+```
+
+Four unique bases and five trained checkpoints are transferred. The
+Qwen2.5-3B base is shared by its 8K and 16K comparisons.
+
+The rsync helper copies checkpoints and manifests, not repository code. Before
+remote `--verify` or evaluation, fetch and switch to
+`qwen-correct-only-openr1-sft-2k` in the Hyak `SLIME` checkout so the matching
+manifest verifier and experiment contract are present.

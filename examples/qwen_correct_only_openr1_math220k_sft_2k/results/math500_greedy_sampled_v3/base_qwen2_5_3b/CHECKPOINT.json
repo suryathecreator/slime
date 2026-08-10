@@ -1,0 +1,145 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "426c41b63aebef6063c38a5976437ba075577cff62b2a6912ac911d21ec78e14",
+  "contract_hash": "3568736a3743c319",
+  "created_at": "2026-08-08T12:45:53.613811+00:00",
+  "family": "shared",
+  "files": [
+    {
+      "bytes": 1,
+      "name": ".cache/huggingface/.gitignore",
+      "sha256": "684888c0ebb17f374298b65ee2807526c066094c701bcc7ebbe1c1095f494fc1"
+    },
+    {
+      "bytes": 191,
+      "name": ".cache/huggingface/CACHEDIR.TAG",
+      "sha256": "f6572428f6d5e1575e73a1502895a8731f10757dfbb634909c6e154b849af91d"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/.gitattributes.metadata",
+      "sha256": "5bdd263a6520049d0ef6fa00d8a70e20b38c7eed53825415dd6fe717a589e47f"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/LICENSE.metadata",
+      "sha256": "39be851ba7df5ee9aca32508c34dfbe022ecb3b02c7a9b70aef2003d6f65a838"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/README.md.metadata",
+      "sha256": "0a364b2fb889a62970d053b3e2654e1f80da19dfff30bb22e344e6216704dba8"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/config.json.metadata",
+      "sha256": "3b4b1e7ffce4ca4c65e7f0a25b6bce587108272c4b7c8fcc529749a8ee6a47fe"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/generation_config.json.metadata",
+      "sha256": "d47c2e3e9ef52c5888f227eee05545dd0bd06ad40be27e9cd831e9edaba8ec3c"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/merges.txt.metadata",
+      "sha256": "18d1440fefd3e6e90afc3fde4e433ac667df85dcd87194095a11d4d1ad52e7c9"
+    },
+    {
+      "bytes": 125,
+      "name": ".cache/huggingface/download/model-00001-of-00002.safetensors.metadata",
+      "sha256": "f9a62751b3b5bdf1f421af6240b791d1525c807036e8f8f88007b9d467efc339"
+    },
+    {
+      "bytes": 125,
+      "name": ".cache/huggingface/download/model-00002-of-00002.safetensors.metadata",
+      "sha256": "2ca21e9de54e9fa64d8e21cb2be5918c8635cfea679ed20f62abacf62ee12d54"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/model.safetensors.index.json.metadata",
+      "sha256": "0d0cd1f85223de7e896e8b470c99a05e567b34da27b961028182d3ea238d1b22"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/tokenizer.json.metadata",
+      "sha256": "5d835d1bb8bdae67a0ce631384e12452f046f443fb4ef295dce71fced744f960"
+    },
+    {
+      "bytes": 100,
+      "name": ".cache/huggingface/download/tokenizer_config.json.metadata",
+      "sha256": "ed6d27f363c15caeaa87a5f27b733e2e885afe374d3e3f90808f0e109019f71a"
+    },
+    {
+      "bytes": 101,
+      "name": ".cache/huggingface/download/vocab.json.metadata",
+      "sha256": "9d18119a7f7a6f4fee63b9e704d9da0e6ba678acb29b157181e9e8092105abef"
+    },
+    {
+      "bytes": 1519,
+      "name": ".gitattributes",
+      "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361"
+    },
+    {
+      "bytes": 7388,
+      "name": "LICENSE",
+      "sha256": "ef52482bb785733093dc9a2e8edd8e764c77d12d8e9d8f10a80c9b547d32d0f9"
+    },
+    {
+      "bytes": 3840,
+      "name": "README.md",
+      "sha256": "75c779862cc82558878509bd0d6ba493612568b02868bc474e74fcbeee6f7810"
+    },
+    {
+      "bytes": 683,
+      "name": "config.json",
+      "sha256": "27467e2fc311a7656c09a43ae9c3d408211e1f212bbddbc93c8596a06423826f"
+    },
+    {
+      "bytes": 138,
+      "name": "generation_config.json",
+      "sha256": "8c970692323e3ea0e9b8b0a4dca79388d31226e41f83c9fd6014804280ebf6e8"
+    },
+    {
+      "bytes": 1671839,
+      "name": "merges.txt",
+      "sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3"
+    },
+    {
+      "bytes": 3968658944,
+      "name": "model-00001-of-00002.safetensors",
+      "sha256": "f9558df91d3b89b4826e4db37439edb52f1d62a4fd602685013e7ca6b9f60f8f"
+    },
+    {
+      "bytes": 2203268048,
+      "name": "model-00002-of-00002.safetensors",
+      "sha256": "51410930d5cf19a998fdb17ef0c46e4d9ace72c97a975a3331395a8a500f5edb"
+    },
+    {
+      "bytes": 35581,
+      "name": "model.safetensors.index.json",
+      "sha256": "bc8aaa0c87d4335177e01c765f1de0db81661c67c1a72fbfb0d521b09f5ddc56"
+    },
+    {
+      "bytes": 7031645,
+      "name": "tokenizer.json",
+      "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539"
+    },
+    {
+      "bytes": 7228,
+      "name": "tokenizer_config.json",
+      "sha256": "c91efca15ceff6e9ee9424db58a6f59cd41294e550a86cbd07e3c1fb500b34f9"
+    },
+    {
+      "bytes": 2776833,
+      "name": "vocab.json",
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    }
+  ],
+  "final_iteration": null,
+  "full_sft": false,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "repo_commit": "064e6be6c615764c5b4f0271de88c15918dab9ec",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/models/Qwen2.5-3B",
+  "variant": "base_qwen2_5_3b"
+}
