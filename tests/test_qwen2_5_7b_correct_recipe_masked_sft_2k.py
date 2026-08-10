@@ -199,5 +199,13 @@ def test_shell_launch_surfaces_parse():
         subprocess.run(["bash", "-n", str(path)], check=True)
 
 
+def test_every_slurm_stage_has_a_strict_two_hour_cap():
+    sbatch_paths = sorted(EXPERIMENT_DIR.glob("*.sbatch"))
+    assert len(sbatch_paths) == 5
+    for path in sbatch_paths:
+        text = path.read_text(encoding="utf-8")
+        assert text.count("#SBATCH --time=02:00:00") == 1, path
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))

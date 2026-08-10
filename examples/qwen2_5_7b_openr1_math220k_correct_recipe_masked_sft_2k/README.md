@@ -30,7 +30,7 @@ template newline remains at weight 0 and no synthetic EOS is appended.
 The chain is strictly serial and contains no correct-only or evaluation job:
 data preparation, Qwen2.5-7B margin scoring and variant construction, a
 five-update fractional-weight canary, ten full-SFT jobs, and final handoff
-verification.
+verification. Every Slurm stage has a strict two-hour wall-time cap.
 
 ```bash
 bash examples/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/submit_training_only.sh --dry-run

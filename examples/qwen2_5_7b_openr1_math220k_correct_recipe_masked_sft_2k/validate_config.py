@@ -108,6 +108,10 @@ def main() -> None:
         raise ValueError("finalizer omits the complete comparison inventory")
     if '[[ "${#records[@]}" -eq 10 ]]' not in rsync:
         raise ValueError("rsync checkpoint-count contract drift")
+    for batch_script in sorted(example.glob("*.sbatch")):
+        text = batch_script.read_text(encoding="utf-8")
+        if text.count("#SBATCH --time=02:00:00") != 1:
+            raise ValueError(f"two-hour wall-time cap drift: {batch_script.name}")
 
     if args.require_source_artifacts:
         source_root = Path("/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/" "v1/3568736a3743c319")
