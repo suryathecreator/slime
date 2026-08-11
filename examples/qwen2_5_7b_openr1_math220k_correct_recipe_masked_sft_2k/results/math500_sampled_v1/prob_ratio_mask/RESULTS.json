@@ -1,0 +1,139 @@
+{
+  "artifact_schema_version": 1,
+  "benchmark": "HuggingFaceH4/MATH-500",
+  "checkpoint_manifest_sha256": "512da6974e7fcc5a0b8a6d00f557c1f49f3c5c8e91249bee467cdab06680b41e",
+  "dataset_revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+  "policy_sha256": "7fa34c3fd4e18bd996a0e0b52d35af44254ad80bbe51d31ce0fe0cbf989abd9e",
+  "sampled": {
+    "aggregate": {
+      "accuracy": {
+        "mean": 0.5826666666666667,
+        "sample_std": 0.023180451534284902,
+        "values": [
+          0.556,
+          0.598,
+          0.594
+        ]
+      },
+      "cap_hit_accuracy": {
+        "mean": 0.010877634806332715,
+        "sample_std": 0.0054625951606881076,
+        "values": [
+          0.01015228426395939,
+          0.005813953488372093,
+          0.016666666666666666
+        ]
+      },
+      "cap_hit_rate": {
+        "mean": 0.36599999999999994,
+        "sample_std": 0.025534290669607433,
+        "values": [
+          0.394,
+          0.344,
+          0.36
+        ]
+      },
+      "generated_length_mean": {
+        "mean": 13492.330666666667,
+        "sample_std": 758.0805583164184,
+        "values": [
+          14318.756,
+          12829.214,
+          13329.022
+        ]
+      },
+      "parse_failure_rate": {
+        "mean": 0.018,
+        "sample_std": 0.002,
+        "values": [
+          0.016,
+          0.018,
+          0.02
+        ]
+      },
+      "valid_box_rate": {
+        "mean": 0.6473333333333334,
+        "sample_std": 0.02335237318418268,
+        "values": [
+          0.622,
+          0.668,
+          0.652
+        ]
+      }
+    },
+    "metric": "mean and sample standard deviation across three complete pass@1 repeats",
+    "repeats": [
+      {
+        "accuracy": 0.556,
+        "cap_hit_accuracy": 0.01015228426395939,
+        "cap_hit_correct": 2,
+        "cap_hit_rate": 0.394,
+        "cap_hits": 197,
+        "correct": 278,
+        "finish_reasons": {
+          "length": 197,
+          "stop": 303
+        },
+        "generated_length_mean": 14318.756,
+        "mode": "sampled",
+        "parse_failure_count": 8,
+        "parse_failure_rate": 0.016,
+        "repeat": 0,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "prob_ratio_mask",
+        "total": 500,
+        "valid_box_count": 311,
+        "valid_box_rate": 0.622
+      },
+      {
+        "accuracy": 0.598,
+        "cap_hit_accuracy": 0.005813953488372093,
+        "cap_hit_correct": 1,
+        "cap_hit_rate": 0.344,
+        "cap_hits": 172,
+        "correct": 299,
+        "finish_reasons": {
+          "length": 172,
+          "stop": 328
+        },
+        "generated_length_mean": 12829.214,
+        "mode": "sampled",
+        "parse_failure_count": 9,
+        "parse_failure_rate": 0.018,
+        "repeat": 1,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "prob_ratio_mask",
+        "total": 500,
+        "valid_box_count": 334,
+        "valid_box_rate": 0.668
+      },
+      {
+        "accuracy": 0.594,
+        "cap_hit_accuracy": 0.016666666666666666,
+        "cap_hit_correct": 3,
+        "cap_hit_rate": 0.36,
+        "cap_hits": 180,
+        "correct": 297,
+        "finish_reasons": {
+          "length": 180,
+          "stop": 320
+        },
+        "generated_length_mean": 13329.022,
+        "mode": "sampled",
+        "parse_failure_count": 10,
+        "parse_failure_rate": 0.02,
+        "repeat": 2,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "prob_ratio_mask",
+        "total": 500,
+        "valid_box_count": 326,
+        "valid_box_rate": 0.652
+      }
+    ]
+  },
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "source": "generated",
+  "target": "prob_ratio_mask",
+  "tokenizer_family": "qwen2_5",
+  "training_condition": "prob_ratio_mask"
+}

@@ -1,0 +1,7 @@
+{
+  "artifact_schema_version": 1,
+  "generated_results": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da/outputs/math500_sampled_v1/unmasked",
+  "policy_sha256": "7fa34c3fd4e18bd996a0e0b52d35af44254ad80bbe51d31ce0fe0cbf989abd9e",
+  "scorer_commit": "b21e3491d0a08351d36779aef39eb2595b21f680",
+  "tokenizer_provenance_sha256": "79626c39cd77fdb608402bdc999b4fa0dbcbaa4fc4c7cd8babaeb042cfd050e8"
+}
