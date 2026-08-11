@@ -1,0 +1,66 @@
+{
+  "artifact_schema_version": 1,
+  "base_model": {
+    "hf_repo": "Qwen/Qwen2.5-7B",
+    "revision": "d149729398750b98c0af14eb82c78cfe92750796"
+  },
+  "family": "qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k",
+  "masking": {
+    "correct_tokens": "weight_1",
+    "probabilities": [0.05, 0.15],
+    "random_draw": "sha256(seed\\0trace_id\\0assistant_token_index)_first_u64_div_2pow64",
+    "seeds": [42, 43, 44],
+    "terminal_policy": "all_added_controls_and_literal_think_markup_weight_1;im_end_weight_1;template_newline_weight_0;no_synthetic_endoftext",
+    "within_seed_nesting": "random_mask_05_is_exact_subset_of_random_mask_15"
+  },
+  "source_experiment": {
+    "comparison_sources_sha256": "4683fa2db3c45cd64b7ca801377c049219d0ccd4c0f0fcacb61b6965627a401e",
+    "contract_hash": "07291674d43cf3da",
+    "contract_sha256": "07291674d43cf3dab1675c187dbd0c1c389a5b4002702e3c8b8a6a4d1abfabc7",
+    "family": "qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k",
+    "ordered_mixed_trace_ids_sha256": "f3f51daa4e63ee6bc33ba91e97b05c195f9a40ddc641de7abb60408d06bd904a",
+    "schedule_audit_sha256": "d10105f0262396f46165887f52f94db90e95bb6c752ad2c1c7edf8e30130fe40",
+    "selection_and_tokenization_stats_sha256": "57fd47fd7cfac7fbbed3d3b369d78f6cd6ea3109824a413e0ad39ec44e66066d",
+    "tokenizer_control_inventory_sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85",
+    "training_status_sha256": "044d3dc982225c6a6120bceb02b3e1ecc00c7d1b23aec022d682eeacaa02595d",
+    "unmasked_dataset_sha256": "b7c13714061fb5078848943d915d64639264eebcad76023e43637191e1080234"
+  },
+  "training": {
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.95,
+    "adam_epsilon": 1e-8,
+    "bf16": true,
+    "context_parallel_size": 1,
+    "data_parallel_size": 2,
+    "epochs": 4,
+    "full_parameter_sft": true,
+    "global_batch_size": 64,
+    "gradient_clip_norm": 1.0,
+    "learning_rate": 5e-6,
+    "lr_decay_iters": 125,
+    "lr_decay_style": "cosine",
+    "max_sequence_length": 10240,
+    "max_tokens_per_gpu": 16384,
+    "min_learning_rate": 1e-6,
+    "optimizer": "AdamW",
+    "optimizer_cpu_offload": true,
+    "optimizer_updates": 125,
+    "pipeline_parallel_size": 1,
+    "recompute_loss_function": true,
+    "rollout_batch_size": 64,
+    "tensor_parallel_size": 2,
+    "trace_token_cap": 8192,
+    "warmup_fraction": 0.03,
+    "warmup_init": 0.0,
+    "weight_decay": 0.0001,
+    "zero_stage": 1
+  },
+  "variants": [
+    {"id": "random_mask_05_seed42", "probability": 0.05, "seed": 42},
+    {"id": "random_mask_15_seed42", "probability": 0.15, "seed": 42},
+    {"id": "random_mask_05_seed43", "probability": 0.05, "seed": 43},
+    {"id": "random_mask_15_seed43", "probability": 0.15, "seed": 43},
+    {"id": "random_mask_05_seed44", "probability": 0.05, "seed": 44},
+    {"id": "random_mask_15_seed44", "probability": 0.15, "seed": 44}
+  ]
+}

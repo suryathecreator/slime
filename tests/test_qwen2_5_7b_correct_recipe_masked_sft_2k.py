@@ -11,6 +11,11 @@ import pytest
 from examples.qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k import (
     prepare_data,
 )
+from examples.qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k.build_random_masks import (
+    EXPECTED_VARIANTS as REPLICATE_VARIANTS,
+    load_variant_specs,
+    wrong_assistant_weights,
+)
 from examples.qwen2_5_7b_openr1_math220k_masked_sft_2k.build_variants import (
     wrong_weights,
 )
@@ -32,6 +37,11 @@ VARIANTS = (
     "prob_ratio_mask",
 )
 PROVENANCE_DIR = EXPERIMENT_DIR / "provenance/v1/07291674d43cf3da"
+REPLICATE_DIR = (
+    Path(__file__).resolve().parents[1]
+    / "examples"
+    / "qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k"
+)
 
 
 def load_contract() -> dict:
@@ -268,6 +278,85 @@ def test_published_provenance_is_complete_and_self_consistent():
     assert all(row["is_correct"] for row in trace_rows[:1000])
     assert not any(row["is_correct"] for row in trace_rows[1000:])
     assert not ({"problem", "answer", "assistant_trace"} & set(trace_rows[0]))
+
+
+def test_replicate_contract_reuses_exact_recipe_and_frozen_source():
+    contract_path = REPLICATE_DIR / "config/experiment_contract.json"
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    assert tuple(load_variant_specs(contract_path)) == REPLICATE_VARIANTS
+    assert contract["training"] == load_contract()["training"]
+    assert contract["source_experiment"] == {
+        "comparison_sources_sha256": "4683fa2db3c45cd64b7ca801377c049219d0ccd4c0f0fcacb61b6965627a401e",
+        "contract_hash": "07291674d43cf3da",
+        "contract_sha256": "07291674d43cf3dab1675c187dbd0c1c389a5b4002702e3c8b8a6a4d1abfabc7",
+        "family": "qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k",
+        "ordered_mixed_trace_ids_sha256": "f3f51daa4e63ee6bc33ba91e97b05c195f9a40ddc641de7abb60408d06bd904a",
+        "schedule_audit_sha256": "d10105f0262396f46165887f52f94db90e95bb6c752ad2c1c7edf8e30130fe40",
+        "selection_and_tokenization_stats_sha256": "57fd47fd7cfac7fbbed3d3b369d78f6cd6ea3109824a413e0ad39ec44e66066d",
+        "tokenizer_control_inventory_sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85",
+        "training_status_sha256": "044d3dc982225c6a6120bceb02b3e1ecc00c7d1b23aec022d682eeacaa02595d",
+        "unmasked_dataset_sha256": "b7c13714061fb5078848943d915d64639264eebcad76023e43637191e1080234",
+    }
+
+
+def test_replicate_random_masks_are_deterministic_nested_and_seeded():
+    protected = [2, 9]
+    five_42 = wrong_assistant_weights(1000, protected, 42, 0.05, "trace")
+    fifteen_42 = wrong_assistant_weights(1000, protected, 42, 0.15, "trace")
+    five_43 = wrong_assistant_weights(1000, protected, 43, 0.05, "trace")
+    assert five_42 == wrong_assistant_weights(1000, protected, 42, 0.05, "trace")
+    assert {index for index, value in enumerate(five_42) if value == 0.0} <= {
+        index for index, value in enumerate(fifteen_42) if value == 0.0
+    }
+    assert five_42 != five_43
+    assert all(weights[index] == 1.0 for weights in (five_42, fifteen_42, five_43) for index in protected)
+
+
+def test_replicate_runtime_environment_copies_training_recipe_exactly():
+    names = (
+        "SFT_NUM_EPOCH SFT_ROLLOUT_BATCH_SIZE SFT_GLOBAL_BATCH_SIZE "
+        "SFT_NUM_ROLLOUT SFT_FINAL_ROLLOUT_ID SFT_SAVE_INTERVAL "
+        "SFT_ACTOR_GPUS SFT_TENSOR_MODEL_PARALLEL_SIZE "
+        "SFT_CONTEXT_PARALLEL_SIZE SFT_PIPELINE_MODEL_PARALLEL_SIZE "
+        "SFT_ZERO_STAGE SFT_CKPT_FORMAT SFT_INPUT_KEY SFT_SEQ_LENGTH "
+        "SFT_GRAD_CLIP SFT_OPTIMIZER_CPU_OFFLOAD "
+        "SFT_RECOMPUTE_LOSS_FUNCTION SFT_OPTIMIZER SFT_LR SFT_MIN_LR "
+        "SFT_LR_DECAY_STYLE SFT_LR_WARMUP_FRACTION SFT_LR_WARMUP_INIT "
+        "SFT_LR_DECAY_ITERS SFT_WEIGHT_DECAY SFT_ADAM_BETA1 "
+        "SFT_ADAM_BETA2 SFT_ADAM_EPS SFT_MAX_TOKENS_PER_GPU"
+    ).split()
+    command = 'source "$1"; shift; for name in "$@"; do ' 'printf "%s=%s\\n" "$name" "${!name}"; done'
+
+    def resolved(env_path: Path) -> dict[str, str]:
+        output = subprocess.check_output(["bash", "-c", command, "bash", str(env_path), *names], text=True)
+        return dict(line.split("=", 1) for line in output.splitlines())
+
+    assert resolved(REPLICATE_DIR / "env.sh") == resolved(EXPERIMENT_DIR / "env.sh")
+
+
+def test_replicate_launch_is_six_trainings_in_one_nine_job_serial_chain():
+    submit = (REPLICATE_DIR / "submit_training_only.sh").read_text(encoding="utf-8")
+    train = (REPLICATE_DIR / "03_train.sbatch").read_text(encoding="utf-8")
+    finalize = (REPLICATE_DIR / "finalize.py").read_text(encoding="utf-8")
+    rsync = (REPLICATE_DIR / "rsync_to_klone.sh").read_text(encoding="utf-8")
+    assert '--dependency="afterok:${tail_job}"' in submit
+    assert 'for variant in "${VARIANTS[@]}"' in submit
+    assert "DRY_RUN_COMPLETE jobs=9" in submit
+    assert "submit_serial correct_only" not in submit
+    assert 'SFT_PARQUET="$(variant_data_path "${SFT_VARIANT}")"' in train
+    assert "iter_0000124" in train
+    assert "len(transfer_records) != 6 or len(comparison_targets) != 18" in finalize
+    assert '[[ "${#records[@]}" -eq 6 ]]' in rsync
+
+
+def test_replicate_shell_surfaces_parse_and_keep_two_hour_caps():
+    paths = sorted(REPLICATE_DIR.glob("*.sh")) + sorted(REPLICATE_DIR.glob("*.sbatch"))
+    for path in paths:
+        subprocess.run(["bash", "-n", str(path)], check=True)
+    sbatch_paths = sorted(REPLICATE_DIR.glob("*.sbatch"))
+    assert len(sbatch_paths) == 4
+    for path in sbatch_paths:
+        assert path.read_text(encoding="utf-8").count("#SBATCH --time=02:00:00") == 1
 
 
 if __name__ == "__main__":
