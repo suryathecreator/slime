@@ -149,6 +149,7 @@ def realized_dynamic_schedule(
     seed: int,
     global_batch_size: int,
     max_tokens_per_gpu: int,
+    data_parallel_size: int,
 ) -> dict[str, Any]:
     """Run the actual Slime first-fit DP scheduler over every intended update."""
     lengths = [len(row["input_ids"]) for row in rows]
@@ -171,7 +172,7 @@ def realized_dynamic_schedule(
     )
     parallel = {
         "cp_size": 1,
-        "dp_size": 2,
+        "dp_size": data_parallel_size,
         "microbatch_group_size_per_vp_stage": 1,
         "vpp_size": 1,
     }
@@ -200,11 +201,11 @@ def realized_dynamic_schedule(
         )
         if counts != [len(micro_batches[0])] or global_sizes != [global_batch_size]:
             raise ValueError(f"realized schedule metadata drift at update {update}")
-        if len(micro_batches[0]) != len(micro_batches[1]):
+        if any(len(rank_mbs) != len(micro_batches[0]) for rank_mbs in micro_batches):
             raise ValueError(f"unequal DP microbatch counts at update {update}")
         per_rank_mbs_histogram[len(micro_batches[0])] += 1
         placed: list[int] = []
-        for rank in range(2):
+        for rank in range(data_parallel_size):
             for local_indices in micro_batches[rank]:
                 batch_positions = [partitions[rank][index] for index in local_indices]
                 placed.extend(batch_positions)
@@ -229,6 +230,7 @@ def realized_dynamic_schedule(
         )
     return {
         "dataset_rows": size,
+        "data_parallel_size": data_parallel_size,
         "dataset_rows_over_16384": sum(length > max_tokens_per_gpu for length in lengths),
         "epochs_entered": epoch + 1,
         "exposure_histogram": {str(key): value for key, value in sorted(exposure_histogram.items())},
@@ -326,6 +328,7 @@ def main() -> None:
                     seed=int(contract["selection"]["aime"]["seed"]),
                     global_batch_size=64,
                     max_tokens_per_gpu=16384,
+                    data_parallel_size=int(training["data_parallel_size"]),
                 ),
             },
             "children": {
@@ -342,6 +345,7 @@ def main() -> None:
                     seed=int(contract["selection"]["openr1"]["seed"]),
                     global_batch_size=64,
                     max_tokens_per_gpu=16384,
+                    data_parallel_size=int(training["data_parallel_size"]),
                 ),
                 "realized_dynamic_schedule_wrong_shared_by_masks": realized_dynamic_schedule(
                     wrong,
@@ -349,6 +353,7 @@ def main() -> None:
                     seed=int(contract["selection"]["openr1"]["seed"]),
                     global_batch_size=64,
                     max_tokens_per_gpu=16384,
+                    data_parallel_size=int(training["data_parallel_size"]),
                 ),
             },
         },

@@ -42,6 +42,10 @@ def test_contract_pins_sources_variants_and_exact_training_recipe() -> None:
         },
     }
     assert tuple(value["variants"]) == ("aime_correct_3000", *CHILD_VARIANTS)
+    assert [attempt["canary_job_id"] for attempt in value["failed_attempt_lineage"]] == [
+        "223263",
+        "223574",
+    ]
     assert tuple(value["masking"]["probabilities"]) == tuple(rate / 100 for rate in range(10, 100, 10))
     training = value["training"]
     assert {
@@ -78,6 +82,12 @@ def test_contract_pins_sources_variants_and_exact_training_recipe() -> None:
     assert training["stage1_final_iteration"] == 187
     assert training["child_optimizer_updates"] == 94
     assert training["child_final_iteration"] == 93
+    assert (
+        training["tensor_parallel_size"],
+        training["context_parallel_size"],
+        training["data_parallel_size"],
+        training["zero_stage"],
+    ) == (4, 1, 1, 0)
 
 
 def test_loss_chunking_bounds_fp32_vocabulary_work_without_changing_values(
@@ -223,6 +233,7 @@ def test_real_dp_scheduler_covers_four_epochs_plus_exact_wrap() -> None:
         seed=42,
         global_batch_size=64,
         max_tokens_per_gpu=16384,
+        data_parallel_size=1,
     )
     child = validate_data.realized_dynamic_schedule(
         [{"input_ids": [0] * 128} for _ in range(1500)],
@@ -230,11 +241,13 @@ def test_real_dp_scheduler_covers_four_epochs_plus_exact_wrap() -> None:
         seed=42,
         global_batch_size=64,
         max_tokens_per_gpu=16384,
+        data_parallel_size=1,
     )
     assert stage["exposure_histogram"] == {"4": 2968, "5": 32}
     assert child["exposure_histogram"] == {"4": 1484, "5": 16}
     assert stage["exposures"] == 188 * 64
     assert child["exposures"] == 94 * 64
+    assert stage["data_parallel_size"] == child["data_parallel_size"] == 1
 
 
 def resolved_environment(variant: str) -> dict[str, str]:
@@ -278,7 +291,7 @@ def test_runtime_environment_stage_and_children_share_recipe_but_restart_schedul
         "SFT_GLOBAL_BATCH_SIZE": "64",
         "SFT_ROLLOUT_BATCH_SIZE": "64",
         "SFT_ACTOR_GPUS": "4",
-        "SFT_TENSOR_MODEL_PARALLEL_SIZE": "2",
+        "SFT_TENSOR_MODEL_PARALLEL_SIZE": "4",
         "SFT_CONTEXT_PARALLEL_SIZE": "1",
         "SFT_PIPELINE_MODEL_PARALLEL_SIZE": "1",
         "SFT_MAX_TOKENS_PER_GPU": "16384",
@@ -293,7 +306,7 @@ def test_runtime_environment_stage_and_children_share_recipe_but_restart_schedul
         "SFT_ADAM_EPS": "1.0e-8",
         "SFT_WEIGHT_DECAY": "1e-4",
         "SFT_GRAD_CLIP": "1.0",
-        "SFT_ZERO_STAGE": "1",
+        "SFT_ZERO_STAGE": "0",
         "SFT_OPTIMIZER_CPU_OFFLOAD": "1",
         "SFT_RECOMPUTE_LOSS_FUNCTION": "1",
         "SFT_TRAIN_ENTRYPOINT": "train.py",

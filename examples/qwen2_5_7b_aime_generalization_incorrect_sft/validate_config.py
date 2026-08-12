@@ -36,6 +36,11 @@ def validate_contract(contract: dict[str, Any]) -> None:
         "experiment family drift",
     )
     require(tuple(contract.get("variants", ())) == ALL_TRAINED_VARIANTS, "variant order drift")
+    require(
+        [attempt.get("canary_job_id") for attempt in contract.get("failed_attempt_lineage", ())]
+        == ["223263", "223574"],
+        "failed-attempt lineage drift",
+    )
     training = contract["training"]
     expected = {
         "adam_beta1": 0.9,
@@ -45,7 +50,7 @@ def validate_contract(contract: dict[str, Any]) -> None:
         "child_final_iteration": 93,
         "child_optimizer_updates": 94,
         "context_parallel_size": 1,
-        "data_parallel_size": 2,
+        "data_parallel_size": 1,
         "global_batch_size": 64,
         "gradient_clip_norm": 1.0,
         "learning_rate": 5e-6,
@@ -60,11 +65,11 @@ def validate_contract(contract: dict[str, Any]) -> None:
         "rollout_batch_size": 64,
         "stage1_final_iteration": 187,
         "stage1_optimizer_updates": 188,
-        "tensor_parallel_size": 2,
+        "tensor_parallel_size": 4,
         "warmup_fraction": 0.03,
         "warmup_init": 0.0,
         "weight_decay": 1e-4,
-        "zero_stage": 1,
+        "zero_stage": 0,
     }
     for key, expected_value in expected.items():
         require(
@@ -105,6 +110,9 @@ def validate_static(package: Path, repo_root: Path, contract: dict[str, Any]) ->
         "SFT_TRAIN_ENTRYPOINT=train.py",
         'SFT_INITIAL_HF_DIR="${STAGE1_FINAL_HF_DIR}"',
         "SFT_SEQ_LENGTH=32768",
+        "SFT_TENSOR_MODEL_PARALLEL_SIZE=4",
+        "SFT_CONTEXT_PARALLEL_SIZE=1",
+        "SFT_ZERO_STAGE=0",
         "SFT_MAX_TOKENS_PER_GPU=16384",
         "SFT_LOG_PROBS_CHUNK_SIZE=2048",
         "SFT_GLOBAL_BATCH_SIZE=64",
@@ -158,6 +166,19 @@ def validate_sources(repo_root: Path, contract: dict[str, Any]) -> None:
     model = env_root / "models/Qwen2.5-7B"
     for filename, expected in contract["base_model"]["tokenizer_files"].items():
         require(sha256_file(model / filename) == expected, f"base tokenizer hash drift: {filename}")
+    model_config = load_json(model / "config.json")
+    tensor_parallel_size = int(contract["training"]["tensor_parallel_size"])
+    for field in (
+        "hidden_size",
+        "intermediate_size",
+        "num_attention_heads",
+        "num_key_value_heads",
+        "vocab_size",
+    ):
+        require(
+            int(model_config[field]) % tensor_parallel_size == 0,
+            f"base model {field}={model_config[field]} is not divisible by TP={tensor_parallel_size}",
+        )
     torch_dist = env_root / "models/Qwen2.5-7B_torch_dist"
     require(
         (torch_dist / "latest_checkpointed_iteration.txt").read_text().strip() == "release",

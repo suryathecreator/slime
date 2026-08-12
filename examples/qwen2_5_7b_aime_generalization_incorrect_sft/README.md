@@ -43,12 +43,19 @@ answer, and terminal markup. Overlong examples are rejected rather than
 truncated. Dynamic batching packs complete records by their realized lengths at
 `--max-tokens-per-gpu 16384`; it does not change their contents.
 
-The standard recipe is full BF16 SFT on four H200s (TP2/DP2), global batch 64,
+The standard recipe is full BF16 SFT on four H200s (TP4/DP1, no optimizer
+sharding), global batch 64,
 AdamW at `5e-6`, 3% warmup from zero, cosine decay to `1e-6`, betas
 `(0.9, 0.95)`, epsilon `1e-8`, weight decay `1e-4`, and gradient norm `1.0`.
 Tokenwise log-probability loss is evaluated in 2,048-token chunks. This keeps
 the FP32 vocabulary-loss temporary bounded for complete sequences near the 32K
 ceiling without changing the examples, masks, token weights, or cross-entropy.
+This topology is the fail-closed repair for two preserved stage-1 canary
+failures: job 223263 exhausted memory in an 8.56-GiB unchunked vocabulary-loss
+temporary for a 29,949-token sample; job 223574 reduced that immediate
+allocation to 594 MiB with chunking but still exhausted aggregate TP2 backward
+memory on a 30,444-token sample. TP4 halves each GPU's local vocabulary and
+tensor-parallel model/activation share while retaining the same four H200s.
 Stage 1 runs 188 updates and finishes at iteration 187. Every continuation runs
 the same 94-update budget and finishes at iteration 93 with a fresh optimizer
 and LR schedule. A continuation-local checkpoint still resumes its own optimizer
