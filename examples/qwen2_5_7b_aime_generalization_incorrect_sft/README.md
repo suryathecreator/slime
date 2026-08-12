@@ -56,6 +56,11 @@ temporary for a 29,949-token sample; job 223574 reduced that immediate
 allocation to 594 MiB with chunking but still exhausted aggregate TP2 backward
 memory on a 30,444-token sample. TP4 halves each GPU's local vocabulary and
 tensor-parallel model/activation share while retaining the same four H200s.
+Job 223913 then passed all five TP4 updates and both checkpoint exports with at
+least 62.96 GiB free, but its post-training audit failed because the audit still
+grouped actor dumps as TP2/DP2. The topology-aware audit now derives TP and DP
+groups from the runtime contract and compares every tensor replica before
+counting one representative payload per data-parallel rank.
 Stage 1 runs 188 updates and finishes at iteration 187. Every continuation runs
 the same 94-update budget and finishes at iteration 93 with a fresh optimizer
 and LR schedule. A continuation-local checkpoint still resumes its own optimizer

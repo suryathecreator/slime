@@ -11,7 +11,12 @@ from types import SimpleNamespace
 
 import pytest
 import torch
-from examples.qwen2_5_7b_aime_generalization_incorrect_sft import build_variants, prepare_data, validate_data
+from examples.qwen2_5_7b_aime_generalization_incorrect_sft import (
+    build_variants,
+    prepare_data,
+    runtime_token_audit,
+    validate_data,
+)
 from examples.qwen2_5_7b_aime_generalization_incorrect_sft.data_utils import (
     CHILD_VARIANTS,
     MASK_VARIANTS,
@@ -45,6 +50,7 @@ def test_contract_pins_sources_variants_and_exact_training_recipe() -> None:
     assert [attempt["canary_job_id"] for attempt in value["failed_attempt_lineage"]] == [
         "223263",
         "223574",
+        "223913",
     ]
     assert tuple(value["masking"]["probabilities"]) == tuple(rate / 100 for rate in range(10, 100, 10))
     training = value["training"]
@@ -110,6 +116,50 @@ def test_loss_chunking_bounds_fp32_vocabulary_work_without_changing_values(
     torch.testing.assert_close(chunked, unchunked, rtol=0, atol=0)
     assert len(chunk_lengths) == 3
     assert max(chunk_lengths) <= 2048
+
+
+def test_runtime_audit_groups_actor_dumps_by_declared_tp_and_dp(tmp_path: Path) -> None:
+    runtime = {0: {index: ((index, index + 1000), (1.0, 0.0)) for index in range(64)}}
+
+    def dump(rank: int, indices: range, label: str) -> Path:
+        path = tmp_path / f"{label}_{rank}.pt"
+        torch.save(
+            {
+                "rank": rank,
+                "rollout_id": 0,
+                "rollout_data": {
+                    "loss_masks": [[1.0, 0.0] for _ in indices],
+                    "response_lengths": [2 for _ in indices],
+                    "sample_indices": list(indices),
+                    "tokens": [[index, index + 1000] for index in indices],
+                },
+            },
+            path,
+        )
+        return path
+
+    tp4_paths = [dump(rank, range(64), "tp4") for rank in range(4)]
+    tp4 = runtime_token_audit.validate_train_dumps(tp4_paths, runtime, 4, 1)
+    assert tp4["tensor_parallel_size"] == 4
+    assert tp4["data_parallel_size"] == 1
+    assert tp4["unique_dp_samples"] == 64
+    assert tp4["model_rank_samples_including_tp_replicas"] == 256
+    assert [item["representative_rank"] for item in tp4["representative_dp_payloads"]] == [0]
+
+    tp2_paths = [dump(rank, range(0, 32) if rank < 2 else range(32, 64), "tp2") for rank in range(4)]
+    tp2 = runtime_token_audit.validate_train_dumps(tp2_paths, runtime, 2, 2)
+    assert tp2["tensor_parallel_size"] == 2
+    assert tp2["data_parallel_size"] == 2
+    assert tp2["unique_dp_samples"] == 64
+    assert tp2["model_rank_samples_including_tp_replicas"] == 128
+    assert [item["representative_rank"] for item in tp2["representative_dp_payloads"]] == [0, 2]
+
+
+def test_canary_runtime_audit_receives_the_resolved_training_topology() -> None:
+    helpers = (EXPERIMENT / "canary_helpers.sh").read_text()
+    assert '--tensor-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"' in helpers
+    assert '--data-parallel-size "$((SFT_ACTOR_GPUS /' in helpers
+    assert "local expected_train_count=$((2 * SFT_ACTOR_GPUS))" in helpers
 
 
 def test_contract_pins_aime_audits_and_openr1_leakage_exclusion() -> None:

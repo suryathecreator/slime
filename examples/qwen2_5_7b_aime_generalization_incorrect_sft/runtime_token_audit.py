@@ -29,6 +29,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rollout-data", type=Path, action="append", default=[])
     parser.add_argument("--train-data", type=Path, action="append", default=[])
     parser.add_argument("--max-sequence-length", type=int, default=32768)
+    parser.add_argument("--tensor-parallel-size", type=int, required=True)
+    parser.add_argument("--data-parallel-size", type=int, required=True)
     return parser.parse_args()
 
 
@@ -169,6 +171,8 @@ def jsonable(value: Any) -> Any:
 def validate_train_dumps(
     paths: list[Path],
     runtime_by_rollout: dict[int, dict[int, tuple[tuple[int, ...], tuple[float, ...]]]],
+    tensor_parallel_size: int,
+    data_parallel_size: int,
 ) -> dict[str, Any]:
     import torch
 
@@ -188,32 +192,43 @@ def validate_train_dumps(
         by_rollout[rollout_id][rank] = (path, data)
     if set(by_rollout) != set(runtime_by_rollout):
         raise ValueError("actor/rollout evidence IDs differ")
+    world_size = tensor_parallel_size * data_parallel_size
+    if tensor_parallel_size < 1 or data_parallel_size < 1:
+        raise ValueError("tensor/data parallel sizes must both be positive")
+    expected_ranks = set(range(world_size))
     for rollout_id, rank_payloads in sorted(by_rollout.items()):
-        if set(rank_payloads) != {0, 1, 2, 3}:
+        if set(rank_payloads) != expected_ranks:
             raise ValueError(
-                f"rollout {rollout_id} actor ranks must be exactly 0..3; " f"found={sorted(rank_payloads)}"
+                f"rollout {rollout_id} actor ranks must be exactly 0..{world_size - 1}; "
+                f"found={sorted(rank_payloads)}"
             )
-        for left, right in ((0, 1), (2, 3)):
-            if jsonable(rank_payloads[left][1]) != jsonable(rank_payloads[right][1]):
-                raise ValueError(f"TP replicas {left}/{right} differ for rollout {rollout_id}")
         realized_indices: set[int] = set()
-        for rank in (0, 2):
-            path, data = rank_payloads[rank]
+        for data_parallel_rank in range(data_parallel_size):
+            first_tensor_rank = data_parallel_rank * tensor_parallel_size
+            tensor_ranks = range(first_tensor_rank, first_tensor_rank + tensor_parallel_size)
+            representative_path, representative_data = rank_payloads[first_tensor_rank]
+            for rank in tensor_ranks:
+                if jsonable(rank_payloads[rank][1]) != jsonable(representative_data):
+                    raise ValueError(
+                        f"TP rank {rank} differs from representative rank {first_tensor_rank} "
+                        f"for rollout {rollout_id}"
+                    )
+            data = representative_data
             tokens = data.get("tokens")
             masks = data.get("loss_masks")
             lengths = data.get("response_lengths")
             sample_indices = data.get("sample_indices")
             if not all(isinstance(value, list) for value in (tokens, masks, lengths, sample_indices)):
-                raise ValueError(f"actor train dump has malformed fields: {path}")
+                raise ValueError(f"actor train dump has malformed fields: {representative_path}")
             if not (len(tokens) == len(masks) == len(lengths) == len(sample_indices)):
-                raise ValueError(f"actor train dump field-length mismatch: {path}")
+                raise ValueError(f"actor train dump field-length mismatch: {representative_path}")
             for token_values, mask_values, response_length, sample_index in zip(
                 tokens, masks, lengths, sample_indices, strict=True
             ):
                 token_list = to_list(token_values, int)
                 mask_list = to_list(mask_values, float)
                 if len(mask_list) != int(response_length):
-                    raise ValueError(f"actor response/mask mismatch: {path}")
+                    raise ValueError(f"actor response/mask mismatch: {representative_path}")
                 sample_index = int(sample_index)
                 expected_pair = runtime_by_rollout[rollout_id].get(sample_index)
                 actual_pair = (tuple(token_list), tuple(mask_list))
@@ -225,8 +240,8 @@ def validate_train_dumps(
                 unique_dp_sample_count += 1
             reports.append(
                 {
-                    "path": str(path),
-                    "representative_rank": rank,
+                    "path": str(representative_path),
+                    "representative_rank": first_tensor_rank,
                     "rollout_id": rollout_id,
                     "samples": len(tokens),
                 }
@@ -238,10 +253,12 @@ def validate_train_dumps(
                 f"rollout={rollout_id} missing={sorted(expected_indices - realized_indices)} "
                 f"extra={sorted(realized_indices - expected_indices)}"
             )
-        model_rank_sample_count += sum(len(rank_payloads[rank][1]["tokens"]) for rank in range(4))
+        model_rank_sample_count += sum(len(rank_payloads[rank][1]["tokens"]) for rank in range(world_size))
     return {
+        "data_parallel_size": data_parallel_size,
         "model_rank_samples_including_tp_replicas": model_rank_sample_count,
         "representative_dp_payloads": reports,
+        "tensor_parallel_size": tensor_parallel_size,
         "unique_dp_samples": unique_dp_sample_count,
     }
 
@@ -299,7 +316,12 @@ def main() -> None:
         )
     if args.train_data and not runtime_by_rollout:
         raise ValueError("actor train dumps require at least one real rollout dump")
-    train_report = validate_train_dumps(args.train_data, runtime_by_rollout)
+    train_report = validate_train_dumps(
+        args.train_data,
+        runtime_by_rollout,
+        args.tensor_parallel_size,
+        args.data_parallel_size,
+    )
     artifact = {
         "artifact_schema_version": 1,
         "data_path": str(args.data),

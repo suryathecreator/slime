@@ -29,6 +29,11 @@
       "canary_job_id": "223574",
       "contract_hash": "d7819c837f0b7667",
       "failure": "TP2/DP2 CUDA OOM during backward on a 30444-token sample after 2048-token loss chunking reduced the immediate allocation to 594 MiB"
+    },
+    {
+      "canary_job_id": "223913",
+      "contract_hash": "91da874d159e51d1",
+      "failure": "TP4/DP1 completed all five updates and checkpoint exports with at least 62.96 GiB free, then the post-training token audit rejected valid TP4 replicas because it assumed TP2/DP2 rank grouping"
     }
   ],
   "formatting": {

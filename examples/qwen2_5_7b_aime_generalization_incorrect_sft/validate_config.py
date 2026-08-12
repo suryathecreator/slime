@@ -38,7 +38,7 @@ def validate_contract(contract: dict[str, Any]) -> None:
     require(tuple(contract.get("variants", ())) == ALL_TRAINED_VARIANTS, "variant order drift")
     require(
         [attempt.get("canary_job_id") for attempt in contract.get("failed_attempt_lineage", ())]
-        == ["223263", "223574"],
+        == ["223263", "223574", "223913"],
         "failed-attempt lineage drift",
     )
     training = contract["training"]
