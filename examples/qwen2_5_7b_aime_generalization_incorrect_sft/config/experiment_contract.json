@@ -180,6 +180,7 @@
     "global_batch_size": 64,
     "gradient_clip_norm": 1.0,
     "learning_rate": 5e-6,
+    "log_probs_chunk_size": 2048,
     "lr_decay_style": "cosine",
     "max_sequence_length": 32768,
     "max_tokens_per_gpu": 16384,

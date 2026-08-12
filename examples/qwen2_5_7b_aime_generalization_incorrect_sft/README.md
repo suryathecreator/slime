@@ -46,6 +46,9 @@ truncated. Dynamic batching packs complete records by their realized lengths at
 The standard recipe is full BF16 SFT on four H200s (TP2/DP2), global batch 64,
 AdamW at `5e-6`, 3% warmup from zero, cosine decay to `1e-6`, betas
 `(0.9, 0.95)`, epsilon `1e-8`, weight decay `1e-4`, and gradient norm `1.0`.
+Tokenwise log-probability loss is evaluated in 2,048-token chunks. This keeps
+the FP32 vocabulary-loss temporary bounded for complete sequences near the 32K
+ceiling without changing the examples, masks, token weights, or cross-entropy.
 Stage 1 runs 188 updates and finishes at iteration 187. Every continuation runs
 the same 94-update budget and finishes at iteration 93 with a fresh optimizer
 and LR schedule. A continuation-local checkpoint still resumes its own optimizer

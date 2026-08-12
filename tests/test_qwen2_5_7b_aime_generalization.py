@@ -19,6 +19,7 @@ from examples.qwen2_5_7b_aime_generalization_incorrect_sft.data_utils import (
 )
 
 from slime.rollout.data_source import RolloutDataSource
+from slime.utils import ppo_utils
 
 NUM_GPUS = 0
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +53,7 @@ def test_contract_pins_sources_variants_and_exact_training_recipe() -> None:
             "global_batch_size",
             "gradient_clip_norm",
             "learning_rate",
+            "log_probs_chunk_size",
             "max_sequence_length",
             "max_tokens_per_gpu",
             "min_learning_rate",
@@ -65,6 +67,7 @@ def test_contract_pins_sources_variants_and_exact_training_recipe() -> None:
         "global_batch_size": 64,
         "gradient_clip_norm": 1.0,
         "learning_rate": 5e-6,
+        "log_probs_chunk_size": 2048,
         "max_sequence_length": 32768,
         "max_tokens_per_gpu": 16384,
         "min_learning_rate": 1e-6,
@@ -75,6 +78,28 @@ def test_contract_pins_sources_variants_and_exact_training_recipe() -> None:
     assert training["stage1_final_iteration"] == 187
     assert training["child_optimizer_updates"] == 94
     assert training["child_final_iteration"] == 93
+
+
+def test_loss_chunking_bounds_fp32_vocabulary_work_without_changing_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chunk_lengths: list[int] = []
+
+    def fake_log_probs(logits, tokens, process_group, keep_mask=None):
+        del process_group, keep_mask
+        chunk_lengths.append(logits.shape[0])
+        return -(logits.sum(dim=-1) + tokens).unsqueeze(-1)
+
+    monkeypatch.setattr(ppo_utils, "compute_log_probs", fake_log_probs)
+    logits = torch.arange(5001 * 7, dtype=torch.float32).reshape(5001, 7)
+    tokens = torch.arange(5001, dtype=torch.float32)
+    unchunked, _ = ppo_utils.calculate_log_probs_and_entropy(logits, tokens, None, chunk_size=-1)
+    chunk_lengths.clear()
+    chunked, _ = ppo_utils.calculate_log_probs_and_entropy(logits, tokens, None, chunk_size=2048)
+
+    torch.testing.assert_close(chunked, unchunked, rtol=0, atol=0)
+    assert len(chunk_lengths) == 3
+    assert max(chunk_lengths) <= 2048
 
 
 def test_contract_pins_aime_audits_and_openr1_leakage_exclusion() -> None:
@@ -218,6 +243,7 @@ def resolved_environment(variant: str) -> dict[str, str]:
         "SFT_GLOBAL_BATCH_SIZE SFT_ROLLOUT_BATCH_SIZE SFT_ACTOR_GPUS "
         "SFT_TENSOR_MODEL_PARALLEL_SIZE SFT_CONTEXT_PARALLEL_SIZE "
         "SFT_PIPELINE_MODEL_PARALLEL_SIZE SFT_MAX_TOKENS_PER_GPU "
+        "SFT_LOG_PROBS_CHUNK_SIZE "
         "SFT_LR SFT_MIN_LR SFT_LR_DECAY_STYLE SFT_LR_WARMUP_FRACTION "
         "SFT_LR_WARMUP_INIT SFT_LR_DECAY_ITERS SFT_ADAM_BETA1 "
         "SFT_ADAM_BETA2 SFT_ADAM_EPS SFT_WEIGHT_DECAY SFT_GRAD_CLIP "
@@ -256,6 +282,7 @@ def test_runtime_environment_stage_and_children_share_recipe_but_restart_schedul
         "SFT_CONTEXT_PARALLEL_SIZE": "1",
         "SFT_PIPELINE_MODEL_PARALLEL_SIZE": "1",
         "SFT_MAX_TOKENS_PER_GPU": "16384",
+        "SFT_LOG_PROBS_CHUNK_SIZE": "2048",
         "SFT_LR": "5e-6",
         "SFT_MIN_LR": "1e-6",
         "SFT_LR_DECAY_STYLE": "cosine",
