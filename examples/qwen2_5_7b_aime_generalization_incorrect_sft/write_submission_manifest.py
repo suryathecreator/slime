@@ -44,7 +44,7 @@ def main() -> None:
         ids = [str(row["job_id"]) for row in jobs]
         if any(not value.isdigit() for value in ids) or len(set(ids)) != len(ids):
             raise ValueError("submitted job IDs must be unique positive integers")
-        for previous, current in zip(jobs, jobs[1:], strict=True):
+        for previous, current in zip(jobs, jobs[1:]):
             if current["dependency"] != f"afterok:{previous['job_id']}":
                 raise ValueError("submitted chain is not strictly serial")
     gate = json.loads(args.upstream_gate.read_text(encoding="utf-8"))

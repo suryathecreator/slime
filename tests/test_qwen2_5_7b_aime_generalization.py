@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
+import sys
 from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
@@ -321,6 +323,54 @@ def test_submitter_is_strict_serial_revision_pinned_and_training_only() -> None:
     assert "REUSE_COMPLETE_RECOVERED_HF" in train
     assert "manifest_already_present" in train
     assert "Variant is already finalized; refusing" not in train
+
+
+def test_submitted_chain_manifest_runs_on_login_node_python(tmp_path: Path) -> None:
+    writer = EXPERIMENT / "write_submission_manifest.py"
+    writer_text = writer.read_text(encoding="utf-8")
+    assert "strict=True" not in writer_text
+
+    jobs_tsv = tmp_path / "jobs.tsv"
+    lines = ["name\tjob_id\tdependency\tscript\tvariant"]
+    for index in range(16):
+        job_id = str(900_000 + index)
+        dependency = "" if index == 0 else f"afterok:{900_000 + index - 1}"
+        lines.append(f"job_{index}\t{job_id}\t{dependency}\tjob.sbatch\t")
+    jobs_tsv.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    gate = tmp_path / "gate.json"
+    gate.write_text(
+        json.dumps({"controller_known": False, "job_id": "222947"}) + "\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "training_chain.json"
+    commit = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = f"{ROOT}{os.pathsep}{environment.get('PYTHONPATH', '')}"
+    subprocess.run(
+        [
+            sys.executable,
+            str(writer),
+            "--output",
+            str(output),
+            "--jobs-tsv",
+            str(jobs_tsv),
+            "--upstream-gate",
+            str(gate),
+            "--contract-hash",
+            "0123456789abcdef",
+            "--expected-commit",
+            commit,
+            "--repo-root",
+            str(ROOT),
+            "--mode",
+            "submitted",
+        ],
+        check=True,
+        env=environment,
+    )
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    assert manifest["mode"] == "submitted"
+    assert len(manifest["jobs_in_dependency_order"]) == 16
 
 
 def test_checkpoint_pruning_waits_for_rollout_state_and_torn_tracker_rolls_back(
