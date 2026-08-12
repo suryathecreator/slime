@@ -2,26 +2,28 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import shutil
 import sys
 from argparse import Namespace
 from pathlib import Path
 
 import pytest
-
 from examples.qwen3_8b_openr1_math220k_masked_sft_eval_handoff import (
     axolotl_math500_eval,
     build_result_bundle,
-    checkpoint_manifest as manifests,
+)
+from examples.qwen3_8b_openr1_math220k_masked_sft_eval_handoff import checkpoint_manifest as manifests
+from examples.qwen3_8b_openr1_math220k_masked_sft_eval_handoff import (
     import_result_bundle,
 )
-
 
 HANDOFF = Path(__file__).resolve().parents[1]
 EXAMPLES = HANDOFF.parent
 TWO_K = EXAMPLES / "qwen3_8b_openr1_math220k_masked_sft_2k"
+SFT_RUNNER = EXAMPLES / "qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch"
+CONTAINER_EXEC = EXAMPLES / "qwen3_8b_opd_tillicum/container_exec.sh"
 
 
 def test_checkpoint_identity_survives_a_path_change(tmp_path: Path) -> None:
@@ -63,6 +65,61 @@ def test_checkpoint_verification_fails_on_changed_weight(tmp_path: Path) -> None
         manifests.verify(manifest_path, checkpoint)
 
 
+def test_checkpoint_manifest_records_aime_continuation_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkpoint = tmp_path / "checkpoint"
+    checkpoint.mkdir()
+    (checkpoint / "config.json").write_text("{}\n")
+    (checkpoint / "model.safetensors").write_bytes(b"weights")
+    output = tmp_path / "manifest.json"
+    parent_identity = "a" * 64
+    argv = [
+        "checkpoint_manifest.py",
+        "record",
+        "--checkpoint",
+        str(checkpoint),
+        "--output",
+        str(output),
+        "--family",
+        "aime_generalization",
+        "--variant",
+        "random_mask_10",
+        "--final-iteration",
+        "46",
+        "--contract-hash",
+        "contract",
+        "--parent-checkpoint-manifest-sha256",
+        parent_identity,
+        "--fresh-optimizer",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    manifests.main()
+    value = json.loads(output.read_text())
+    assert value["family"] == "aime_generalization"
+    assert value["parent_checkpoint_manifest_sha256"] == parent_identity
+    assert value["fresh_optimizer"] is True
+
+    # Recording the same checkpoint and provenance remains idempotent.
+    manifests.main()
+
+
+def test_shared_sft_runner_guards_explicit_hf_initialization() -> None:
+    runner = SFT_RUNNER.read_text()
+    resume_branch = runner.index('if [[ -f "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]')
+    initial_branch = runner.index('elif [[ -n "${SFT_INITIAL_HF_DIR:-}" ]]')
+    assert resume_branch < initial_branch
+    assert 'CKPT_HF_CHECKPOINT="${STUDENT_HF_DIR}"' in runner
+    assert 'CKPT_HF_CHECKPOINT="${SFT_LOAD_DIR}"' in runner
+    assert '--hf-checkpoint "${CKPT_HF_CHECKPOINT}"' in runner
+    assert 'SFT_LOAD_KIND="initial_hf_weights"' in runner
+    assert "base_megatron_torch_dist_initial|initial_hf_weights)" in runner
+    assert "HF architecture differs from canonical" in runner
+    assert "HF index references an invalid, missing, or empty shard" in runner
+    assert "A fresh SFT optimizer will be initialized" in runner
+    assert "SFT_INITIAL_HF_DIR" in CONTAINER_EXEC.read_text()
+
+
 def test_inventory_covers_base_and_fourteen_trained_checkpoints() -> None:
     inventory = json.loads((HANDOFF / "checkpoint_sources.json").read_text())
     checkpoints = inventory["checkpoints"]
@@ -73,9 +130,7 @@ def test_inventory_covers_base_and_fourteen_trained_checkpoints() -> None:
         "40k_weighted_tau_0p20",
         "40k_unmasked",
     }
-    assert len(
-        [item for item in checkpoints if item["family"] == "2k"]
-    ) == 11
+    assert len([item for item in checkpoints if item["family"] == "2k"]) == 11
     assert all(item["source_checkpoint"].startswith("/gpfs/") for item in checkpoints)
     assert all(item["source_manifest"].startswith("/gpfs/") for item in checkpoints)
 
@@ -117,12 +172,8 @@ def test_one_h200_wrapper_keeps_exact_eval_policy() -> None:
 def test_available_axolotl_inventory_is_exactly_the_eleven_local_2k_runs() -> None:
     inventory = json.loads((HANDOFF / "available_eval_manifest.json").read_text())
     assert inventory["base_model"]["hf_repo"] == "Qwen/Qwen3-8B-Base"
-    assert inventory["base_model"]["revision"] == (
-        "49e3418fbbbca6ecbdf9608b4d22e5a407081db4"
-    )
-    assert inventory["base_model"]["tokenizer_files"] == (
-        axolotl_math500_eval.EXPECTED_BASE_TOKENIZER_FILES
-    )
+    assert inventory["base_model"]["revision"] == ("49e3418fbbbca6ecbdf9608b4d22e5a407081db4")
+    assert inventory["base_model"]["tokenizer_files"] == (axolotl_math500_eval.EXPECTED_BASE_TOKENIZER_FILES)
     assert inventory["axolotl"] == {
         "commit": "6b8f0e3314e3d162260cdc35d84741c3da163f30",
         "evaluator": "scripts/openr1_axolotl/evaluate_math_vllm.py",
@@ -134,14 +185,10 @@ def test_available_axolotl_inventory_is_exactly_the_eleven_local_2k_runs() -> No
         "layout": "contiguous",
         "problems_per_shard": 125,
     }
-    assert {item["variant"] for item in inventory["checkpoints"]} == (
-        axolotl_math500_eval.EXPECTED_VARIANTS
-    )
+    assert {item["variant"] for item in inventory["checkpoints"]} == (axolotl_math500_eval.EXPECTED_VARIANTS)
     assert len(inventory["checkpoints"]) == 11
     assert all(
-        item["model"].endswith(
-            f"/outputs/training/{item['variant']}/weights/iter_0000009"
-        )
+        item["model"].endswith(f"/outputs/training/{item['variant']}/weights/iter_0000009")
         for item in inventory["checkpoints"]
     )
 
@@ -157,7 +204,7 @@ def test_axolotl_worker_uses_direct_fast_checkpointable_path() -> None:
     assert "--max_num_seqs 8" in worker
     assert "--gpu_memory_utilization 0.92" in worker
     assert "--require_math_verify" in worker
-    assert 'path --field tokenizer' in worker
+    assert "path --field tokenizer" in worker
     assert '--model_name "$TOKENIZER_DIR"' in worker
     assert "check-preflight" in worker
     assert "repair-shard" in worker
@@ -169,9 +216,7 @@ def test_axolotl_worker_uses_direct_fast_checkpointable_path() -> None:
     assert "--array=0-3" in submitter
     assert "--array=0-3%" not in submitter
     assert policy["engine"]["enforce_eager"] is False
-    assert policy["persistence"]["layout"] == (
-        "four_contiguous_125_problem_shards"
-    )
+    assert policy["persistence"]["layout"] == ("four_contiguous_125_problem_shards")
 
 
 def test_repair_shard_retains_only_paired_completed_rows(tmp_path: Path) -> None:
@@ -187,37 +232,25 @@ def test_repair_shard_retains_only_paired_completed_rows(tmp_path: Path) -> None
         for index in range(125)
     ]
     eval_file.write_text(axolotl_math500_eval.jsonl_text(expected))
-    predictions = [
-        {"problem_id": f"p{index:03d}", "value": f"pred-{index}"}
-        for index in range(5)
-    ]
+    predictions = [{"problem_id": f"p{index:03d}", "value": f"pred-{index}"} for index in range(5)]
     predictions.append({"problem_id": "not-in-this-shard", "value": "ignore"})
-    raw = [
-        {"problem_id": f"p{index:03d}", "value": f"raw-{index}"}
-        for index in range(3)
-    ]
+    raw = [{"problem_id": f"p{index:03d}", "value": f"raw-{index}"} for index in range(3)]
     raw.append({"problem_id": "p004", "value": "orphan"})
-    (output / "predictions.jsonl").write_text(
-        axolotl_math500_eval.jsonl_text(predictions)
-    )
-    (output / "raw_generations.jsonl").write_text(
-        axolotl_math500_eval.jsonl_text(raw)
-    )
-    axolotl_math500_eval.repair_shard(
-        Namespace(eval_file=str(eval_file), output_dir=str(output))
-    )
-    assert [
-        row["problem_id"]
-        for row in axolotl_math500_eval.read_jsonl(
-            output / "predictions.jsonl"
-        )
-    ] == ["p000", "p001", "p002", "p004"]
-    assert [
-        row["problem_id"]
-        for row in axolotl_math500_eval.read_jsonl(
-            output / "raw_generations.jsonl"
-        )
-    ] == ["p000", "p001", "p002", "p004"]
+    (output / "predictions.jsonl").write_text(axolotl_math500_eval.jsonl_text(predictions))
+    (output / "raw_generations.jsonl").write_text(axolotl_math500_eval.jsonl_text(raw))
+    axolotl_math500_eval.repair_shard(Namespace(eval_file=str(eval_file), output_dir=str(output)))
+    assert [row["problem_id"] for row in axolotl_math500_eval.read_jsonl(output / "predictions.jsonl")] == [
+        "p000",
+        "p001",
+        "p002",
+        "p004",
+    ]
+    assert [row["problem_id"] for row in axolotl_math500_eval.read_jsonl(output / "raw_generations.jsonl")] == [
+        "p000",
+        "p001",
+        "p002",
+        "p004",
+    ]
 
 
 def test_native_shard_validator_recomputes_axolotl_metrics(
@@ -258,16 +291,10 @@ def test_native_shard_validator_recomputes_axolotl_metrics(
     ]
     correct = sum(row["is_correct"] for row in predictions)
     cap_hits = sum(row["cap_hit"] for row in predictions)
-    parse_failures = sum(
-        row["predicted_answer"] is None for row in predictions
-    )
+    parse_failures = sum(row["predicted_answer"] is None for row in predictions)
     tokens = sum(row["generated_token_count"] for row in predictions)
-    (output / "predictions.jsonl").write_text(
-        axolotl_math500_eval.jsonl_text(predictions)
-    )
-    (output / "raw_generations.jsonl").write_text(
-        axolotl_math500_eval.jsonl_text(raw)
-    )
+    (output / "predictions.jsonl").write_text(axolotl_math500_eval.jsonl_text(predictions))
+    (output / "raw_generations.jsonl").write_text(axolotl_math500_eval.jsonl_text(raw))
     (output / "metrics.json").write_text(
         json.dumps(
             {
@@ -284,20 +311,16 @@ def test_native_shard_validator_recomputes_axolotl_metrics(
             }
         )
     )
-    validated_predictions, validated_raw, _ = (
-        axolotl_math500_eval.validate_native_shard(
-            eval_file=eval_file,
-            output_dir=output,
-            variant="correct_only",
-        )
+    validated_predictions, validated_raw, _ = axolotl_math500_eval.validate_native_shard(
+        eval_file=eval_file,
+        output_dir=output,
+        variant="correct_only",
     )
     assert len(validated_predictions) == 125
     assert len(validated_raw) == 125
 
 
-def test_bundle_round_trip_writes_compact_repo_result(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_bundle_round_trip_writes_compact_repo_result(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     checkpoint = tmp_path / "checkpoint"
     checkpoint.mkdir()
     (checkpoint / "config.json").write_text("{}\n")
@@ -342,19 +365,12 @@ def test_bundle_round_trip_writes_compact_repo_result(
         "safety_margin": 64,
         "scorer": "math500_strict_boxed_scorer_v3",
         "response_budget_mode": (
-            "min(configured_max_new_tokens, target_context - "
-            "rendered_prompt_tokens - safety_margin)"
+            "min(configured_max_new_tokens, target_context - " "rendered_prompt_tokens - safety_margin)"
         ),
-        "engine": {
-            key: value
-            for key, value in frozen_policy["engine"].items()
-            if key != "vllm_version"
-        },
+        "engine": {key: value for key, value in frozen_policy["engine"].items() if key != "vllm_version"},
     }
     policy_sha = hashlib.sha256(
-        json.dumps(
-            generated_policy, sort_keys=True, separators=(",", ":")
-        ).encode()
+        json.dumps(generated_policy, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     raw_artifacts = []
     per_problem = []
@@ -406,9 +422,7 @@ def test_bundle_round_trip_writes_compact_repo_result(
     }
     summary_path = eval_dir / "summary.json"
     summary_path.write_text(json.dumps(summary, sort_keys=True) + "\n")
-    (eval_dir / "summary.sha256").write_text(
-        build_result_bundle.sha256_file(summary_path) + "\n"
-    )
+    (eval_dir / "summary.sha256").write_text(build_result_bundle.sha256_file(summary_path) + "\n")
     bundle = eval_dir / "bundle"
     monkeypatch.setattr(
         sys,
@@ -448,12 +462,7 @@ def test_bundle_round_trip_writes_compact_repo_result(
         ],
     )
     import_result_bundle.main()
-    imported = (
-        fake_repo
-        / "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_70"
-    )
+    imported = fake_repo / "examples/qwen3_8b_openr1_math220k_masked_sft_2k/results/random_mask_70"
     assert json.loads((imported / "RESULTS.json").read_text())["correct"] == 250
-    assert json.loads((imported / "PROVENANCE.json").read_text())[
-        "raw_problem_count"
-    ] == 500
+    assert json.loads((imported / "PROVENANCE.json").read_text())["raw_problem_count"] == 500
     assert not (imported / "problems").exists()

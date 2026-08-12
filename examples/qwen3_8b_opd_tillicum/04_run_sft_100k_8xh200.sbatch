@@ -33,6 +33,14 @@ export SFT_WEIGHT_DECAY="${SFT_WEIGHT_DECAY:-0.1}"
 export SFT_ADAM_BETA1="${SFT_ADAM_BETA1:-0.9}"
 export SFT_ADAM_BETA2="${SFT_ADAM_BETA2:-0.95}"
 export SFT_ADAM_EPS="${SFT_ADAM_EPS:-1.0e-8}"
+export SFT_TRAIN_ENTRYPOINT="${SFT_TRAIN_ENTRYPOINT:-train_async.py}"
+case "${SFT_TRAIN_ENTRYPOINT}" in
+  train.py|train_async.py) ;;
+  *)
+    echo "SFT_TRAIN_ENTRYPOINT must be train.py or train_async.py; got ${SFT_TRAIN_ENTRYPOINT}" >&2
+    exit 2
+    ;;
+esac
 
 mkdir -p "${SLURM_LOG_DIR}" "${SFT_SAVE_DIR}" "${SFT_HF_SNAPSHOT_DIR}" "${SFT_DETAILS_DIR}" "${CHECKPOINT_REPORT_DIR}"
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
@@ -68,6 +76,7 @@ echo "SFT sequence length / gradient clip: ${SFT_SEQ_LENGTH}/${SFT_GRAD_CLIP}"
 echo "SFT log probs chunk size: ${SFT_LOG_PROBS_CHUNK_SIZE}"
 echo "SFT optimizer CPU offload: ${SFT_OPTIMIZER_CPU_OFFLOAD}"
 echo "SFT recompute loss function: ${SFT_RECOMPUTE_LOSS_FUNCTION}"
+echo "SFT train entrypoint: ${SFT_TRAIN_ENTRYPOINT}"
 
 checkpoint_start_pruner sft "${SFT_SAVE_DIR}" "${CHECKPOINT_PRUNE_INTERVAL_SECONDS}" "${CHECKPOINT_REPORT_DIR}"
 cleanup() {
@@ -138,10 +147,94 @@ if [[ "${SFT_ZERO_STAGE}" != "0" && "${SFT_DP}" -lt 2 ]]; then
 fi
 echo "Resolved SFT DP=${SFT_DP}"
 
+hf_architecture_signature() {
+  local config_path="$1"
+  python3 -c "import json, sys; value = json.load(open(sys.argv[1], encoding=\"utf-8\")); keys = (\"model_type\", \"hidden_size\", \"intermediate_size\", \"num_hidden_layers\", \"num_attention_heads\", \"num_key_value_heads\", \"vocab_size\", \"tie_word_embeddings\"); print(json.dumps({key: value.get(key) for key in keys}, sort_keys=True, separators=(\",\", \":\")))" \
+    "${config_path}"
+}
+
+validate_hf_load_dir() {
+  local label="$1"
+  local load_dir="$2"
+  local index_path=""
+  local shard_name
+  local initial_signature
+  local canonical_signature
+  local -a indexed_shards=()
+  local -a weight_files=()
+
+  if [[ ! -d "${load_dir}" ]]; then
+    echo "${label} HF load dir is missing: ${load_dir}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${load_dir}/config.json" ]]; then
+    echo "${label} HF load dir is missing config.json: ${load_dir}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${STUDENT_HF_DIR}/config.json" ]]; then
+    echo "Canonical SFT HF dir is missing config.json: ${STUDENT_HF_DIR}" >&2
+    exit 1
+  fi
+  initial_signature="$(hf_architecture_signature "${load_dir}/config.json")"
+  canonical_signature="$(hf_architecture_signature "${STUDENT_HF_DIR}/config.json")"
+  if [[ "${initial_signature}" != "${canonical_signature}" ]]; then
+    echo "${label} HF architecture differs from canonical ${STUDENT_HF_DIR}" >&2
+    echo "initial=${initial_signature}" >&2
+    echo "canonical=${canonical_signature}" >&2
+    exit 1
+  fi
+
+  shopt -s nullglob
+  weight_files=("${load_dir}"/model*.safetensors "${load_dir}"/pytorch_model*.bin)
+  shopt -u nullglob
+  if [[ "${#weight_files[@]}" -eq 0 ]]; then
+    echo "${label} HF load dir is missing model weight files: ${load_dir}" >&2
+    exit 1
+  fi
+  for shard_name in "${weight_files[@]}"; do
+    if [[ ! -s "${shard_name}" ]]; then
+      echo "${label} HF weight file is missing or empty: ${shard_name}" >&2
+      exit 1
+    fi
+  done
+
+  if [[ -f "${load_dir}/model.safetensors.index.json" ]]; then
+    index_path="${load_dir}/model.safetensors.index.json"
+  elif [[ -f "${load_dir}/pytorch_model.bin.index.json" ]]; then
+    index_path="${load_dir}/pytorch_model.bin.index.json"
+  fi
+  if [[ -n "${index_path}" ]]; then
+    mapfile -t indexed_shards < <(
+      python3 -c "import json, sys; value = json.load(open(sys.argv[1], encoding=\"utf-8\")); weight_map = value.get(\"weight_map\"); assert isinstance(weight_map, dict) and weight_map, \"HF index has no weight_map\"; print(\"\\n\".join(sorted(set(map(str, weight_map.values())))))" \
+        "${index_path}"
+    )
+    if [[ "${#indexed_shards[@]}" -eq 0 ]]; then
+      echo "${label} HF index has no materialized weight shards: ${index_path}" >&2
+      exit 1
+    fi
+    for shard_name in "${indexed_shards[@]}"; do
+      if [[ "${shard_name}" == /* || "${shard_name}" == *".."* || ! -s "${load_dir}/${shard_name}" ]]; then
+        echo "${label} HF index references an invalid, missing, or empty shard: ${shard_name}" >&2
+        exit 1
+      fi
+    done
+  fi
+  echo "${label} validated HF load dir: ${load_dir} weights=${#weight_files[@]}"
+}
+
+CKPT_HF_CHECKPOINT="${STUDENT_HF_DIR}"
 SFT_LOAD_DIR="${SFT_SAVE_DIR}"
 SFT_LOAD_KIND="sft_resume"
 if [[ -f "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt" ]]; then
   echo "Resuming SFT from full optimizer checkpoint ${SFT_LOAD_DIR}"
+elif [[ -n "${SFT_INITIAL_HF_DIR:-}" ]]; then
+  SFT_LOAD_DIR="${SFT_INITIAL_HF_DIR}"
+  SFT_LOAD_KIND="initial_hf_weights"
+  CKPT_HF_CHECKPOINT="${SFT_LOAD_DIR}"
+  validate_hf_load_dir "${SFT_LOAD_KIND}" "${SFT_LOAD_DIR}"
+  echo "Starting SFT from explicit HF weights snapshot ${SFT_LOAD_DIR}"
+  echo "Canonical SFT tokenizer/model reference remains ${STUDENT_HF_DIR}"
+  echo "A fresh SFT optimizer will be initialized for this HF starting checkpoint."
 else
   if [[ "${SFT_ZERO_STAGE}" == "2" || "${SFT_ZERO_STAGE}" == "3" ]]; then
     # Retained only for legacy FSDP/ZeRO smoke debugging. The cleaned chain now
@@ -159,7 +252,7 @@ fi
 
 CKPT_ARGS=(
   --megatron-to-hf-mode bridge
-  --hf-checkpoint "${STUDENT_HF_DIR}"
+  --hf-checkpoint "${CKPT_HF_CHECKPOINT}"
   --ref-load "${SFT_LOAD_DIR}"
   --load "${SFT_LOAD_DIR}"
   --save "${SFT_SAVE_DIR}"
@@ -168,6 +261,7 @@ CKPT_ARGS=(
 )
 echo "SFT load kind: ${SFT_LOAD_KIND}"
 echo "SFT load dir: ${SFT_LOAD_DIR}"
+echo "SFT HF bridge checkpoint: ${CKPT_HF_CHECKPOINT}"
 
 DP_OPT_ARGS=()
 case "${SFT_ZERO_STAGE}" in
@@ -221,12 +315,14 @@ else
   SFT_ARGS+=(--num-epoch "${SFT_NUM_EPOCH}")
   echo "SFT rollout schedule: inferred from num_epoch=${SFT_NUM_EPOCH}"
 fi
-if [[ "${SFT_LOAD_KIND}" == "base_megatron_torch_dist_initial" ]]; then
-  # Converted base checkpoints carry checkpoint iteration 0, but no optimizer
-  # step has run. Override the inferred next actor rollout so fresh SFT
-  # executes rollout 0 instead of skipping it.
-  SFT_ARGS+=(--start-rollout-id 0)
-fi
+case "${SFT_LOAD_KIND}" in
+  base_megatron_torch_dist_initial|initial_hf_weights)
+    # Converted base checkpoints carry checkpoint iteration 0, and HF
+    # continuations load weights without optimizer state. Both are fresh SFT
+    # schedules and must execute rollout 0 instead of skipping it.
+    SFT_ARGS+=(--start-rollout-id 0)
+    ;;
+esac
 
 PERF_ARGS=(
   --tensor-model-parallel-size "${SFT_TENSOR_MODEL_PARALLEL_SIZE}"
@@ -338,7 +434,7 @@ trap "ray stop --force >/dev/null 2>&1 || true" EXIT
 
 SLIME_SGLANG_PATCH_SITE=0 ray job submit --address="http://127.0.0.1:8265" \
   --runtime-env-json="${RUNTIME_ENV_JSON}" \
-  -- python3 train_async.py \
+  -- python3 "${SFT_TRAIN_ENTRYPOINT}" \
   --actor-num-nodes 1 \
   --actor-num-gpus-per-node "${SFT_ACTOR_GPUS}" \
   "${MODEL_ARGS[@]}" \

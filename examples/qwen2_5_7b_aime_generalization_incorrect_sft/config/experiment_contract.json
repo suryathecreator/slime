@@ -1,0 +1,218 @@
+{
+  "artifact_schema_version": 1,
+  "base_model": {
+    "checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+    "hf_repo": "Qwen/Qwen2.5-7B",
+    "revision": "d149729398750b98c0af14eb82c78cfe92750796",
+    "tokenizer_files": {
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "c91efca15ceff6e9ee9424db58a6f59cd41294e550a86cbd07e3c1fb500b34f9"
+    }
+  },
+  "evaluation_handoff": {
+    "datasets": [
+      "held_in_400",
+      "held_out_problem_400"
+    ],
+    "generations_per_problem": 3,
+    "location": "Hyak_after_rsync",
+    "submits_evaluation_jobs": false
+  },
+  "family": "qwen2_5_7b_aime_generalization_incorrect_sft",
+  "formatting": {
+    "aime_assistant": "<think>\\n{reasoning_content.strip()}\\n</think>\\n\\n{content.strip()}",
+    "aime_user": "dataset_prompt_verbatim",
+    "chat_template": "Qwen2.5 tokenizer apply_chat_template over one user message with add_generation_prompt=true; tokenizer default system message is inserted",
+    "openr1_assistant": "source generation preserved verbatim after structural validation",
+    "openr1_user": "Please reason step by step, and put your final answer within \\boxed{}.\\n\\nProblem:\\n{problem}",
+    "suffix": "<|im_end|>\\n",
+    "suffix_weights": [
+      1.0,
+      0.0
+    ]
+  },
+  "masking": {
+    "eligible_tokens": "ordinary assistant tokens on incorrect OpenR1 traces only",
+    "probabilities": [
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9
+    ],
+    "protected_tokens": "all tokenizer added/control tokens, literal <think> and </think> pieces, and <|im_end|> remain exact weight 1",
+    "seed": 42,
+    "stable_draw": "first_64_bits_be(sha256('{seed}\\0{trace_id}\\0{assistant_token_index}'))/2^64",
+    "threshold_policy": "mask iff stable_draw < probability; therefore lower-rate masks are exact subsets of higher-rate masks"
+  },
+  "selection": {
+    "aime": {
+      "dataset": {
+        "hf_repo": "sxiong/AIME-trajectory",
+        "revision": "7fc7a89aaae52d114a7a1819088e048a7336cc02",
+        "source_jsonl_sha256": "8f1ea33b8c209479a7bf84bc6838a7cadb9b53b37906d0caf2f46cecf1b00515",
+        "split": "train"
+      },
+      "excluded_filename_only_image_problem_ids": [
+        "1983-12",
+        "1985-15",
+        "1985-4",
+        "1985-6",
+        "1987-15",
+        "1987-9",
+        "1990-14",
+        "1992-12",
+        "1993-9",
+        "1995-1",
+        "1995-9",
+        "1999-4",
+        "2002-II-4",
+        "2007-I-10"
+      ],
+      "excluded_year": 2024,
+      "expected_eligible_problems": 861,
+      "held_in_problems": 400,
+      "held_out_problems": 400,
+      "problem_split": "random.Random(42).shuffle(sorted(eligible_problem_ids)); first 400 held-in, next 400 held-out, remaining 61 unused",
+      "seed": 42,
+      "selected_trajectory": "minimum lexicographic (sha256('aime-trajectory-selection-v1\\0seed=42\\0{id}'), id) among structurally valid correct rows that render to <=32768 tokens",
+      "stage1_instances": "seven copies of every selected held-in trace plus an eighth copy for the 200 problem IDs with minimum lexicographic (sha256('42\\0aime_extra_copy\\0{problem_id}'), problem_id)",
+      "stage1_rows": 3000,
+      "unused_problems": 61,
+      "source_audit": {
+        "all_content_last_boxed_integer_matches_answer": true,
+        "all_correct": true,
+        "all_reasoning_content_nonnull_nonempty": true,
+        "exact_fields": [
+          "answer",
+          "content",
+          "correct",
+          "id",
+          "model",
+          "part",
+          "problem_id",
+          "problem_number",
+          "prompt",
+          "question",
+          "reasoning_content",
+          "year"
+        ],
+        "max_year": 2023,
+        "min_year": 1983,
+        "problems": 875,
+        "prompt_is_exact_question_plus_suffix": true,
+        "rows": 1258
+      },
+      "source_render_audit": {
+        "eligible_problems": 861,
+        "eligible_rows": 1227,
+        "longest_eligible_total_tokens": 32246,
+        "max_problem_min_total_tokens": 31901,
+        "over_32768_rows": 10
+      }
+    },
+    "openr1": {
+      "correct_problem_selection": "minimum 1500 lexicographic (sha256('42\\0openr1_correct_problem\\0{problem_id}'), problem_id) after excluding selected wrong problem IDs",
+      "correct_rows": 1500,
+      "dataset": {
+        "config": "default",
+        "hf_repo": "open-r1/OpenR1-Math-220k",
+        "revision": "dc748648036c1ed619b020e056dc4b603eb39817",
+        "split": "train"
+      },
+      "one_trace_per_unique_problem": true,
+      "problem_sets_disjoint": true,
+      "aime_question_exclusion": {
+        "canonicalization": "SHA256(UTF-8 of whitespace-collapsed exact question text)",
+        "held_in_overlaps": 41,
+        "held_out_problem_overlaps": 45,
+        "source_overlaps": 94,
+        "unused_overlaps": 8,
+        "selected_overlaps_allowed": 0
+      },
+      "seed": 42,
+      "source_id_audit": {
+        "duplicate_raw_id_values": 62,
+        "duplicate_valid_raw_id_values": 60,
+        "invalid_raw_id_rows": 664,
+        "invalid_values": "empty, none, null, nan, and [] are retained only as raw provenance and never define identity",
+        "raw_unique_id_values": 93011,
+        "rows": 93733,
+        "semantic_problem_id_policy": "SHA256(exact validated UTF-8 problem text)",
+        "unique_problem_texts": 93733
+      },
+      "trace_selection": "for each source-unique semantic problem identity, minimum lexicographic (sha256('42\\0openr1_{correctness}_trajectory\\0{semantic_problem_sha256}\\0{generation_index}'), generation_index) among complete structurally valid traces that render to <=32768 tokens",
+      "wrong_problem_selection": "minimum 1500 lexicographic (sha256('42\\0openr1_wrong_problem\\0{problem_id}'), problem_id)",
+      "wrong_rows": 1500
+    }
+  },
+  "submission": {
+    "external_afterok_job": "222947",
+    "external_chain_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/manifests/training_chain.json",
+    "external_chain_manifest_sha256": "49550507d9d0d9d6c67ce259a5aa8d2521acf1e4d1cb645f6a27e274dd1464dc",
+    "maximum_concurrent_gpus": 4,
+    "policy": "strict linear afterok chain",
+    "runtime_repo_policy": "every job requires the exact submit-time 40-hex Git commit and an empty tracked/untracked worktree before any experiment work",
+    "submits_transfer_jobs": false
+  },
+  "supervision": {
+    "assistant_and_im_end": "weight 1 before variant masking",
+    "no_synthetic_endoftext": true,
+    "prompt": "context only, weight 0",
+    "template_newline_after_im_end": "weight 0"
+  },
+  "training": {
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.95,
+    "adam_epsilon": 1e-8,
+    "bf16": true,
+    "child_final_iteration": 93,
+    "child_optimizer_updates": 94,
+    "children_initialize_from": "aime_correct_3000 final HF weights with a fresh optimizer and fresh LR schedule",
+    "context_parallel_size": 1,
+    "data_parallel_size": 2,
+    "epochs_interpretation": "stage1 exposes 12032 rows (approximately four epochs); every child receives 94 updates, so wrong variants expose 6016 rows and correct-only exposes 6016 rows",
+    "full_parameter_sft": true,
+    "global_batch_size": 64,
+    "gradient_clip_norm": 1.0,
+    "learning_rate": 5e-6,
+    "lr_decay_style": "cosine",
+    "max_sequence_length": 32768,
+    "max_tokens_per_gpu": 16384,
+    "min_learning_rate": 1e-6,
+    "optimizer": "AdamW",
+    "optimizer_cpu_offload": true,
+    "optimizer_checkpoint_interval_updates": 24,
+    "optimizer_checkpoint_retention": "latest complete torch_dist optimizer plus matching rollout dataset state; background pruning",
+    "pipeline_parallel_size": 1,
+    "recompute_loss_function": true,
+    "rollout_batch_size": 64,
+    "stage1_final_iteration": 187,
+    "stage1_optimizer_updates": 188,
+    "hf_snapshot_retention": "periodic HF bridge snapshots are pruned during training and only the contracted final iteration is handed off",
+    "tensor_parallel_size": 2,
+    "train_entrypoint": "synchronous train.py so checkpointed rollout-dataset state is not one prefetched batch ahead",
+    "warmup_fraction": 0.03,
+    "warmup_init": 0.0,
+    "weight_decay": 0.0001,
+    "zero_stage": 1
+  },
+  "variants": [
+    "aime_correct_3000",
+    "continue_wrong_unmasked",
+    "continue_random_mask_10",
+    "continue_random_mask_20",
+    "continue_random_mask_30",
+    "continue_random_mask_40",
+    "continue_random_mask_50",
+    "continue_random_mask_60",
+    "continue_random_mask_70",
+    "continue_random_mask_80",
+    "continue_random_mask_90",
+    "continue_correct_only_1500"
+  ]
+}

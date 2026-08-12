@@ -13,7 +13,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 SCHEMA_VERSION = 1
 IDENTITY_SCHEME = "hf_checkpoint_all_regular_files_v1"
 
@@ -30,9 +29,7 @@ def atomic_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            "w", encoding="utf-8", dir=path.parent, delete=False
-        ) as handle:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
             json.dump(value, handle, indent=2, sort_keys=True)
             handle.write("\n")
             handle.flush()
@@ -57,9 +54,7 @@ def checkpoint_files(checkpoint: Path) -> list[dict[str, Any]]:
     if not paths:
         raise RuntimeError(f"checkpoint has no files: {checkpoint}")
     if any(path.is_symlink() for path in checkpoint.rglob("*")):
-        raise RuntimeError(
-            "checkpoint manifests require materialized files, not symlinks"
-        )
+        raise RuntimeError("checkpoint manifests require materialized files, not symlinks")
     files = [
         {
             "name": path.relative_to(checkpoint).as_posix(),
@@ -68,29 +63,45 @@ def checkpoint_files(checkpoint: Path) -> list[dict[str, Any]]:
         }
         for path in paths
     ]
-    weight_files = [
-        item
-        for item in files
-        if item["name"].endswith((".safetensors", ".bin"))
-    ]
+    weight_files = [item for item in files if item["name"].endswith((".safetensors", ".bin"))]
     if not weight_files:
         raise RuntimeError(f"checkpoint has no model weight files: {checkpoint}")
     return files
 
 
 def content_identity(files: list[dict[str, Any]]) -> str:
-    canonical = json.dumps(
-        files, sort_keys=True, separators=(",", ":")
-    ).encode()
+    canonical = json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(canonical).hexdigest()
 
 
 def git_commit(repo_root: Path | None) -> str | None:
     if repo_root is None:
         return None
-    return subprocess.check_output(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD"], text=True
-    ).strip()
+    return subprocess.check_output(["git", "-C", str(repo_root), "rev-parse", "HEAD"], text=True).strip()
+
+
+def requested_continuation_provenance(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    parent_identity = getattr(args, "parent_checkpoint_manifest_sha256", None)
+    fresh_optimizer = getattr(args, "fresh_optimizer", None)
+    if (parent_identity is None) != (fresh_optimizer is None):
+        raise ValueError(
+            "--parent-checkpoint-manifest-sha256 and "
+            "--fresh-optimizer/--no-fresh-optimizer must be provided together"
+        )
+    if parent_identity is None:
+        return {}
+    if (
+        not isinstance(parent_identity, str)
+        or len(parent_identity) != 64
+        or any(character not in "0123456789abcdef" for character in parent_identity)
+    ):
+        raise ValueError("--parent-checkpoint-manifest-sha256 must be a lowercase 64-character SHA-256")
+    return {
+        "fresh_optimizer": fresh_optimizer,
+        "parent_checkpoint_manifest_sha256": parent_identity,
+    }
 
 
 def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
@@ -106,11 +117,10 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "final_iteration": args.final_iteration,
         "full_sft": args.full_sft,
         "identity_scheme": IDENTITY_SCHEME,
-        "repo_commit": git_commit(
-            Path(args.repo_root).resolve() if args.repo_root else None
-        ),
+        "repo_commit": git_commit(Path(args.repo_root).resolve() if args.repo_root else None),
         "source_checkpoint": str(checkpoint),
         "variant": args.variant,
+        **requested_continuation_provenance(args),
     }
 
 
@@ -127,6 +137,20 @@ def validate_manifest(value: dict[str, Any]) -> None:
     expected = content_identity(files)
     if value.get("checkpoint_manifest_sha256") != expected:
         raise RuntimeError("checkpoint manifest content identity mismatch")
+    has_parent = "parent_checkpoint_manifest_sha256" in value
+    has_fresh_optimizer = "fresh_optimizer" in value
+    if has_parent != has_fresh_optimizer:
+        raise RuntimeError("checkpoint continuation provenance must contain both parent identity and optimizer mode")
+    if has_parent:
+        parent_identity = value["parent_checkpoint_manifest_sha256"]
+        if (
+            not isinstance(parent_identity, str)
+            or len(parent_identity) != 64
+            or any(character not in "0123456789abcdef" for character in parent_identity)
+        ):
+            raise RuntimeError("checkpoint parent identity is not a canonical SHA-256")
+        if not isinstance(value["fresh_optimizer"], bool):
+            raise RuntimeError("checkpoint fresh_optimizer provenance is not boolean")
 
 
 def verify(manifest_path: Path, checkpoint: Path) -> str:
@@ -138,11 +162,7 @@ def verify(manifest_path: Path, checkpoint: Path) -> str:
         actual = {item["name"]: item for item in actual_files}
         missing = sorted(set(expected) - set(actual))
         extra = sorted(set(actual) - set(expected))
-        changed = sorted(
-            name
-            for name in set(expected) & set(actual)
-            if expected[name] != actual[name]
-        )
+        changed = sorted(name for name in set(expected) & set(actual) if expected[name] != actual[name])
         raise RuntimeError(
             "checkpoint copy differs from manifest: "
             f"missing={missing[:20]} extra={extra[:20]} changed={changed[:20]}"
@@ -160,11 +180,21 @@ def parse_args() -> argparse.Namespace:
     record = subparsers.add_parser("record")
     record.add_argument("--checkpoint", required=True)
     record.add_argument("--output", required=True)
-    record.add_argument("--family", choices=["shared", "40k", "2k"], required=True)
+    record.add_argument(
+        "--family",
+        choices=["shared", "40k", "2k", "aime_generalization"],
+        required=True,
+    )
     record.add_argument("--variant", required=True)
     record.add_argument("--final-iteration", type=int)
     record.add_argument("--contract-hash")
     record.add_argument("--repo-root")
+    record.add_argument("--parent-checkpoint-manifest-sha256")
+    record.add_argument(
+        "--fresh-optimizer",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
     record.add_argument(
         "--full-sft",
         action=argparse.BooleanOptionalAction,
@@ -189,9 +219,7 @@ def main() -> None:
             validate_manifest(existing)
             actual = checkpoint_files(Path(args.checkpoint))
             if existing["files"] != actual:
-                raise RuntimeError(
-                    f"refusing to overwrite changed checkpoint manifest: {output}"
-                )
+                raise RuntimeError(f"refusing to overwrite changed checkpoint manifest: {output}")
             expected_metadata = {
                 "contract_hash": args.contract_hash,
                 "family": args.family,
@@ -199,6 +227,7 @@ def main() -> None:
                 "full_sft": args.full_sft,
                 "variant": args.variant,
             }
+            expected_metadata.update(requested_continuation_provenance(args))
             for key, expected in expected_metadata.items():
                 if existing.get(key) != expected:
                     raise RuntimeError(

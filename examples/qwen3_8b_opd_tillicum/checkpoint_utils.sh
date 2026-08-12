@@ -26,6 +26,29 @@ checkpoint_is_complete() {
   [[ -d "${checkpoint_dir}" && -f "${checkpoint_dir}/.metadata" ]]
 }
 
+checkpoint_highest_durable_iteration() {
+  local save_dir="$1"
+  local upper_bound="$2"
+  [[ "${upper_bound}" =~ ^[0-9]+$ ]] || return 1
+
+  local directory name raw_iteration iteration best=""
+  while IFS= read -r directory; do
+    name="${directory##*/}"
+    [[ "${name}" =~ ^iter_([0-9]+)$ ]] || continue
+    raw_iteration="${BASH_REMATCH[1]}"
+    iteration=$((10#${raw_iteration}))
+    (( iteration <= upper_bound )) || continue
+    [[ -s "${directory}/.metadata" ]] || continue
+    [[ -s "${save_dir}/rollout/global_dataset_state_dict_${iteration}.pt" ]] || continue
+    if [[ -z "${best}" ]] || (( iteration > best )); then
+      best="${iteration}"
+    fi
+  done < <(find "${save_dir}" -mindepth 1 -maxdepth 1 -type d -name 'iter_*' -print)
+
+  [[ -n "${best}" ]] || return 1
+  printf "%s\n" "${best}"
+}
+
 checkpoint_prune_old() {
   local stage="$1"
   local save_dir="$2"
@@ -45,6 +68,20 @@ checkpoint_prune_old() {
     fi
     echo "CHECKPOINT_PRUNE_WAIT stage=${stage} latest_incomplete=${latest_dir}"
     return 0
+  fi
+
+  if [[ "${CHECKPOINT_REQUIRE_ROLLOUT_STATE:-0}" == "1" ]]; then
+    local latest_iteration rollout_state
+    latest_iteration="$(checkpoint_latest_iteration "${save_dir}")" || return 0
+    rollout_state="${save_dir}/rollout/global_dataset_state_dict_${latest_iteration}.pt"
+    if [[ ! -s "${rollout_state}" ]]; then
+      if [[ "${mode}" == "final" ]]; then
+        echo "CHECKPOINT_PRUNE_FAIL stage=${stage} matching_rollout_state_missing=${rollout_state}" >&2
+        return 1
+      fi
+      echo "CHECKPOINT_PRUNE_WAIT stage=${stage} matching_rollout_state_missing=${rollout_state}"
+      return 0
+    fi
   fi
 
   local dir

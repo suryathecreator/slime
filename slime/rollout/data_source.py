@@ -2,6 +2,7 @@ import abc
 import copy
 import logging
 import os
+import tempfile
 from pathlib import Path
 
 import torch
@@ -132,8 +133,29 @@ class RolloutDataSource(DataSource):
             "metadata": self.metadata,
         }
         path = os.path.join(self.args.save, f"rollout/global_dataset_state_dict_{rollout_id}.pt")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        torch.save(state_dict, path)
+        directory = os.path.dirname(path)
+        os.makedirs(directory, exist_ok=True)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w+b",
+                dir=directory,
+                prefix=f".{os.path.basename(path)}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary_file:
+                temporary_path = temporary_file.name
+                torch.save(state_dict, temporary_file)
+                temporary_file.flush()
+                os.fsync(temporary_file.fileno())
+            os.replace(temporary_path, path)
+            temporary_path = None
+        finally:
+            if temporary_path is not None:
+                try:
+                    os.unlink(temporary_path)
+                except FileNotFoundError:
+                    pass
 
     def load(self, rollout_id=None):
         if not self.args.rollout_global_dataset:
