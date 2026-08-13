@@ -1,0 +1,9 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/outputs/training/aime_correct_3000/weights/iter_0000187",
+  "contract_hash": "ded3390ab073b15f",
+  "manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/aime_correct_3000.json",
+  "manifest_file_sha256": "79ca7e571301df6fd0dc96d7672a48f2cf95eca6dc7eee7dc65bb664c33dd05b",
+  "parent_checkpoint_manifest_sha256": "54597d3e5677ce78aaf2f4cfa9e39277b3310a039bb1ae7eaad3084c20902f09",
+  "verification": "all_regular_checkpoint_files_sha256_matched_manifest"
+}

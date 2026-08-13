@@ -1,0 +1,67 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "8e64916d0a25fa81a0ba7df99d5f67c6348abbcc0b7a3332b8e982e2c1c9e8d9",
+  "contract_hash": "ded3390ab073b15f",
+  "created_at": "2026-08-12T18:41:48.357046+00:00",
+  "family": "aime_generalization",
+  "files": [
+    {
+      "bytes": 2427,
+      "name": "chat_template.jinja",
+      "sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5"
+    },
+    {
+      "bytes": 1424,
+      "name": "config.json",
+      "sha256": "261400c293dee67348df1a27c5140e73d81c9f9948aaa2feb67a0014e1fd17d2"
+    },
+    {
+      "bytes": 167,
+      "name": "generation_config.json",
+      "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+    },
+    {
+      "bytes": 3945441408,
+      "name": "model-00001-of-00004.safetensors",
+      "sha256": "12d95be0ed145b5a091ce1b94eab166960e2187933baa4ce47b8459a6f023143"
+    },
+    {
+      "bytes": 3864726320,
+      "name": "model-00002-of-00004.safetensors",
+      "sha256": "c769bf5bb74839605903971c6af4ee1b84797d59a48ad270f85d47131c9d0884"
+    },
+    {
+      "bytes": 3864726392,
+      "name": "model-00003-of-00004.safetensors",
+      "sha256": "61d7e07feac6c8b13d022eb815f1a2d7ebd971995729bb43f57cc0234bf30fb9"
+    },
+    {
+      "bytes": 3556377640,
+      "name": "model-00004-of-00004.safetensors",
+      "sha256": "ec8fc8ff765166d403d7381258f3e4add22aabe63d0d90aa7932b598add98ab4"
+    },
+    {
+      "bytes": 29119,
+      "name": "model.safetensors.index.json",
+      "sha256": "2abb7504619bf34bdb40cc5a1b9cf079a73e34164b8edeeaa0647fac334ada56"
+    },
+    {
+      "bytes": 11421892,
+      "name": "tokenizer.json",
+      "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+    },
+    {
+      "bytes": 695,
+      "name": "tokenizer_config.json",
+      "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    }
+  ],
+  "final_iteration": 93,
+  "fresh_optimizer": true,
+  "full_sft": true,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "parent_checkpoint_manifest_sha256": "54597d3e5677ce78aaf2f4cfa9e39277b3310a039bb1ae7eaad3084c20902f09",
+  "repo_commit": "59e8e146d4ca22fc0f841acb33fb7e251bb4bf0d",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/outputs/training/continue_random_mask_10/weights/iter_0000093",
+  "variant": "continue_random_mask_10"
+}

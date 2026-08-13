@@ -1,0 +1,139 @@
+{
+  "artifact_schema_version": 1,
+  "mask_seed": 42,
+  "nested_by_shared_stable_draw": true,
+  "ordered_wrong_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+  "protected_policy": "all tokenizer added/control and literal think-tag positions remain weight 1; im_end remains 1; final newline remains 0",
+  "source_length_stats": {
+    "assistant_tokens": {
+      "max": 20533,
+      "mean": 6133.933333333333,
+      "median": 4937,
+      "min": 418,
+      "p90": 12444,
+      "p95": 14420,
+      "p99": 17222
+    },
+    "prefix_tokens": {
+      "max": 2607,
+      "mean": 136.584,
+      "median": 121,
+      "min": 54,
+      "p90": 203,
+      "p95": 234,
+      "p99": 337
+    },
+    "response_tokens": {
+      "max": 20535,
+      "mean": 6135.933333333333,
+      "median": 4939,
+      "min": 420,
+      "p90": 12446,
+      "p95": 14422,
+      "p99": 17224
+    },
+    "rows": 1500,
+    "total_tokens": {
+      "max": 20934,
+      "mean": 6272.517333333333,
+      "median": 5068,
+      "min": 495,
+      "p90": 12636,
+      "p95": 14532,
+      "p99": 17376
+    }
+  },
+  "source_unmasked_sha256": "0d3ea6cd1cd1e4270b3988364cf2f82f119f3219ad18d65b3cb45d939bb9ba13",
+  "variants": {
+    "continue_random_mask_10": {
+      "actual_mask_fraction": 0.09996061750019039,
+      "dataset_sha256": "1239027e0a1d6f86b205531c32b76d0ff0d05666e5a8403d8444f63e1c53c048",
+      "eligible_tokens": 9191900,
+      "mask_probability": 0.1,
+      "masked_tokens": 918828,
+      "ordered_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+      "protected_tokens": 9000,
+      "rows": 1500
+    },
+    "continue_random_mask_20": {
+      "actual_mask_fraction": 0.2000432989915034,
+      "dataset_sha256": "eaf347a4c639a7753f17ea2b5362970cfd9c187eb729b75f23e30ca87929cef2",
+      "eligible_tokens": 9191900,
+      "mask_probability": 0.2,
+      "masked_tokens": 1838778,
+      "ordered_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+      "protected_tokens": 9000,
+      "rows": 1500
+    },
+    "continue_random_mask_30": {
+      "actual_mask_fraction": 0.3000624462842285,
+      "dataset_sha256": "ae28cbb78a86e7381c91f8d2a3b32006d5a20893e82655137d2cd9df8bbf0121",
+      "eligible_tokens": 9191900,
+      "mask_probability": 0.3,
+      "masked_tokens": 2758144,
+      "ordered_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+      "protected_tokens": 9000,
+      "rows": 1500
+    },
+    "continue_random_mask_40": {
+      "actual_mask_fraction": 0.39989860638170566,
+      "dataset_sha256": "a045ca8a6107410fc89197c3086d6a336f65bdb9cca5da1f020d4d1e9e595958",
+      "eligible_tokens": 9191900,
+      "mask_probability": 0.4,
+      "masked_tokens": 3675828,
+      "ordered_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+      "protected_tokens": 9000,
+      "rows": 1500
+    },
+    "continue_random_mask_50": {
+      "actual_mask_fraction": 0.4999161218028917,
+      "dataset_sha256": "306bd8bf3254b1fc4b8692be49f7344f5655740ef009f97d76c6e0bbf03cbf98",
+      "eligible_tokens": 9191900,
+      "mask_probability": 0.5,
+      "masked_tokens": 4595179,
+      "ordered_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+      "protected_tokens": 9000,
+      "rows": 1500
+    },
+    "continue_random_mask_60": {
+      "actual_mask_fraction": 0.5999145987227885,
+      "dataset_sha256": "3d9377974370888066604e3332bc4da8b90a93b2a0fcfd807dcb5f9e32590cf9",
+      "eligible_tokens": 9191900,
+      "mask_probability": 0.6,
+      "masked_tokens": 5514355,
+      "ordered_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+      "protected_tokens": 9000,
+      "rows": 1500
+    },
+    "continue_random_mask_70": {
+      "actual_mask_fraction": 0.699836268888913,
+      "dataset_sha256": "6795a771ec13ad909ee50fdfdcd9df1f5ce11f1b19d8077169203408909a3fbb",
+      "eligible_tokens": 9191900,
+      "mask_probability": 0.7,
+      "masked_tokens": 6432825,
+      "ordered_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+      "protected_tokens": 9000,
+      "rows": 1500
+    },
+    "continue_random_mask_80": {
+      "actual_mask_fraction": 0.7996799355954699,
+      "dataset_sha256": "ce7ad865279572ab69bd3861e5881642e88d9669e45b5202d0104f4c604b1096",
+      "eligible_tokens": 9191900,
+      "mask_probability": 0.8,
+      "masked_tokens": 7350578,
+      "ordered_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+      "protected_tokens": 9000,
+      "rows": 1500
+    },
+    "continue_random_mask_90": {
+      "actual_mask_fraction": 0.8999229756633558,
+      "dataset_sha256": "6103adde3c51e3412ae2d1ab3a50dcdbe0b8261ec304101d1f21b57a64e9448c",
+      "eligible_tokens": 9191900,
+      "mask_probability": 0.9,
+      "masked_tokens": 8272002,
+      "ordered_trace_ids_sha256": "f057e5b923c6ceb3eec17d26d8035e01554abf043151fc9effd82376e0a909a2",
+      "protected_tokens": 9000,
+      "rows": 1500
+    }
+  }
+}

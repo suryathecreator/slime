@@ -1,0 +1,144 @@
+{
+  "artifact_schema_version": 1,
+  "branch": "qwen2.5-7b-aime-distribution-generalization",
+  "commit": "59e8e146d4ca22fc0f841acb33fb7e251bb4bf0d",
+  "contract_hash": "ded3390ab073b15f",
+  "expected_runtime_commit": "59e8e146d4ca22fc0f841acb33fb7e251bb4bf0d",
+  "external_prerequisite": {
+    "artifact_schema_version": 1,
+    "controller_known": false,
+    "dependency_action": "omit_aged_dependency_after_sacct_success",
+    "ended_at": "2026-08-11T16:02:52",
+    "exit_code": "0:0",
+    "job_id": "222947",
+    "job_name": "q25rr-final",
+    "observed_at": "2026-08-12T15:34:49.425644+00:00",
+    "sacct_exact_top_level_row": "222947|q25rr-final|COMPLETED|0:0|2026-08-11T16:02:52",
+    "state": "COMPLETED"
+  },
+  "jobs_in_dependency_order": [
+    {
+      "dependency": null,
+      "job_id": "223962",
+      "name": "prepare_data",
+      "script": "01_prepare_data.sbatch",
+      "variant": null
+    },
+    {
+      "dependency": "afterok:223962",
+      "job_id": "223963",
+      "name": "stage1_canary",
+      "script": "02_stage1_canary.sbatch",
+      "variant": null
+    },
+    {
+      "dependency": "afterok:223963",
+      "job_id": "223964",
+      "name": "train_aime_correct_3000",
+      "script": "03_train.sbatch",
+      "variant": "aime_correct_3000"
+    },
+    {
+      "dependency": "afterok:223964",
+      "job_id": "223965",
+      "name": "continuation_canary",
+      "script": "04_continuation_canary.sbatch",
+      "variant": null
+    },
+    {
+      "dependency": "afterok:223965",
+      "job_id": "223966",
+      "name": "train_continue_wrong_unmasked",
+      "script": "03_train.sbatch",
+      "variant": "continue_wrong_unmasked"
+    },
+    {
+      "dependency": "afterok:223966",
+      "job_id": "223967",
+      "name": "train_continue_random_mask_10",
+      "script": "03_train.sbatch",
+      "variant": "continue_random_mask_10"
+    },
+    {
+      "dependency": "afterok:223967",
+      "job_id": "223968",
+      "name": "train_continue_random_mask_20",
+      "script": "03_train.sbatch",
+      "variant": "continue_random_mask_20"
+    },
+    {
+      "dependency": "afterok:223968",
+      "job_id": "223969",
+      "name": "train_continue_random_mask_30",
+      "script": "03_train.sbatch",
+      "variant": "continue_random_mask_30"
+    },
+    {
+      "dependency": "afterok:223969",
+      "job_id": "223970",
+      "name": "train_continue_random_mask_40",
+      "script": "03_train.sbatch",
+      "variant": "continue_random_mask_40"
+    },
+    {
+      "dependency": "afterok:223970",
+      "job_id": "223971",
+      "name": "train_continue_random_mask_50",
+      "script": "03_train.sbatch",
+      "variant": "continue_random_mask_50"
+    },
+    {
+      "dependency": "afterok:223971",
+      "job_id": "223972",
+      "name": "train_continue_random_mask_60",
+      "script": "03_train.sbatch",
+      "variant": "continue_random_mask_60"
+    },
+    {
+      "dependency": "afterok:223972",
+      "job_id": "223973",
+      "name": "train_continue_random_mask_70",
+      "script": "03_train.sbatch",
+      "variant": "continue_random_mask_70"
+    },
+    {
+      "dependency": "afterok:223973",
+      "job_id": "223974",
+      "name": "train_continue_random_mask_80",
+      "script": "03_train.sbatch",
+      "variant": "continue_random_mask_80"
+    },
+    {
+      "dependency": "afterok:223974",
+      "job_id": "223975",
+      "name": "train_continue_random_mask_90",
+      "script": "03_train.sbatch",
+      "variant": "continue_random_mask_90"
+    },
+    {
+      "dependency": "afterok:223975",
+      "job_id": "223976",
+      "name": "train_continue_correct_only_1500",
+      "script": "03_train.sbatch",
+      "variant": "continue_correct_only_1500"
+    },
+    {
+      "dependency": "afterok:223976",
+      "job_id": "223977",
+      "name": "finalize_handoff",
+      "script": "05_finalize.sbatch",
+      "variant": null
+    }
+  ],
+  "mode": "submitted",
+  "recorded_at": "2026-08-12T15:34:59.477999+00:00",
+  "resource_policy": {
+    "full_training_walltime": "04:00:00",
+    "jobs": 16,
+    "maximum_concurrent_gpus": 4,
+    "other_job_walltime": "02:00:00",
+    "strict_linear_afterok": true,
+    "submits_evaluation": false,
+    "submits_transfer": false
+  }
+}

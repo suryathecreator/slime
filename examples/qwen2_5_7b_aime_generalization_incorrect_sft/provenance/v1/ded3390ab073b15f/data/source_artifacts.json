@@ -1,0 +1,52 @@
+{
+  "aime_source": {
+    "path": "/gpfs/scrubbed/suryadv/datasets/sxiong_AIME-trajectory/7fc7a89aaae52d114a7a1819088e048a7336cc02/train.jsonl",
+    "sha256": "8f1ea33b8c209479a7bf84bc6838a7cadb9b53b37906d0caf2f46cecf1b00515"
+  },
+  "datasets": {
+    "correct": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/datasets/continue_correct_only_1500.jsonl",
+      "sha256": "fd2e2af10c3a5f5fed72de63ad284e828891c062efad8abdda0ab7db6b4f0f8a"
+    },
+    "stage1": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/datasets/aime_correct_3000.jsonl",
+      "sha256": "3f346a9eb11c25cb879c1bda3d379281570a765e21c6d5bab514b81ee177ea0b"
+    },
+    "wrong": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/datasets/continue_wrong_unmasked_1500.jsonl",
+      "sha256": "0d3ea6cd1cd1e4270b3988364cf2f82f119f3219ad18d65b3cb45d939bb9ba13"
+    }
+  },
+  "selected": {
+    "aime": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/selected/aime_held_in_correct_400.jsonl",
+      "sha256": "04c5c96e31ceeca29b9f1f0a645610651a05e623cd85b6dc1ee39482596f8c09"
+    },
+    "correct": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/selected/openr1_correct_1500.jsonl",
+      "sha256": "3987fa5888f33edd56d51e99e1bbba5e0df4214b6ac149886a74253344bddd67"
+    },
+    "wrong": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/selected/openr1_wrong_1500.jsonl",
+      "sha256": "7b83718c4a617bb8450eedec9a8d84838f86fb367feb34a8f6a82ea83b78f5a1"
+    }
+  },
+  "splits": {
+    "held_in": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/splits/held_in_400.jsonl",
+      "sha256": "5f6abaebc400acefe6c62a5a6aeae960f562dccb9cbcb2e14a15c047bdfa31b9"
+    },
+    "held_out_problem": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/splits/held_out_problem_400.jsonl",
+      "sha256": "cb1bd465f07196ffdeccc2d849bc00810d4fde03c7f8c0ee4b9da9fafa0a5729"
+    },
+    "unused": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/splits/unused_61.jsonl",
+      "sha256": "c520c7fd345299b584a0b8677a4d57d5578f72fec6ed470f0277eb5b8ddb58f8"
+    }
+  },
+  "tokenizer_inventory": {
+    "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/tokenizer_control_inventory.json",
+    "sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85"
+  }
+}

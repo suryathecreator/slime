@@ -121,3 +121,29 @@ files. It deliberately does not transfer selected traces, tokenized training
 JSONLs, intermediate HF snapshots, or full optimizer state. Hyak pulls this
 same pinned repository revision for the evaluator; every delayed eval job also
 fails on revision or worktree drift.
+
+The Git provenance publication includes every optimizer update's realized loss,
+gradient norm, learning rate, and global batch size, plus a human-readable
+first/last-loss table. Generate it once from the immutable completed logs, then
+run the guarded transfer sequence on Tillicum:
+
+```bash
+PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 python3 \
+  examples/qwen2_5_7b_aime_generalization_incorrect_sft/publish_provenance.py \
+  --experiment-root /gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f \
+  --contract examples/qwen2_5_7b_aime_generalization_incorrect_sft/config/experiment_contract.json \
+  --contract-hash ded3390ab073b15f \
+  --output-root examples/qwen2_5_7b_aime_generalization_incorrect_sft/provenance/v1/ded3390ab073b15f
+
+bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/rsync_to_klone.sh --check
+bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/rsync_to_klone.sh --transfer
+bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/rsync_to_klone.sh --verify
+```
+
+After pulling the pinned branch on Hyak, validate Slurm shapes and submit the
+three-sample held-in/held-out evaluation chain:
+
+```bash
+bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submit_hyak.sh --test-only-shapes
+bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submit_hyak.sh --submit
+```

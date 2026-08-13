@@ -1,0 +1,168 @@
+{
+  "artifact_schema_version": 1,
+  "global_batch_size": 64,
+  "learning_rate_schedule": {
+    "maximum_lr": 5e-06,
+    "minimum_lr": 1e-06,
+    "style": "cosine",
+    "warmup_fraction": 0.03,
+    "warmup_init": 0.0
+  },
+  "stages": {
+    "aime_correct_3000": {
+      "dataset_rows": 3000,
+      "effective_examples_exposed": 12032,
+      "final_iteration": 187,
+      "lr_decay_iters": 188,
+      "optimizer_updates": 188,
+      "realized_dynamic_schedule": {
+        "data_parallel_size": 1,
+        "dataset_rows": 3000,
+        "dataset_rows_over_16384": 572,
+        "epochs_entered": 5,
+        "exposure_histogram": {
+          "4": 2968,
+          "5": 32
+        },
+        "exposures": 12032,
+        "final_epoch_id": 4,
+        "final_sample_offset": 32,
+        "global_batch_size": 64,
+        "maximum_mbs_tokens": 31901,
+        "maximum_sample_tokens": 31901,
+        "mbs_sample_count_histogram": {
+          "1": 3652,
+          "2": 2461,
+          "3": 921,
+          "4": 151,
+          "5": 17,
+          "6": 1
+        },
+        "over_16384_exposures": 2296,
+        "over_16384_singleton_mbs": 2296,
+        "per_rank_mbs_count_per_update_histogram": {
+          "32": 2,
+          "33": 6,
+          "34": 8,
+          "35": 11,
+          "36": 20,
+          "37": 26,
+          "38": 23,
+          "39": 27,
+          "40": 28,
+          "41": 14,
+          "42": 11,
+          "43": 9,
+          "44": 3
+        },
+        "rollout_shuffle_policy": "random.Random(seed + epoch_id).shuffle(origin_indices)",
+        "updates": 188
+      }
+    },
+    "children": {
+      "dataset_rows_each": 1500,
+      "effective_examples_exposed_each": 6016,
+      "final_iteration": 93,
+      "fresh_optimizer_from_stage1_hf": true,
+      "lr_decay_iters": 94,
+      "optimizer_updates_each": 94,
+      "realized_dynamic_schedule_correct_only": {
+        "data_parallel_size": 1,
+        "dataset_rows": 1500,
+        "dataset_rows_over_16384": 27,
+        "epochs_entered": 5,
+        "exposure_histogram": {
+          "4": 1484,
+          "5": 16
+        },
+        "exposures": 6016,
+        "final_epoch_id": 4,
+        "final_sample_offset": 16,
+        "global_batch_size": 64,
+        "maximum_mbs_tokens": 18889,
+        "maximum_sample_tokens": 18889,
+        "mbs_sample_count_histogram": {
+          "1": 447,
+          "2": 828,
+          "3": 764,
+          "4": 294,
+          "5": 75,
+          "6": 7,
+          "7": 4
+        },
+        "over_16384_exposures": 109,
+        "over_16384_singleton_mbs": 109,
+        "per_rank_mbs_count_per_update_histogram": {
+          "22": 6,
+          "23": 9,
+          "24": 15,
+          "25": 15,
+          "26": 14,
+          "27": 15,
+          "28": 7,
+          "29": 11,
+          "30": 1,
+          "31": 1
+        },
+        "rollout_shuffle_policy": "random.Random(seed + epoch_id).shuffle(origin_indices)",
+        "updates": 94
+      },
+      "realized_dynamic_schedule_wrong_shared_by_masks": {
+        "data_parallel_size": 1,
+        "dataset_rows": 1500,
+        "dataset_rows_over_16384": 34,
+        "epochs_entered": 5,
+        "exposure_histogram": {
+          "4": 1484,
+          "5": 16
+        },
+        "exposures": 6016,
+        "final_epoch_id": 4,
+        "final_sample_offset": 16,
+        "global_batch_size": 64,
+        "maximum_mbs_tokens": 20934,
+        "maximum_sample_tokens": 20934,
+        "mbs_sample_count_histogram": {
+          "1": 509,
+          "2": 869,
+          "3": 724,
+          "4": 268,
+          "5": 76,
+          "6": 16,
+          "7": 7
+        },
+        "over_16384_exposures": 136,
+        "over_16384_singleton_mbs": 136,
+        "per_rank_mbs_count_per_update_histogram": {
+          "21": 2,
+          "22": 2,
+          "23": 4,
+          "24": 13,
+          "25": 17,
+          "26": 15,
+          "27": 14,
+          "28": 9,
+          "29": 11,
+          "30": 3,
+          "31": 3,
+          "32": 1
+        },
+        "rollout_shuffle_policy": "random.Random(seed + epoch_id).shuffle(origin_indices)",
+        "updates": 94
+      },
+      "variants": [
+        "continue_wrong_unmasked",
+        "continue_random_mask_10",
+        "continue_random_mask_20",
+        "continue_random_mask_30",
+        "continue_random_mask_40",
+        "continue_random_mask_50",
+        "continue_random_mask_60",
+        "continue_random_mask_70",
+        "continue_random_mask_80",
+        "continue_random_mask_90",
+        "continue_correct_only_1500"
+      ]
+    }
+  }
+}

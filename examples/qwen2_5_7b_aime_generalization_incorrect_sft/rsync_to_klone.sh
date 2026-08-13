@@ -138,6 +138,9 @@ compact_records=(
   "${MANIFEST_ROOT}/training_chain.json|manifests/training_chain.json"
   "${CHECKPOINT_INVENTORY}|handoff/checkpoint_sources.json"
   "${COMPARISON_INVENTORY}|handoff/comparison_sources.json"
+  "${PACKAGE}/provenance/v1/${CONTRACT_HASH}/PROVENANCE_PUBLICATION.json|provenance/PROVENANCE_PUBLICATION.json"
+  "${PACKAGE}/provenance/v1/${CONTRACT_HASH}/TRAINING_RESULTS.md|provenance/TRAINING_RESULTS.md"
+  "${PACKAGE}/provenance/v1/${CONTRACT_HASH}/training_metrics.json|provenance/training_metrics.json"
 )
 for record in "${compact_records[@]}"; do
   IFS='|' read -r source relative <<<"${record}"

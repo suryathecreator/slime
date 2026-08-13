@@ -1,0 +1,168 @@
+{
+  "artifact_schema_version": 1,
+  "contract_hash": "ded3390ab073b15f",
+  "contract_relative_path": "config/experiment_contract.json",
+  "contract_sha256": "ded3390ab073b15f50c29ec1bf408f10e3a5c4f30cb670d0694e4a078b635ade",
+  "excluded_large_payloads": {
+    "checkpoints_and_optimizer_state": "transferred by rsync, not stored in Git",
+    "evaluation_jsonl": "transferred by rsync, not stored in Git",
+    "runtime_token_audit_dumps": "hashes retained in TRAINING_STATUS.json",
+    "selected_and_pretokenized_training_data": "excluded; hashes retained in data provenance"
+  },
+  "published_at": "2026-08-13T04:49:34.513478+00:00",
+  "published_file_count_excluding_self": 25,
+  "published_files": [
+    {
+      "bytes": 1698,
+      "path": "TRAINING_RESULTS.md",
+      "sha256": "94b00c02911c6f9c45b614a997f9cdb46f4323e498e3d42e50bc4a82fd7f42f4",
+      "source": "generated from training_metrics.json"
+    },
+    {
+      "bytes": 3588,
+      "path": "TRAINING_STATUS.json",
+      "sha256": "486797bcf52566fbd63d975ac25edc1e792e24a04115786c9bb015bc991e1779",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/TRAINING_STATUS.json"
+    },
+    {
+      "bytes": 4502,
+      "path": "data/schedule_audit.json",
+      "sha256": "36209a2fdc5ed89ba479ce9134c390c6273e71da564ff6d464bc34a434832baa",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/schedule_audit.json"
+    },
+    {
+      "bytes": 11106,
+      "path": "data/selection_and_tokenization_stats.json",
+      "sha256": "d10c53407b203f7a145a7db9610ed64069c4e7ced5f465fbd92a132b8b39fa20",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/selection_and_tokenization_stats.json"
+    },
+    {
+      "bytes": 2865,
+      "path": "data/source_artifacts.json",
+      "sha256": "2892dff41e97071a2cf5b6bc3e53da5c69e25e7eabca9920688ab70641d6fee6",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/source_artifacts.json"
+    },
+    {
+      "bytes": 1128,
+      "path": "data/tokenizer_control_inventory.json",
+      "sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/tokenizer_control_inventory.json"
+    },
+    {
+      "bytes": 5108,
+      "path": "data/variant_stats.json",
+      "sha256": "0902c079b80a774d973ae79503ffe4f20a37cea251821c4b6f062a15312896d9",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/data/variant_stats.json"
+    },
+    {
+      "bytes": 11638,
+      "path": "handoff/checkpoint_sources.json",
+      "sha256": "e59a565dd00344204b471c2ed2a5fe3d5ac128b22c7aa5eb3d79aa43f726e9fc",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoint_sources.json"
+    },
+    {
+      "bytes": 2274,
+      "path": "handoff/checkpoints/aime_correct_3000.json",
+      "sha256": "79ca7e571301df6fd0dc96d7672a48f2cf95eca6dc7eee7dc65bb664c33dd05b",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/aime_correct_3000.json"
+    },
+    {
+      "bytes": 5780,
+      "path": "handoff/checkpoints/base_qwen2_5_7b.json",
+      "sha256": "d74a074cffaa351f1f4db655a6a4a0f5100971433c2b4fd47db7bc68484ac848",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/base_qwen2_5_7b.json"
+    },
+    {
+      "bytes": 2425,
+      "path": "handoff/checkpoints/continue_correct_only_1500.json",
+      "sha256": "c117eb2e79cb0e202509fc9e6a15793cadf50d73d526fee9bd7ac9f6f90a7ce3",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_correct_only_1500.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_random_mask_10.json",
+      "sha256": "a5bd5dc2507c41c985353eae8cf2ce8278e2be67ebb757f8c24f5046f0bd3699",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_random_mask_10.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_random_mask_20.json",
+      "sha256": "8bc2a9ea0fe2b011bb1c15de436ee610325a6731f742ea329a0e43341f471fa6",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_random_mask_20.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_random_mask_30.json",
+      "sha256": "e83d77ef8a24e0b86081a27605463f4525dc62ac0374ad266c77df0fc382312b",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_random_mask_30.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_random_mask_40.json",
+      "sha256": "0d907f0750185e6ad9402c8df0147b59fa32bdd75fdedcc065f6ea1248379035",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_random_mask_40.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_random_mask_50.json",
+      "sha256": "6f4c1ad332c97ec9942e336c5b3ff2bcba336289ffaa5a9db8bcc489bdaf96e5",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_random_mask_50.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_random_mask_60.json",
+      "sha256": "45d08b9e7b81ea4fe5171584beb99631d1487c60a22c94af525004e7a5e302c2",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_random_mask_60.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_random_mask_70.json",
+      "sha256": "7ad75268ecc328ff8a8053dcb7465e74929fda4ff3c2c873fd7c976cf4cad5d5",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_random_mask_70.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_random_mask_80.json",
+      "sha256": "f0b37f70fdcf2a3497ec683514f4b6a19bcb6ec1077d41d0c1d228f835576f20",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_random_mask_80.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_random_mask_90.json",
+      "sha256": "3cc28dbaf3a7f883844563463c44000e0a765d0b0632dd38b3a4930ed2568a13",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_random_mask_90.json"
+    },
+    {
+      "bytes": 2419,
+      "path": "handoff/checkpoints/continue_wrong_unmasked.json",
+      "sha256": "a4aea61de772d4531c8d00a1776d5824247920ad2c325ea31e8546a9f1568d16",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/checkpoints/continue_wrong_unmasked.json"
+    },
+    {
+      "bytes": 11924,
+      "path": "handoff/comparison_sources.json",
+      "sha256": "3f28a963d4ad7ad453a5ca075e73fc934392656db48c14bf0f0389d812de2027",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/handoff/comparison_sources.json"
+    },
+    {
+      "bytes": 672,
+      "path": "submission/stage1_parent_checkpoint_verified.json",
+      "sha256": "4d21a97ddfb13f65b3a42d7e1bdfc5067e5e88ae03dec18f424e3ecff2556090",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/manifests/stage1_parent_checkpoint_verified.json"
+    },
+    {
+      "bytes": 4191,
+      "path": "submission/training_chain.json",
+      "sha256": "fd70620f1e342d5a918906ef3fa6a83e4db0018d73366e8ee85fd9053f56bd4d",
+      "source": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f/manifests/training_chain.json"
+    },
+    {
+      "bytes": 311234,
+      "path": "training_metrics.json",
+      "sha256": "b0e11a5a08a5f4b6cf40daa76d2979cb8a7ff37985374de63b60714f1844ea5d",
+      "source": "generated from source Slurm logs named in the file"
+    }
+  ],
+  "source_experiment_root": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-generalization-incorrect-sft/v1/ded3390ab073b15f",
+  "training_repo_commit": "59e8e146d4ca22fc0f841acb33fb7e251bb4bf0d"
+}
