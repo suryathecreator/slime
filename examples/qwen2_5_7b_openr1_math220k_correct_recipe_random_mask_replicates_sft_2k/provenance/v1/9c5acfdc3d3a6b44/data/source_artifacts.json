@@ -1,0 +1,31 @@
+{
+  "artifact_schema_version": 1,
+  "ordered_mixed_trace_ids_sha256": "f3f51daa4e63ee6bc33ba91e97b05c195f9a40ddc641de7abb60408d06bd904a",
+  "source_contract_hash": "07291674d43cf3da",
+  "source_files": {
+    "comparison_sources": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/handoff/comparison_sources.json",
+      "sha256": "4683fa2db3c45cd64b7ca801377c049219d0ccd4c0f0fcacb61b6965627a401e"
+    },
+    "schedule_audit": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/data/schedule_audit.json",
+      "sha256": "d10105f0262396f46165887f52f94db90e95bb6c752ad2c1c7edf8e30130fe40"
+    },
+    "selection_and_tokenization_stats": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/data/selection_and_tokenization_stats.json",
+      "sha256": "57fd47fd7cfac7fbbed3d3b369d78f6cd6ea3109824a413e0ad39ec44e66066d"
+    },
+    "tokenizer_control_inventory": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/data/tokenizer_control_inventory.json",
+      "sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85"
+    },
+    "training_status": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/TRAINING_STATUS.json",
+      "sha256": "044d3dc982225c6a6120bceb02b3e1ecc00c7d1b23aec022d682eeacaa02595d"
+    },
+    "unmasked_dataset": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-masked-sft-2k/v1/07291674d43cf3da/data/unmasked_2000.jsonl",
+      "sha256": "b7c13714061fb5078848943d915d64639264eebcad76023e43637191e1080234"
+    }
+  }
+}

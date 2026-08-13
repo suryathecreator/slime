@@ -1,0 +1,190 @@
+{
+  "artifact_schema_version": 1,
+  "comparison_checkpoint_count": 18,
+  "contract_hash": "9c5acfdc3d3a6b44",
+  "same_ordered_mixed_trace_set_for_new_variants": true,
+  "source_comparison_checkpoint_count": 12,
+  "source_comparison_sha256": "4683fa2db3c45cd64b7ca801377c049219d0ccd4c0f0fcacb61b6965627a401e",
+  "targets": [
+    {
+      "checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+      "id": "base_qwen2_5_7b",
+      "kind": "existing_baseline",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "models/Qwen2.5-7B",
+      "remote_experiment_relative": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319",
+      "remote_manifest_relative": "handoff/checkpoints/base_qwen2_5_7b.json",
+      "variant": "base"
+    },
+    {
+      "checkpoint_identity": "51faacfc44d8c0c21d1abbc421d6a31d5825e0cf3b1dbb2a7480f97cb1b557ea",
+      "id": "qwen2_5_7b_8k_correct_only",
+      "kind": "existing_baseline",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/qwen2_5_7b_8k/correct_only/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen_correct_only_openr1_math220k_sft_2k/v1/3568736a3743c319",
+      "remote_manifest_relative": "handoff/checkpoints/qwen2_5_7b_8k.json",
+      "variant": "correct_only"
+    },
+    {
+      "checkpoint_identity": "e7e468bdb8bb24603f4cb686b63d54c36a3feb4945e8d88698a0867a4f7c854a",
+      "id": "unmasked",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/unmasked/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/unmasked.json",
+      "variant": "unmasked"
+    },
+    {
+      "checkpoint_identity": "082b4770c93e17e9860a820fcc31206ff72d99621abf4422ad3cf94ee71de492",
+      "id": "random_mask_70",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_70/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_70.json",
+      "variant": "random_mask_70"
+    },
+    {
+      "checkpoint_identity": "4755754e7dd7e5e5e1cc0910a4c19607bf1e39567cd1006a91184f34439f88cc",
+      "id": "inverse_tau_0p20",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/inverse_tau_0p20/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/inverse_tau_0p20.json",
+      "variant": "inverse_tau_0p20"
+    },
+    {
+      "checkpoint_identity": "3824b6b8d41acb769325b043d191ff306e49146b271a08ef14b3afc4b342e09f",
+      "id": "inverse_tau_0p05",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/inverse_tau_0p05/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/inverse_tau_0p05.json",
+      "variant": "inverse_tau_0p05"
+    },
+    {
+      "checkpoint_identity": "d8da8ee6d7ff720d3b9cb9473646283c79bd01e8ef2069d532d2067c2f53f4cf",
+      "id": "random_mask_25",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_25/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_25.json",
+      "variant": "random_mask_25"
+    },
+    {
+      "checkpoint_identity": "0cb7ebb581a01b90be0b34e9edde4cfcf4ff89ff45b8c00bc40479baf9f94ffd",
+      "id": "random_mask_50",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_50/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_50.json",
+      "variant": "random_mask_50"
+    },
+    {
+      "checkpoint_identity": "90c8d56ea488b6d7d5e0433fc3b11f1b154b2fd9451a6e50e560622e6c580d76",
+      "id": "random_mask_80",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_80/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_80.json",
+      "variant": "random_mask_80"
+    },
+    {
+      "checkpoint_identity": "37ef3bef13981e172d7a5df1325be06d9e283039f0e5e829094719998e81b023",
+      "id": "random_mask_90",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_90/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_90.json",
+      "variant": "random_mask_90"
+    },
+    {
+      "checkpoint_identity": "1094539bcc9aa51491157dc9e920830d758a2e062b1eeb280652af1a4fd588e0",
+      "id": "margin_mask",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/margin_mask/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/margin_mask.json",
+      "variant": "margin_mask"
+    },
+    {
+      "checkpoint_identity": "512da6974e7fcc5a0b8a6d00f557c1f49f3c5c8e91249bee467cdab06680b41e",
+      "id": "prob_ratio_mask",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/prob_ratio_mask/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/v1/07291674d43cf3da",
+      "remote_manifest_relative": "handoff/checkpoints/prob_ratio_mask.json",
+      "variant": "prob_ratio_mask"
+    },
+    {
+      "checkpoint_identity": "04daec6780244bfacfa48cfdf2abc75c0a4de9a1374f46a76f70250d5dca28d6",
+      "id": "random_mask_05_seed42",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_05_seed42/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_05_seed42.json",
+      "variant": "random_mask_05_seed42"
+    },
+    {
+      "checkpoint_identity": "e80e609f0bf35ef5ca13853089b5488d2fbdd196482daa3603daa06489e4f6e7",
+      "id": "random_mask_15_seed42",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_15_seed42/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_15_seed42.json",
+      "variant": "random_mask_15_seed42"
+    },
+    {
+      "checkpoint_identity": "b4ffba9d534c15f113cf85a1671b07e89897fa46524c93cdb0aa9b0ed4c900b8",
+      "id": "random_mask_05_seed43",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_05_seed43/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_05_seed43.json",
+      "variant": "random_mask_05_seed43"
+    },
+    {
+      "checkpoint_identity": "9f7628fd2bcc6ee018e436f8cdb5845d6ff3b418c34b0ca5341b58edce06d697",
+      "id": "random_mask_15_seed43",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_15_seed43/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_15_seed43.json",
+      "variant": "random_mask_15_seed43"
+    },
+    {
+      "checkpoint_identity": "a54f4662f912bc459c24135f7672367011383ae386772c8d6502bc270aa1cc2d",
+      "id": "random_mask_05_seed44",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_05_seed44/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_05_seed44.json",
+      "variant": "random_mask_05_seed44"
+    },
+    {
+      "checkpoint_identity": "9871e5dd5b5e2e601d2b715a58d558ebe4b8815fd381f0636af651646a87c18c",
+      "id": "random_mask_15_seed44",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_15_seed44/weights/iter_0000124",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_15_seed44.json",
+      "variant": "random_mask_15_seed44"
+    }
+  ]
+}

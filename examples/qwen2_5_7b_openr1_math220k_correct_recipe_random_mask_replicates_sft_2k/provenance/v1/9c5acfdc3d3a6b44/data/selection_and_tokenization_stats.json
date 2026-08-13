@@ -1,0 +1,47 @@
+{
+  "artifact_schema_version": 1,
+  "counts": {
+    "correct": 1000,
+    "frozen_correct_only": 2000,
+    "mixed": 2000,
+    "wrong": 1000,
+    "wrong_eligible_seen": 27386
+  },
+  "invariants": {
+    "correct_input_ids_match_source": true,
+    "correct_rows_are_first_frozen_1000": true,
+    "correct_wrong_problem_ids_disjoint": true,
+    "same_order_required_for_every_variant": true,
+    "source_correct_only_immutable": true
+  },
+  "mask_seed": 42,
+  "ordered_correct_trace_ids_sha256": "07a894975f84d9c256423d1de7e8c58d198bacf52c699c4d6bd81e4b5e47436a",
+  "ordered_mixed_trace_ids_sha256": "f3f51daa4e63ee6bc33ba91e97b05c195f9a40ddc641de7abb60408d06bd904a",
+  "ordered_wrong_trace_ids_sha256": "b13bea0f0c0170b927db63549cb55b516da42800d77fa3097fe1ef98b7308349",
+  "outputs": {
+    "selected_sha256": "ade70b89ab2a67bd408e0d228b483e239acb2a36fc298e9f75bbabfa67345cee",
+    "unmasked_sha256": "b7c13714061fb5078848943d915d64639264eebcad76023e43637191e1080234"
+  },
+  "selection_policy": {
+    "correct": "first 1000 of frozen seed-42 correct-only order",
+    "mixed_order": "correct then wrong",
+    "wrong": "seed-42 reservoir over unique eligible problems excluding all frozen correct-only problem IDs"
+  },
+  "source": {
+    "correct_only_dataset_sha256": "8c4a01dc6e33df4cd2fc2e24d607dd00f94f044b1eaeb6c73c86719aba887a6e",
+    "correct_only_selected_sha256": "e40731581eee819750b2289d3f96ccc814eb202fc5b00cb6a32fbc18158ba5f4",
+    "dataset_revision": "dc748648036c1ed619b020e056dc4b603eb39817"
+  },
+  "wrong_skip_counts": {
+    "duplicate_problem_id": 720,
+    "excluded_correct_only_problem": 2000,
+    "problem_no_eligible_wrong_trace": 63627,
+    "source_rows_seen": 93733,
+    "wrong_candidates_seen": 46829,
+    "wrong_incomplete_source_flag": 5279,
+    "wrong_rejected_empty_post_think": 2,
+    "wrong_rejected_empty_think": 126,
+    "wrong_rejected_think_tag_count": 70,
+    "wrong_trace_too_long": 13966
+  }
+}

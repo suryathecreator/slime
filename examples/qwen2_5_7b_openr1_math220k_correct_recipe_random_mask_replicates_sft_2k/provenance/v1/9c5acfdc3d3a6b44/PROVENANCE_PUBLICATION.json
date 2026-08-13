@@ -1,0 +1,123 @@
+{
+  "artifact_schema_version": 1,
+  "contract_hash": "9c5acfdc3d3a6b44",
+  "contract_relative_path": "config/experiment_contract.json",
+  "contract_sha256": "9c5acfdc3d3a6b4451c3a99914184dc7df676f6bec8236f6793ce8a3e2683604",
+  "excluded_large_payloads": {
+    "checkpoints_and_optimizer_state": "transferred by rsync, not stored in Git",
+    "pretokenized_training_jsonl": "excluded from Git; hashes are recorded in variant_stats.json",
+    "source_unmasked_dataset": "already pinned and published by the source experiment"
+  },
+  "ordered_mixed_trace_ids_sha256": "f3f51daa4e63ee6bc33ba91e97b05c195f9a40ddc641de7abb60408d06bd904a",
+  "published_at": "2026-08-11T23:02:52.023387+00:00",
+  "published_file_count_excluding_self": 15,
+  "published_files": [
+    {
+      "bytes": 2340,
+      "path": "TRAINING_STATUS.json",
+      "sha256": "cc9430cf2d8ebe6468121073ae31cb7bb17b8e7d31d2227e10c038b3df6e4884",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/TRAINING_STATUS.json",
+      "source_sha256": "cc9430cf2d8ebe6468121073ae31cb7bb17b8e7d31d2227e10c038b3df6e4884"
+    },
+    {
+      "bytes": 342,
+      "path": "data/schedule_audit.json",
+      "sha256": "d10105f0262396f46165887f52f94db90e95bb6c752ad2c1c7edf8e30130fe40",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/data/schedule_audit.json",
+      "source_sha256": "d10105f0262396f46165887f52f94db90e95bb6c752ad2c1c7edf8e30130fe40"
+    },
+    {
+      "bytes": 1925,
+      "path": "data/selection_and_tokenization_stats.json",
+      "sha256": "57fd47fd7cfac7fbbed3d3b369d78f6cd6ea3109824a413e0ad39ec44e66066d",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/data/selection_and_tokenization_stats.json",
+      "source_sha256": "57fd47fd7cfac7fbbed3d3b369d78f6cd6ea3109824a413e0ad39ec44e66066d"
+    },
+    {
+      "bytes": 1751,
+      "path": "data/source_artifacts.json",
+      "sha256": "66c043c8b43d6b67d013afe52c2d6808d01932107cdc4dee02f8efb39dee324b",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/data/source_artifacts.json",
+      "source_sha256": "66c043c8b43d6b67d013afe52c2d6808d01932107cdc4dee02f8efb39dee324b"
+    },
+    {
+      "bytes": 1128,
+      "path": "data/tokenizer_control_inventory.json",
+      "sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/data/tokenizer_control_inventory.json",
+      "source_sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85"
+    },
+    {
+      "bytes": 3931,
+      "path": "data/variant_stats.json",
+      "sha256": "9bcc0a217aced2ed441504fc8b5479b6fa9e773bc31f23a211f69ffe12b5c324",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/data/variant_stats.json",
+      "source_sha256": "9bcc0a217aced2ed441504fc8b5479b6fa9e773bc31f23a211f69ffe12b5c324"
+    },
+    {
+      "bytes": 4901,
+      "path": "handoff/checkpoint_sources.json",
+      "sha256": "8d67473578026ed658d9bf72d30d2fbb54d0162870539ad56ab3c912b6a7a60c",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoint_sources.json",
+      "source_sha256": "8d67473578026ed658d9bf72d30d2fbb54d0162870539ad56ab3c912b6a7a60c"
+    },
+    {
+      "bytes": 2290,
+      "path": "handoff/checkpoints/random_mask_05_seed42.json",
+      "sha256": "9d26d8a784a4dfa39dc0096d211533205bb4eab38bb6ff54234c52983806866d",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_05_seed42.json",
+      "source_sha256": "9d26d8a784a4dfa39dc0096d211533205bb4eab38bb6ff54234c52983806866d"
+    },
+    {
+      "bytes": 2290,
+      "path": "handoff/checkpoints/random_mask_05_seed43.json",
+      "sha256": "c8ba7daa6fed7b151e54a8f50792730aa5735465ec67512490f21cd6b096e69f",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_05_seed43.json",
+      "source_sha256": "c8ba7daa6fed7b151e54a8f50792730aa5735465ec67512490f21cd6b096e69f"
+    },
+    {
+      "bytes": 2290,
+      "path": "handoff/checkpoints/random_mask_05_seed44.json",
+      "sha256": "519fa9f56ea9f1251a60c0c76ae1681f8de4e8403b1b7a6feaa0c8b29d0cb920",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_05_seed44.json",
+      "source_sha256": "519fa9f56ea9f1251a60c0c76ae1681f8de4e8403b1b7a6feaa0c8b29d0cb920"
+    },
+    {
+      "bytes": 2290,
+      "path": "handoff/checkpoints/random_mask_15_seed42.json",
+      "sha256": "cf20fdc6b64260f08d1edcee7c5d228fe70b5f6507fc60914230c668d99e759c",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_15_seed42.json",
+      "source_sha256": "cf20fdc6b64260f08d1edcee7c5d228fe70b5f6507fc60914230c668d99e759c"
+    },
+    {
+      "bytes": 2290,
+      "path": "handoff/checkpoints/random_mask_15_seed43.json",
+      "sha256": "bc8b1915af16c2be53346e7af92191843f4b98bc44d3878423e90c84508fcb98",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_15_seed43.json",
+      "source_sha256": "bc8b1915af16c2be53346e7af92191843f4b98bc44d3878423e90c84508fcb98"
+    },
+    {
+      "bytes": 2290,
+      "path": "handoff/checkpoints/random_mask_15_seed44.json",
+      "sha256": "cb15b19ebfcff1f5aeaaddf57bf876c996ca0edcf34fd04cf52c728f962a4d12",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_15_seed44.json",
+      "source_sha256": "cb15b19ebfcff1f5aeaaddf57bf876c996ca0edcf34fd04cf52c728f962a4d12"
+    },
+    {
+      "bytes": 10113,
+      "path": "handoff/comparison_sources.json",
+      "sha256": "8acf68cd7d42cbe85dd0e19fb667f0c38779e55a0111266266e8b50339b08382",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/comparison_sources.json",
+      "source_sha256": "8acf68cd7d42cbe85dd0e19fb667f0c38779e55a0111266266e8b50339b08382"
+    },
+    {
+      "bytes": 1267,
+      "path": "submission/training_chain.json",
+      "sha256": "49550507d9d0d9d6c67ce259a5aa8d2521acf1e4d1cb645f6a27e274dd1464dc",
+      "source_path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/manifests/training_chain.json",
+      "source_sha256": "49550507d9d0d9d6c67ce259a5aa8d2521acf1e4d1cb645f6a27e274dd1464dc"
+    }
+  ],
+  "source_experiment_root": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44",
+  "training_repo_commit": "13f54566adcd711d78587a3e5304c8e887671304"
+}

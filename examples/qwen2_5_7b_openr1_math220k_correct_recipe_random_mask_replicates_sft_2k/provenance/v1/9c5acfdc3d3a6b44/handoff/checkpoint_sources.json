@@ -1,0 +1,79 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_count": 6,
+  "checkpoints": [
+    {
+      "id": "random_mask_05_seed42",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_05_seed42/weights/iter_0000124",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_05_seed42.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_05_seed42/weights/iter_0000124",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_05_seed42.json",
+      "variant": "random_mask_05_seed42"
+    },
+    {
+      "id": "random_mask_15_seed42",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_15_seed42/weights/iter_0000124",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_15_seed42.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_15_seed42/weights/iter_0000124",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_15_seed42.json",
+      "variant": "random_mask_15_seed42"
+    },
+    {
+      "id": "random_mask_05_seed43",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_05_seed43/weights/iter_0000124",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_05_seed43.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_05_seed43/weights/iter_0000124",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_05_seed43.json",
+      "variant": "random_mask_05_seed43"
+    },
+    {
+      "id": "random_mask_15_seed43",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_15_seed43/weights/iter_0000124",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_15_seed43.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_15_seed43/weights/iter_0000124",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_15_seed43.json",
+      "variant": "random_mask_15_seed43"
+    },
+    {
+      "id": "random_mask_05_seed44",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_05_seed44/weights/iter_0000124",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_05_seed44.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_05_seed44/weights/iter_0000124",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_05_seed44.json",
+      "variant": "random_mask_05_seed44"
+    },
+    {
+      "id": "random_mask_15_seed44",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/random_mask_15_seed44/weights/iter_0000124",
+      "remote_manifest_relative": "handoff/checkpoints/random_mask_15_seed44.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_15_seed44/weights/iter_0000124",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_15_seed44.json",
+      "variant": "random_mask_15_seed44"
+    }
+  ],
+  "contract_hash": "9c5acfdc3d3a6b44",
+  "lightweight_handoff_files": [
+    "TRAINING_STATUS.json",
+    "config/experiment_contract.json",
+    "data/schedule_audit.json",
+    "data/selection_and_tokenization_stats.json",
+    "data/source_artifacts.json",
+    "data/tokenizer_control_inventory.json",
+    "data/variant_stats.json",
+    "handoff/checkpoint_sources.json",
+    "handoff/comparison_sources.json"
+  ],
+  "remote_experiment_relative": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44"
+}

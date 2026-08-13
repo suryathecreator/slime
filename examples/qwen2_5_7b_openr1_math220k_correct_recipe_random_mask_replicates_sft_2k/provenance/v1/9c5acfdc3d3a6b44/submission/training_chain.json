@@ -1,0 +1,53 @@
+{
+  "artifact_schema_version": 1,
+  "branch": "qwen-correct-only-openr1-sft-2k",
+  "commit": "13f54566adcd711d78587a3e5304c8e887671304",
+  "contract_hash": "9c5acfdc3d3a6b44",
+  "jobs_in_dependency_order": [
+    {
+      "job_id": "222939",
+      "name": "build_masks"
+    },
+    {
+      "job_id": "222940",
+      "name": "prefix_canary"
+    },
+    {
+      "job_id": "222941",
+      "name": "train_random_mask_05_seed42"
+    },
+    {
+      "job_id": "222942",
+      "name": "train_random_mask_15_seed42"
+    },
+    {
+      "job_id": "222943",
+      "name": "train_random_mask_05_seed43"
+    },
+    {
+      "job_id": "222944",
+      "name": "train_random_mask_15_seed43"
+    },
+    {
+      "job_id": "222945",
+      "name": "train_random_mask_05_seed44"
+    },
+    {
+      "job_id": "222946",
+      "name": "train_random_mask_15_seed44"
+    },
+    {
+      "job_id": "222947",
+      "name": "finalize_handoff"
+    }
+  ],
+  "protected_supervision": "correct tokens and all protected assistant positions remain exact weight 1",
+  "resource_policy": {
+    "dependency": "strict linear afterok chain",
+    "jobs": 9,
+    "maximum_concurrent_gpus": 4,
+    "submits_evaluation": false,
+    "submits_transfer": false
+  },
+  "submitted_at": "2026-08-11T12:58:03.438510+00:00"
+}
