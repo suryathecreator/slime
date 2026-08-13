@@ -16,6 +16,7 @@ HANDOFF="$REPO_ROOT/examples/qwen2_5_7b_openr1_math220k_correct_recipe_random_ma
 RUNTIME_PYTHON="${RUNTIME_PYTHON:-$HANDOFF/runtime_python.sh}"
 CONTROL="$HANDOFF/math500_eval.py"
 GENERATOR="$HANDOFF/generate_math500.py"
+source "$HANDOFF/gpu_runtime.sh"
 : "${EVAL_TARGET:?Set EVAL_TARGET}"
 task="${SLURM_ARRAY_TASK_ID:?Run as array 0-11}"
 [[ "$task" =~ ^([0-9]|1[01])$ ]] || { echo "Invalid array task: $task" >&2; exit 2; }

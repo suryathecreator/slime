@@ -40,7 +40,16 @@ Submission requires committed, pushed, clean evaluator code equal to
 `origin/qwen-correct-only-openr1-sft-2k`. Submission metadata is then written
 for a separate metadata commit.
 
+Attempt 1 completed its full checkpoint preflight, but its H200 canary failed
+before generation because TorchInductor resolved a non-executable `nvcc`.
+GPU jobs now source `gpu_runtime.sh`, which pins the executable CUDA 12.8.1
+toolkit matching the PyTorch `+cu128` build. `submit_retry.sh` reuses that
+completed preflight, preserves the attempt-1 record, and writes separate
+attempt-2 control and tracked metadata.
+
 ```bash
 bash examples/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_eval_handoff/submit.sh --test-only-shapes
 bash examples/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_eval_handoff/submit.sh --submit
+bash examples/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_eval_handoff/submit_retry.sh --test-only-shapes
+bash examples/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_eval_handoff/submit_retry.sh --submit
 ```

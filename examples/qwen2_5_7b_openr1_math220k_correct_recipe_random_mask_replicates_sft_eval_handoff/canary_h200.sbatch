@@ -17,6 +17,7 @@ RUNTIME_PYTHON="${RUNTIME_PYTHON:-$HANDOFF/runtime_python.sh}"
 CONTROL="$HANDOFF/math500_eval.py"
 GENERATOR="$HANDOFF/generate_math500.py"
 SMOKE="$("$RUNTIME_PYTHON" "$CONTROL" --repo-root "$REPO_ROOT" path --field smoke)"
+source "$HANDOFF/gpu_runtime.sh"
 
 export HF_HOME="${HF_HOME:-/gscratch/scrubbed/suryadv/hf_cache}"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1

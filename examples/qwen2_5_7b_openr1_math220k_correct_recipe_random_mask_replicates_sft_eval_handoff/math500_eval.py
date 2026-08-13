@@ -892,9 +892,36 @@ def check_canary(args: argparse.Namespace) -> None:
         raise RuntimeError("canary is not ready")
 
 
+def validate_retry(args: argparse.Namespace) -> None:
+    root = repo_root(args)
+    check_preflight(args)
+    original_path = control_root(root) / "submission.json"
+    original = load_json(original_path)
+    ready = load_json(control_root(root) / "PREFLIGHT_READY.json")
+    if (
+        original.get("attempt") != 1
+        or original.get("preflight_job") != ready.get("job_id")
+        or original.get("eval_task_count") != 72
+        or original.get("git_commit") != args.original_git_commit
+    ):
+        raise RuntimeError("attempt-1 submission/preflight contract changed")
+    retry_path = control_root(root) / "submission_attempt_02.json"
+    if retry_path.exists():
+        raise FileExistsError(f"retry submission already exists: {retry_path}")
+    print(
+        "Q25R_MATH500_RETRY_VALID "
+        f"preflight={original['preflight_job']} failed_canary={original['canary_job']} "
+        f"original_sha256={sha256_file(original_path)}",
+        flush=True,
+    )
+
+
 def record_submission(args: argparse.Namespace) -> None:
     root = repo_root(args)
-    output = control_root(root) / "submission.json"
+    if args.attempt < 1:
+        raise ValueError("submission attempt must be positive")
+    suffix = "" if args.attempt == 1 else f"_attempt_{args.attempt:02d}"
+    output = control_root(root) / f"submission{suffix}.json"
     if output.exists():
         raise FileExistsError(f"refusing duplicate submission: {output}")
     def assignments(values: list[str]) -> dict[str, str]:
@@ -908,9 +935,9 @@ def record_submission(args: argparse.Namespace) -> None:
     arrays, finalizers = assignments(args.array_job), assignments(args.finalizer_job)
     if set(arrays) != set(TARGETS) or set(finalizers) != set(TARGETS):
         raise RuntimeError("submission does not cover all targets")
-    value = {
+    value: dict[str, Any] = {
         "artifact_schema_version": 1,
-        "attempt": 1,
+        "attempt": args.attempt,
         "array_jobs": arrays,
         "audit_job": args.audit_job,
         "canary_job": args.canary_job,
@@ -931,8 +958,28 @@ def record_submission(args: argparse.Namespace) -> None:
         },
         "submitted_at": now_iso(),
     }
+    if args.attempt == 1:
+        if args.supersedes_submission is not None or args.reuse_preflight:
+            raise ValueError("initial submission cannot supersede or reuse a preflight")
+    else:
+        if args.supersedes_submission is None or not args.reuse_preflight:
+            raise ValueError("retry submission must supersede and reuse preflight")
+        superseded = Path(args.supersedes_submission).resolve()
+        superseded_value = load_json(superseded)
+        if (
+            superseded_value.get("attempt") != args.attempt - 1
+            or superseded_value.get("preflight_job") != args.preflight_job
+        ):
+            raise RuntimeError("superseded submission does not match retry")
+        value["reused_preflight"] = True
+        value["supersedes_attempt"] = int(superseded_value["attempt"])
+        value["supersedes_submission"] = str(superseded)
+        value["supersedes_submission_sha256"] = sha256_file(superseded)
     atomic_text(output, canonical_json(value))
-    atomic_text(HANDOFF / "submission_metadata.json", canonical_json(value))
+    atomic_text(
+        HANDOFF / f"submission_metadata{suffix}.json",
+        canonical_json(value),
+    )
 
 
 def print_path(args: argparse.Namespace) -> None:
@@ -976,16 +1023,17 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("audit")
     preflight_cmd = commands.add_parser("mark-preflight"); preflight_cmd.add_argument("--job-id", required=True); preflight_cmd.add_argument("--verification", required=True)
     commands.add_parser("check-preflight")
+    retry_cmd = commands.add_parser("validate-retry"); retry_cmd.add_argument("--original-git-commit", required=True)
     canary_cmd = commands.add_parser("mark-canary"); canary_cmd.add_argument("--job-id", required=True)
     commands.add_parser("check-canary")
-    record_cmd = commands.add_parser("record-submission"); record_cmd.add_argument("--preflight-job", required=True); record_cmd.add_argument("--canary-job", required=True); record_cmd.add_argument("--array-job", action="append", default=[]); record_cmd.add_argument("--finalizer-job", action="append", default=[]); record_cmd.add_argument("--audit-job", required=True); record_cmd.add_argument("--git-commit", required=True)
+    record_cmd = commands.add_parser("record-submission"); record_cmd.add_argument("--attempt", type=int, default=1); record_cmd.add_argument("--preflight-job", required=True); record_cmd.add_argument("--canary-job", required=True); record_cmd.add_argument("--array-job", action="append", default=[]); record_cmd.add_argument("--finalizer-job", action="append", default=[]); record_cmd.add_argument("--audit-job", required=True); record_cmd.add_argument("--git-commit", required=True); record_cmd.add_argument("--reuse-preflight", action="store_true"); record_cmd.add_argument("--supersedes-submission")
     path_cmd = commands.add_parser("path"); path_cmd.add_argument("--field", required=True, choices=["control", "smoke", "shard", "tokenizer", "model", "manifest", "checkpoint-identity", "canary-output", "pass-output"]); path_cmd.add_argument("--target", choices=TARGETS); path_cmd.add_argument("--mode", choices=["sampled"], default="sampled"); path_cmd.add_argument("--repeat", type=int, default=0); path_cmd.add_argument("--shard", type=int, choices=range(4), default=0)
     return value
 
 
 def main() -> None:
     args = parser().parse_args()
-    handlers = {"prepare": prepare, "verify-checkpoints": verify_checkpoints, "validate-runtime": validate_runtime, "validate-gold": validate_gold, "merge": merge, "audit": audit, "mark-preflight": mark_preflight, "check-preflight": check_preflight, "mark-canary": mark_canary, "check-canary": check_canary, "record-submission": record_submission, "path": print_path}
+    handlers = {"prepare": prepare, "verify-checkpoints": verify_checkpoints, "validate-runtime": validate_runtime, "validate-gold": validate_gold, "merge": merge, "audit": audit, "mark-preflight": mark_preflight, "check-preflight": check_preflight, "validate-retry": validate_retry, "mark-canary": mark_canary, "check-canary": check_canary, "record-submission": record_submission, "path": print_path}
     handlers[args.command](args)
 
 

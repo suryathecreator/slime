@@ -171,8 +171,10 @@ def test_prompt_engine_and_last_boxed_scorer_contract_are_frozen() -> None:
 
 def test_submission_shape_push_gate_and_job_local_caches_are_frozen() -> None:
     submit = (HANDOFF / "submit.sh").read_text()
+    retry = (HANDOFF / "submit_retry.sh").read_text()
     worker = (HANDOFF / "run_h200.sbatch").read_text()
     canary = (HANDOFF / "canary_h200.sbatch").read_text()
+    gpu_runtime = (HANDOFF / "gpu_runtime.sh").read_text()
     control_source = (HANDOFF / "math500_eval.py").read_text()
     assert "--array=0-11" in submit
     assert "targets=6 tasks=72" in submit
@@ -184,6 +186,58 @@ def test_submission_shape_push_gate_and_job_local_caches_are_frozen() -> None:
     assert "VLLM_CACHE_ROOT" in worker
     assert "--time=02:00:00" in submit
     assert "--exclude=g3130" in submit
+    assert 'source "$HANDOFF/gpu_runtime.sh"' in worker
+    assert 'source "$HANDOFF/gpu_runtime.sh"' in canary
+    assert "CUDA_TOOLKIT_ROOT=/sw/cuda/12.8.1" in gpu_runtime
+    assert 'export PATH="$CUDA_TOOLKIT_ROOT/bin:$PATH"' in gpu_runtime
+    assert "release[[:space:]]12\\.8" in gpu_runtime
+    assert "--attempt \"$ATTEMPT\" --reuse-preflight" in retry
+    assert "--supersedes-submission \"$ORIGINAL_JOURNAL\"" in retry
+    assert "afterok:$canary_job" in retry
+    assert "submission_attempt_02.json" in control_source
+
+
+def test_retry_submission_metadata_preserves_attempt_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    control_directory = tmp_path / "control"
+    handoff_directory = tmp_path / "handoff"
+    control_directory.mkdir()
+    handoff_directory.mkdir()
+    original = {
+        "attempt": 1,
+        "preflight_job": "100",
+    }
+    original_path = control_directory / "submission.json"
+    original_path.write_text(json.dumps(original))
+    monkeypatch.setattr(control, "repo_root", lambda _args: tmp_path)
+    monkeypatch.setattr(control, "control_root", lambda _root: control_directory)
+    monkeypatch.setattr(control, "HANDOFF", handoff_directory)
+    assignments = [f"{target}={200 + index}" for index, target in enumerate(EXPECTED_TARGETS)]
+    finalizers = [f"{target}={300 + index}" for index, target in enumerate(EXPECTED_TARGETS)]
+    args = SimpleNamespace(
+        array_job=assignments,
+        attempt=2,
+        audit_job="400",
+        canary_job="101",
+        finalizer_job=finalizers,
+        git_commit="f" * 40,
+        preflight_job="100",
+        repo_root=str(tmp_path),
+        reuse_preflight=True,
+        supersedes_submission=str(original_path),
+    )
+    control.record_submission(args)
+    retry = json.loads((control_directory / "submission_attempt_02.json").read_text())
+    assert retry["attempt"] == 2
+    assert retry["preflight_job"] == "100"
+    assert retry["reused_preflight"] is True
+    assert retry["supersedes_attempt"] == 1
+    assert retry["supersedes_submission_sha256"] == control.sha256_file(original_path)
+    assert original_path.read_text() == json.dumps(original)
+    assert json.loads(
+        (handoff_directory / "submission_metadata_attempt_02.json").read_text()
+    ) == retry
 
 
 def test_sampled_statistic_is_sample_standard_deviation() -> None:
