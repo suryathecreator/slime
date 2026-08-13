@@ -502,6 +502,11 @@ def verify_checkpoints(args: argparse.Namespace) -> None:
 
 
 def validate_gold(args: argparse.Namespace) -> None:
+    # Math-Verify installs a five-second signal around each comparison. Preload
+    # SymPy's lazily imported tensor classes outside that timed region so cold
+    # filesystem/cache latency cannot turn a gold self-check into a false error.
+    import sympy.tensor.tensor  # noqa: F401
+
     root = repo_root(args)
     full = benchmark_paths(root)[0]
     failures = []
