@@ -1,0 +1,52 @@
+{
+  "artifact_schema_version": 1,
+  "dataset": {
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "row_order": "original_500",
+    "split": "test"
+  },
+  "decoding": {
+    "sampled": {
+      "repeats": 3,
+      "seed_formula": "1234 + repeat_index * 500 + eval_index",
+      "temperature": 0.7,
+      "top_k": -1,
+      "top_p": 0.8
+    }
+  },
+  "engine": {
+    "chunk_size": 32,
+    "dtype": "bfloat16",
+    "enable_prefix_caching": true,
+    "gpu_memory_utilization": 0.9,
+    "max_model_len": 32768,
+    "max_num_seqs": 8,
+    "tensor_parallel_size": 1
+  },
+  "prompt": {
+    "add_generation_prompt": true,
+    "instruction": "Please reason step by step, and put your final answer within \\boxed{}.",
+    "user_content": "instruction + \"\\n\\nProblem:\\n\" + problem"
+  },
+  "response_budget": {
+    "formula": "32768 - rendered_prompt_tokens",
+    "safety_margin": 0,
+    "target_total_context_tokens": 32768
+  },
+  "scoring": {
+    "cap_hits": "score saved response identically to natural stops",
+    "candidate_selection": "last complete nonempty balanced boxed group only",
+    "non_boxed_fallback": null,
+    "scorer": "math500_last_boxed_symmetric_scorer_v6"
+  },
+  "stopping": {
+    "accepted": [
+      {"id": 151643, "token": "<|endoftext|>"},
+      {"id": 151645, "token": "<|im_end|>"}
+    ],
+    "answer_based_stopping": false,
+    "ignore_eos": false,
+    "think_close_stopping": false
+  }
+}

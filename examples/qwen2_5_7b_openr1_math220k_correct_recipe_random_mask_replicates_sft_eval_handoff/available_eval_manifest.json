@@ -1,0 +1,115 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoints": [
+    {
+      "id": "random_mask_05_seed42",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_05_seed42.json",
+      "mask_probability": 0.05,
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_05_seed42/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_05_seed42",
+      "training_mask_seed": 42
+    },
+    {
+      "id": "random_mask_15_seed42",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_15_seed42.json",
+      "mask_probability": 0.15,
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_15_seed42/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_15_seed42",
+      "training_mask_seed": 42
+    },
+    {
+      "id": "random_mask_05_seed43",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_05_seed43.json",
+      "mask_probability": 0.05,
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_05_seed43/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_05_seed43",
+      "training_mask_seed": 43
+    },
+    {
+      "id": "random_mask_15_seed43",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_15_seed43.json",
+      "mask_probability": 0.15,
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_15_seed43/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_15_seed43",
+      "training_mask_seed": 43
+    },
+    {
+      "id": "random_mask_05_seed44",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_05_seed44.json",
+      "mask_probability": 0.05,
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_05_seed44/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_05_seed44",
+      "training_mask_seed": 44
+    },
+    {
+      "id": "random_mask_15_seed44",
+      "manifest": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/handoff/checkpoints/random_mask_15_seed44.json",
+      "mask_probability": 0.15,
+      "model": "checkpoints/qwen2_5_7b_openr1_math220k_correct_recipe_random_mask_replicates_sft_2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_15_seed44/weights/iter_0000124",
+      "tokenizer_family": "qwen2_5",
+      "training_condition": "random_mask_15_seed44",
+      "training_mask_seed": 44
+    }
+  ],
+  "contract_hash": "9c5acfdc3d3a6b44",
+  "dataset": {
+    "axolotl_canonical_jsonl_sha256": "ea36ec5abb3ae1e707cae72dd03bc3fc37e547e97fbb807aad441a27ac242d17",
+    "name": "HuggingFaceH4/MATH-500",
+    "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+    "split": "test"
+  },
+  "prior_results": {
+    "expected_targets": [
+      "base_qwen2_5_7b",
+      "qwen2_5_7b_8k",
+      "unmasked",
+      "random_mask_70",
+      "inverse_tau_0p20",
+      "inverse_tau_0p05",
+      "random_mask_25",
+      "random_mask_50",
+      "random_mask_80",
+      "random_mask_90",
+      "margin_mask",
+      "prob_ratio_mask"
+    ],
+    "eval_policy_path": "examples/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_eval_handoff/eval_policy.json",
+    "eval_policy_sha256": "7fa34c3fd4e18bd996a0e0b52d35af44254ad80bbe51d31ce0fe0cbf989abd9e",
+    "path": "examples/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/results/math500_sampled_v1/RESULTS.json",
+    "sha256": "2d466abb65afe6c32357247d7af11c7c871cb3905c341d3aeef679e11fbdd6b3"
+  },
+  "runtime": {
+    "cffi": "2.0.0",
+    "math_verify": "0.9.0",
+    "mistral_common": "1.11.7",
+    "numpy": "2.2.6",
+    "pycountry": "26.2.16",
+    "pycparser": "3.0",
+    "pydantic_extra_types": "2.11.1",
+    "soundfile": "0.14.0",
+    "soxr": "1.1.0",
+    "tokenizers": "0.22.2",
+    "torch": "2.8.0",
+    "transformers": "4.57.6",
+    "triton": "3.4.0",
+    "vllm": "0.10.2"
+  },
+  "sharding": {
+    "array_tasks_per_checkpoint": 12,
+    "chunk_size": 32,
+    "count": 4,
+    "layout": "contiguous",
+    "problems_per_shard": 125
+  },
+  "tokenizer": {
+    "chat_template_sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5",
+    "source": "random_mask_05_seed42",
+    "tokenizer_config_sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790",
+    "tokenizer_json_sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+  }
+}
