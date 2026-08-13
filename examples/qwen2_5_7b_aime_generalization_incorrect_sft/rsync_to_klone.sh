@@ -20,6 +20,7 @@ REMOTE_PYTHON="${REMOTE_PYTHON:-$(dirname "${REMOTE_REPO}")/Axolotl-Masked-SFT/.
 REMOTE_EXPERIMENT_RELATIVE="checkpoints/qwen2_5_7b_aime_generalization_incorrect_sft/v1/${CONTRACT_HASH}"
 REMOTE_EXPERIMENT="${REMOTE_REPO}/${REMOTE_EXPERIMENT_RELATIVE}"
 REMOTE_HF_GATE="${REMOTE_REPO}/examples/qwen2_5_7b_aime_generalization_incorrect_sft/hf_checkpoint_gate.py"
+REMOTE_MANIFEST_TOOL="${REMOTE_REPO}/examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_manifest.py"
 REMOTE_HELD_IN="${REMOTE_EXPERIMENT}/data/eval/held_in.jsonl"
 REMOTE_HELD_OUT="${REMOTE_EXPERIMENT}/data/eval/held_out_problem.jsonl"
 SOURCE_HELD_IN="${HELD_IN_EVAL_JSONL}"
@@ -46,87 +47,6 @@ mapfile -t records < <(
 )
 [[ "${#records[@]}" -eq 12 ]] || { echo "Expected exactly 12 trained checkpoint records" >&2; exit 1; }
 
-verify_remote_hash() {
-  local source="${1:?source required}" remote="${2:?remote required}"
-  local expected actual
-  expected="$(sha256sum "${source}" | awk '{print $1}')"
-  actual="$(ssh "${REMOTE_HOST}" sha256sum -- "${remote}" | awk '{print $1}')"
-  [[ "${actual}" == "${expected}" ]] || {
-    echo "Remote hash mismatch: ${remote} expected=${expected} actual=${actual}" >&2
-    return 1
-  }
-}
-
-for record in "${records[@]}"; do
-  IFS=$'\t' read -r artifact_id source_checkpoint source_manifest remote_checkpoint_relative remote_manifest_relative <<<"${record}"
-  remote_checkpoint="${REMOTE_EXPERIMENT}/${remote_checkpoint_relative}"
-  remote_manifest="${REMOTE_EXPERIMENT}/${remote_manifest_relative}"
-  case "${MODE}" in
-    --check)
-      python3 "${HF_GATE}" --checkpoint "${source_checkpoint}"
-      python3 "${MANIFEST_TOOL}" verify --manifest "${source_manifest}" --checkpoint "${source_checkpoint}"
-      ;;
-    --transfer)
-      ssh "${REMOTE_HOST}" mkdir -p "${remote_checkpoint}" "$(dirname "${remote_manifest}")"
-      rsync -a --partial --append-verify --info=progress2 \
-        "${source_checkpoint}/" "${REMOTE_HOST}:${remote_checkpoint}/"
-      rsync -a --partial --append-verify --info=progress2 \
-        "${source_manifest}" "${REMOTE_HOST}:${remote_manifest}"
-      ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" "${REMOTE_HF_GATE}" \
-        --checkpoint "${remote_checkpoint}"
-      ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" \
-        "${REMOTE_REPO}/examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_manifest.py" \
-        verify --manifest "${remote_manifest}" --checkpoint "${remote_checkpoint}"
-      ;;
-    --verify)
-      ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" "${REMOTE_HF_GATE}" \
-        --checkpoint "${remote_checkpoint}"
-      ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" \
-        "${REMOTE_REPO}/examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_manifest.py" \
-        verify --manifest "${remote_manifest}" --checkpoint "${remote_checkpoint}"
-      ;;
-  esac
-  echo "AIME_RSYNC_${MODE#--} artifact=${artifact_id}"
-done
-
-case "${MODE}" in
-  --check)
-    python3 "${HF_GATE}" --checkpoint "${BASE_SOURCE_CHECKPOINT}"
-    python3 "${MANIFEST_TOOL}" verify \
-      --manifest "${BASE_SOURCE_MANIFEST}" --checkpoint "${BASE_SOURCE_CHECKPOINT}"
-    ;;
-  --transfer)
-    ssh "${REMOTE_HOST}" mkdir -p "${REMOTE_EXPERIMENT}/models" "$(dirname "${BASE_REMOTE_MANIFEST}")"
-    rsync -a --partial --append-verify --info=progress2 \
-      "${BASE_SOURCE_MANIFEST}" "${REMOTE_HOST}:${BASE_REMOTE_MANIFEST}"
-    if ssh "${REMOTE_HOST}" test -f "${BASE_REMOTE_CHECKPOINT}/config.json" && \
-      ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" "${REMOTE_HF_GATE}" \
-        --checkpoint "${BASE_REMOTE_CHECKPOINT}" && \
-      ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" \
-        "${REMOTE_REPO}/examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_manifest.py" \
-        verify --manifest "${BASE_REMOTE_MANIFEST}" --checkpoint "${BASE_REMOTE_CHECKPOINT}"; then
-      echo "AIME_RSYNC_BASE_REUSED remote=${BASE_REMOTE_CHECKPOINT}"
-    else
-      ssh "${REMOTE_HOST}" mkdir -p "${BASE_REMOTE_CHECKPOINT}"
-      rsync -a --delete-delay --partial --append-verify --info=progress2 \
-        "${BASE_SOURCE_CHECKPOINT}/" "${REMOTE_HOST}:${BASE_REMOTE_CHECKPOINT}/"
-      ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" "${REMOTE_HF_GATE}" \
-        --checkpoint "${BASE_REMOTE_CHECKPOINT}"
-      ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" \
-        "${REMOTE_REPO}/examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_manifest.py" \
-        verify --manifest "${BASE_REMOTE_MANIFEST}" --checkpoint "${BASE_REMOTE_CHECKPOINT}"
-      echo "AIME_RSYNC_BASE_TRANSFERRED remote=${BASE_REMOTE_CHECKPOINT}"
-    fi
-    ;;
-  --verify)
-    ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" "${REMOTE_HF_GATE}" \
-      --checkpoint "${BASE_REMOTE_CHECKPOINT}"
-    ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}" \
-      "${REMOTE_REPO}/examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_manifest.py" \
-      verify --manifest "${BASE_REMOTE_MANIFEST}" --checkpoint "${BASE_REMOTE_CHECKPOINT}"
-    ;;
-esac
-
 compact_records=(
   "${EXPERIMENT_ROOT}/TRAINING_STATUS.json|TRAINING_STATUS.json"
   "${CONTRACT_FILE}|config/experiment_contract.json"
@@ -143,35 +63,169 @@ compact_records=(
   "${PACKAGE}/provenance/v1/${CONTRACT_HASH}/training_metrics.json|provenance/training_metrics.json"
 )
 for record in "${compact_records[@]}"; do
-  IFS='|' read -r source relative <<<"${record}"
+  IFS='|' read -r source _relative <<<"${record}"
   [[ -f "${source}" ]] || { echo "Missing compact provenance: ${source}" >&2; exit 1; }
-  remote="${REMOTE_EXPERIMENT}/${relative}"
-  case "${MODE}" in
-    --check) sha256sum "${source}" >/dev/null ;;
-    --transfer)
-      ssh "${REMOTE_HOST}" mkdir -p "$(dirname "${remote}")"
-      rsync -a --partial --append-verify --info=progress2 \
-        "${source}" "${REMOTE_HOST}:${remote}"
-      ;;
-    --verify) verify_remote_hash "${source}" "${remote}" ;;
-  esac
 done
 
-case "${MODE}" in
-  --check)
-    sha256sum "${SOURCE_HELD_IN}" "${SOURCE_HELD_OUT}"
-    ;;
-  --transfer)
-    ssh "${REMOTE_HOST}" mkdir -p "${REMOTE_EXPERIMENT}/data/eval"
-    rsync -a --partial --append-verify --info=progress2 \
-      "${SOURCE_HELD_IN}" "${REMOTE_HOST}:${REMOTE_HELD_IN}"
-    rsync -a --partial --append-verify --info=progress2 \
-      "${SOURCE_HELD_OUT}" "${REMOTE_HOST}:${REMOTE_HELD_OUT}"
-    ;;
-  --verify)
-    verify_remote_hash "${SOURCE_HELD_IN}" "${REMOTE_HELD_IN}"
-    verify_remote_hash "${SOURCE_HELD_OUT}" "${REMOTE_HELD_OUT}"
-    ;;
-esac
+if [[ "${MODE}" == "--check" ]]; then
+  for record in "${records[@]}"; do
+    IFS=$'\t' read -r artifact_id source_checkpoint source_manifest _remote_checkpoint _remote_manifest <<<"${record}"
+    python3 "${HF_GATE}" --checkpoint "${source_checkpoint}"
+    python3 "${MANIFEST_TOOL}" verify --manifest "${source_manifest}" --checkpoint "${source_checkpoint}"
+    echo "AIME_RSYNC_check artifact=${artifact_id}"
+  done
+  python3 "${HF_GATE}" --checkpoint "${BASE_SOURCE_CHECKPOINT}"
+  python3 "${MANIFEST_TOOL}" verify \
+    --manifest "${BASE_SOURCE_MANIFEST}" --checkpoint "${BASE_SOURCE_CHECKPOINT}"
+  for record in "${compact_records[@]}"; do
+    IFS='|' read -r source _relative <<<"${record}"
+    sha256sum "${source}" >/dev/null
+  done
+  sha256sum "${SOURCE_HELD_IN}" "${SOURCE_HELD_OUT}"
+  echo "AIME_RSYNC_COMPLETE mode=--check trained_checkpoints=12 eval_jsonl=2 training_jsonl=0 optimizer_state=0"
+  exit 0
+fi
 
-echo "AIME_RSYNC_COMPLETE mode=${MODE} trained_checkpoints=12 eval_jsonl=2 base_policy=transfer_only_if_missing training_jsonl=0 optimizer_state=0"
+if [[ "${MODE}" == "--transfer" ]]; then
+  SSH_CONTROL_DIR="$(mktemp -d /tmp/q25a-rsync-ssh.XXXXXX)"
+  SSH_CONTROL_SOCKET="${SSH_CONTROL_DIR}/control"
+  cleanup_transfer_session() {
+    if [[ -S "${SSH_CONTROL_SOCKET}" ]]; then
+      ssh -S "${SSH_CONTROL_SOCKET}" -O exit "${REMOTE_HOST}" >/dev/null 2>&1 || true
+    fi
+    rmdir "${SSH_CONTROL_DIR}" 2>/dev/null || true
+  }
+  trap cleanup_transfer_session EXIT
+  ssh -M -S "${SSH_CONTROL_SOCKET}" -o ControlPersist=no \
+    -o ServerAliveInterval=60 -o ServerAliveCountMax=10 -fN "${REMOTE_HOST}"
+  SSH_SESSION=(ssh -S "${SSH_CONTROL_SOCKET}")
+  RSYNC_RSH="ssh -S ${SSH_CONTROL_SOCKET} -o ServerAliveInterval=60 -o ServerAliveCountMax=10"
+  echo "AIME_RSYNC_TRANSFER_SESSION_OPEN authentication_prompts=1 resume_partial=1"
+
+  remote_directories=(
+    "${REMOTE_EXPERIMENT}/config"
+    "${REMOTE_EXPERIMENT}/data/eval"
+    "${REMOTE_EXPERIMENT}/handoff/checkpoints"
+    "${REMOTE_EXPERIMENT}/manifests"
+    "${REMOTE_EXPERIMENT}/models/Qwen2.5-7B"
+    "${REMOTE_EXPERIMENT}/provenance"
+  )
+  for record in "${records[@]}"; do
+    IFS=$'\t' read -r _artifact_id _source_checkpoint _source_manifest remote_checkpoint_relative remote_manifest_relative <<<"${record}"
+    remote_directories+=(
+      "${REMOTE_EXPERIMENT}/${remote_checkpoint_relative}"
+      "$(dirname "${REMOTE_EXPERIMENT}/${remote_manifest_relative}")"
+    )
+  done
+  "${SSH_SESSION[@]}" "${REMOTE_HOST}" mkdir -p "${remote_directories[@]}"
+
+  for record in "${records[@]}"; do
+    IFS=$'\t' read -r artifact_id source_checkpoint source_manifest remote_checkpoint_relative remote_manifest_relative <<<"${record}"
+    remote_checkpoint="${REMOTE_EXPERIMENT}/${remote_checkpoint_relative}"
+    remote_manifest="${REMOTE_EXPERIMENT}/${remote_manifest_relative}"
+    rsync -a --delete-delay --partial --append-verify --info=progress2 -e "${RSYNC_RSH}" \
+      "${source_checkpoint}/" "${REMOTE_HOST}:${remote_checkpoint}/"
+    rsync -a --partial --append-verify --info=progress2 -e "${RSYNC_RSH}" \
+      "${source_manifest}" "${REMOTE_HOST}:${remote_manifest}"
+    echo "AIME_RSYNC_transfer artifact=${artifact_id} remote_verification=pending"
+  done
+
+  rsync -a --partial --append-verify --info=progress2 -e "${RSYNC_RSH}" \
+    "${BASE_SOURCE_MANIFEST}" "${REMOTE_HOST}:${BASE_REMOTE_MANIFEST}"
+  rsync -a --delete-delay --partial --append-verify --info=progress2 -e "${RSYNC_RSH}" \
+    "${BASE_SOURCE_CHECKPOINT}/" "${REMOTE_HOST}:${BASE_REMOTE_CHECKPOINT}/"
+  echo "AIME_RSYNC_transfer artifact=base_qwen2_5_7b remote_verification=pending"
+
+  for record in "${compact_records[@]}"; do
+    IFS='|' read -r source relative <<<"${record}"
+    rsync -a --partial --append-verify --info=progress2 -e "${RSYNC_RSH}" \
+      "${source}" "${REMOTE_HOST}:${REMOTE_EXPERIMENT}/${relative}"
+  done
+  rsync -a --partial --append-verify --info=progress2 -e "${RSYNC_RSH}" \
+    "${SOURCE_HELD_IN}" "${REMOTE_HOST}:${REMOTE_HELD_IN}"
+  rsync -a --partial --append-verify --info=progress2 -e "${RSYNC_RSH}" \
+    "${SOURCE_HELD_OUT}" "${REMOTE_HOST}:${REMOTE_HELD_OUT}"
+
+  cleanup_transfer_session
+  trap - EXIT
+  echo "AIME_RSYNC_COMPLETE mode=--transfer authenticated_sessions=1 trained_checkpoints=12 eval_jsonl=2 training_jsonl=0 optimizer_state=0 remote_verification=required_separate_command"
+  exit 0
+fi
+
+hash_records=(
+  "${compact_records[@]}"
+  "${SOURCE_HELD_IN}|data/eval/held_in.jsonl"
+  "${SOURCE_HELD_OUT}|data/eval/held_out_problem.jsonl"
+)
+remote_hash_relatives=()
+for record in "${hash_records[@]}"; do
+  IFS='|' read -r _source relative <<<"${record}"
+  remote_hash_relatives+=("${relative}")
+done
+
+VERIFY_OUTPUT="$(mktemp /tmp/q25a-rsync-verify.XXXXXX)"
+cleanup_verify_output() {
+  rm -f -- "${VERIFY_OUTPUT}"
+}
+trap cleanup_verify_output EXIT
+ssh "${REMOTE_HOST}" bash -s -- \
+  "${REMOTE_PYTHON}" "${REMOTE_HF_GATE}" "${REMOTE_MANIFEST_TOOL}" "${REMOTE_EXPERIMENT}" \
+  "${remote_hash_relatives[@]}" <<'REMOTE_VERIFY' | tee "${VERIFY_OUTPUT}"
+set -euo pipefail
+remote_python="$1"
+remote_hf_gate="$2"
+remote_manifest_tool="$3"
+remote_experiment="$4"
+shift 4
+
+for required in "${remote_python}" "${remote_hf_gate}" "${remote_manifest_tool}" \
+  "${remote_experiment}/handoff/checkpoint_sources.json"; do
+  [[ -e "${required}" ]] || { echo "Missing remote verification prerequisite: ${required}" >&2; exit 1; }
+done
+
+mapfile -t checkpoint_rows < <(
+  "${remote_python}" -c '
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    value = json.load(handle)
+for item in value["checkpoints"]:
+    print("\t".join((item["id"], item["remote_checkpoint_relative"], item["remote_manifest_relative"])))
+' "${remote_experiment}/handoff/checkpoint_sources.json"
+)
+[[ "${#checkpoint_rows[@]}" -eq 12 ]] || { echo "Remote inventory does not contain 12 checkpoints" >&2; exit 1; }
+for row in "${checkpoint_rows[@]}"; do
+  IFS=$'\t' read -r artifact_id checkpoint_relative manifest_relative <<<"${row}"
+  checkpoint="${remote_experiment}/${checkpoint_relative}"
+  manifest="${remote_experiment}/${manifest_relative}"
+  "${remote_python}" "${remote_hf_gate}" --checkpoint "${checkpoint}"
+  "${remote_python}" "${remote_manifest_tool}" verify --manifest "${manifest}" --checkpoint "${checkpoint}"
+  echo "AIME_RSYNC_verify artifact=${artifact_id}"
+done
+
+base_checkpoint="${remote_experiment}/models/Qwen2.5-7B"
+base_manifest="${remote_experiment}/handoff/checkpoints/base_qwen2_5_7b.json"
+"${remote_python}" "${remote_hf_gate}" --checkpoint "${base_checkpoint}"
+"${remote_python}" "${remote_manifest_tool}" verify --manifest "${base_manifest}" --checkpoint "${base_checkpoint}"
+echo "AIME_RSYNC_verify artifact=base_qwen2_5_7b"
+
+for relative in "$@"; do
+  remote_file="${remote_experiment}/${relative}"
+  [[ -f "${remote_file}" ]] || { echo "Missing transferred file: ${remote_file}" >&2; exit 1; }
+  actual="$(sha256sum -- "${remote_file}" | awk '{print $1}')"
+  printf 'AIME_REMOTE_SHA256\t%s\t%s\n' "${actual}" "${relative}"
+done
+REMOTE_VERIFY
+
+for record in "${hash_records[@]}"; do
+  IFS='|' read -r source relative <<<"${record}"
+  expected="$(sha256sum "${source}" | awk '{print $1}')"
+  expected_line="$(printf 'AIME_REMOTE_SHA256\t%s\t%s' "${expected}" "${relative}")"
+  grep -Fqx -- "${expected_line}" "${VERIFY_OUTPUT}" || {
+    echo "Remote hash mismatch: ${relative}" >&2
+    exit 1
+  }
+done
+cleanup_verify_output
+trap - EXIT
+echo "AIME_RSYNC_COMPLETE mode=--verify authenticated_sessions=1 trained_checkpoints=12 eval_jsonl=2 training_jsonl=0 optimizer_state=0"

@@ -140,6 +140,16 @@ bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/rsync_to_klone.sh --t
 bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/rsync_to_klone.sh --verify
 ```
 
+`--transfer` opens one authenticated SSH control connection and multiplexes all
+checkpoint and metadata rsync processes through it, so it requires one Duo
+login rather than one per file. It uses `--partial --append-verify`: rerunning
+after an interruption skips completed files, verifies/resumes partial files,
+and converges each dedicated final-checkpoint directory to its source. It does
+not perform remote checkpoint hashing inline. Run `--verify` afterward; that
+command uses one separate SSH login and verifies all 12 trained checkpoints,
+the base checkpoint, both eval sets, and every compact provenance file in that
+single remote session.
+
 After pulling the pinned branch on Hyak, validate Slurm shapes and submit the
 three-sample held-in/held-out evaluation chain:
 

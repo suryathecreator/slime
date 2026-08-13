@@ -604,6 +604,18 @@ def test_training_handoff_is_final_only_and_never_transfers_training_data() -> N
     assert "outputs/training/{variant}/weights/iter_" in finalize
 
 
+def test_handoff_uses_one_authenticated_transfer_session_and_one_verify_session() -> None:
+    transfer = (EXPERIMENT / "rsync_to_klone.sh").read_text(encoding="utf-8")
+    assert 'ssh -M -S "${SSH_CONTROL_SOCKET}"' in transfer
+    assert 'RSYNC_RSH="ssh -S ${SSH_CONTROL_SOCKET}' in transfer
+    assert 'ssh -S "${SSH_CONTROL_SOCKET}" -O exit' in transfer
+    assert 'ssh "${REMOTE_HOST}" bash -s --' in transfer
+    assert 'remote_verification=required_separate_command' in transfer
+    assert 'authenticated_sessions=1' in transfer
+    assert '--delete-delay --partial --append-verify' in transfer
+    assert 'ssh "${REMOTE_HOST}" "${REMOTE_PYTHON}"' not in transfer
+
+
 def test_shell_surfaces_parse_and_walltimes_are_bounded() -> None:
     paths = sorted(EXPERIMENT.glob("*.sh")) + sorted(EXPERIMENT.glob("*.sbatch"))
     for path in paths:
