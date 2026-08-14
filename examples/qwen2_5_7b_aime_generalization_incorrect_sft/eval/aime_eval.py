@@ -987,23 +987,47 @@ def validate_resubmission(args: argparse.Namespace) -> None:
     }
     if len(jobs) != 30 or any(not job.isdigit() for job in jobs):
         raise RuntimeError(f"prior submission job inventory changed: {sorted(jobs)}")
-    preflight = str(value["preflight_job"])
-    if preflight not in failure_log.name:
-        raise RuntimeError("failure log does not belong to the prior preflight")
+    stage_jobs = {
+        "preflight": str(value["preflight_job"]),
+        "canary": str(value["canary_job"]),
+    }
+    failure_stages = [
+        stage for stage, job in stage_jobs.items() if failure_log.name.endswith(f"-{job}.out")
+    ]
+    if len(failure_stages) != 1:
+        raise RuntimeError("failure log does not belong to the prior preflight or canary")
+    failure_stage = failure_stages[0]
     log_text = failure_log.read_text(encoding="utf-8", errors="replace")
     signatures = {
         "legacy_extra_special_tokens_list": (
-            "AttributeError: 'list' object has no attribute 'keys'",
-            "_set_model_specific_special_tokens",
+            "preflight",
+            (
+                "AttributeError: 'list' object has no attribute 'keys'",
+                "_set_model_specific_special_tokens",
+            ),
         ),
         "metadata_publication_worktree_race": (
-            "runtime Git worktree is not clean:",
-            "M examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submission_metadata.json",
+            "preflight",
+            (
+                "runtime Git worktree is not clean:",
+                "M examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submission_metadata.json",
+            ),
+        ),
+        "cuda_nvcc_permission_denied": (
+            "canary",
+            (
+                "EngineCore failed to start.",
+                "torch._inductor.exc.InductorError: PermissionError: [Errno 13] Permission denied: 'nvcc'",
+            ),
         ),
     }
-    matches = [kind for kind, markers in signatures.items() if all(marker in log_text for marker in markers)]
+    matches = [
+        kind
+        for kind, (stage, markers) in signatures.items()
+        if stage == failure_stage and all(marker in log_text for marker in markers)
+    ]
     if len(matches) != 1:
-        raise RuntimeError(f"prior preflight does not contain exactly one approved failure: {matches}")
+        raise RuntimeError(f"prior failure log does not contain exactly one approved failure: {matches}")
     generated = sorted(eval_root(args).glob("**/records.jsonl"))
     results = sorted(result_root(args).glob("**/*")) if result_root(args).is_dir() else []
     result_files = [path for path in results if path.is_file()]

@@ -72,7 +72,14 @@ if [[ "${MODE}" == "--submit" ]]; then
 else
   [[ -f "${JOURNAL}" ]] || { echo "Missing submission to supersede: ${JOURNAL}" >&2; exit 2; }
   prior_preflight="$(jq -er '.preflight_job' "${JOURNAL}")"
-  failure_log="${LOG_DIR}/q25-aime-preflight-${prior_preflight}.out"
+  prior_canary="$(jq -er '.canary_job' "${JOURNAL}")"
+  preflight_failure_log="${LOG_DIR}/q25-aime-preflight-${prior_preflight}.out"
+  canary_failure_log="${LOG_DIR}/q25-aime-canary-${prior_canary}.out"
+  failure_log="${preflight_failure_log}"
+  if [[ -f "${canary_failure_log}" ]] && \
+      grep -Fq "PermissionError: [Errno 13] Permission denied: 'nvcc'" "${canary_failure_log}"; then
+    failure_log="${canary_failure_log}"
+  fi
   mapfile -t PRIOR_INFO < <(
     "${RUNTIME_PYTHON}" "${CONTROL}" --repo-root "${REPO_ROOT}" --experiment-root "${EVAL_EXPERIMENT_ROOT}" \
       validate-resubmission --journal "${JOURNAL}" --failure-log "${failure_log}"

@@ -18,6 +18,18 @@ CONTROL="${EVAL_DIR}/aime_eval.py"
 : "${HELD_OUT_EVAL_JSONL:?Set HELD_OUT_EVAL_JSONL}"
 "${RUNTIME_PYTHON}" "${EVAL_DIR}/../runtime_repo_gate.py" \
   --repo-root "${REPO_ROOT}" --expected-commit "${AIME_EXPECTED_GIT_COMMIT}"
+CUDA_TOOLKIT_ROOT=/sw/cuda/12.8.1
+export CUDA_HOME="${CUDA_TOOLKIT_ROOT}" CUDA_PATH="${CUDA_TOOLKIT_ROOT}"
+export PATH="${CUDA_TOOLKIT_ROOT}/bin:${PATH}"
+[[ -x "${CUDA_TOOLKIT_ROOT}/bin/nvcc" ]] || {
+  echo "Missing executable CUDA 12.8 compiler: ${CUDA_TOOLKIT_ROOT}/bin/nvcc" >&2
+  exit 2
+}
+"${CUDA_TOOLKIT_ROOT}/bin/nvcc" --version | grep -Fq "release 12.8" || {
+  echo "Unexpected CUDA compiler version: ${CUDA_TOOLKIT_ROOT}/bin/nvcc" >&2
+  exit 2
+}
+echo "AIME_CUDA_TOOLCHAIN_OK root=${CUDA_TOOLKIT_ROOT} nvcc=$(command -v nvcc)"
 CONTROL_ROOT="$("${RUNTIME_PYTHON}" "${CONTROL}" --repo-root "${REPO_ROOT}" --experiment-root "${EVAL_EXPERIMENT_ROOT}" path --field control)"
 mkdir -p "${CONTROL_ROOT}"
 cd "${REPO_ROOT}"

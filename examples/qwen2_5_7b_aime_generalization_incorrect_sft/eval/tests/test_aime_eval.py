@@ -335,6 +335,15 @@ def test_submission_script_encodes_priority_and_interim_dependencies() -> None:
     assert "CANARY_TARGET=aime_correct_3000" in canary
 
 
+def test_every_generation_job_pins_an_executable_cuda_12_8_compiler() -> None:
+    for name in ("preflight_cpu.sbatch", "canary_h200.sbatch", "run_h200.sbatch"):
+        text = (aime_eval.EVAL_DIR / name).read_text(encoding="utf-8")
+        assert "CUDA_TOOLKIT_ROOT=/sw/cuda/12.8.1" in text, name
+        assert 'export PATH="${CUDA_TOOLKIT_ROOT}/bin:${PATH}"' in text, name
+        assert '[[ -x "${CUDA_TOOLKIT_ROOT}/bin/nvcc" ]]' in text, name
+        assert 'grep -Fq "release 12.8"' in text, name
+
+
 def test_merge_rejects_generation_policy_drift(tmp_path: Path) -> None:
     held_in = tmp_path / "held_in.jsonl"
     held_out = tmp_path / "held_out.jsonl"
@@ -551,6 +560,17 @@ def test_resubmission_requires_exact_failure_and_records_supersession(
     aime_eval.validate_resubmission(retry)
     assert capsys.readouterr().out.splitlines()[0] == "failure_kind=metadata_publication_worktree_race"
 
+    failure_log = aime_eval.control_root(namespace) / "slurm_logs/q25-aime-canary-101.out"
+    failure_log.write_text(
+        "EngineCore failed to start.\n"
+        "torch._inductor.exc.InductorError: PermissionError: [Errno 13] "
+        "Permission denied: 'nvcc'\n",
+        encoding="utf-8",
+    )
+    retry.failure_log = str(failure_log)
+    aime_eval.validate_resubmission(retry)
+    assert capsys.readouterr().out.splitlines()[0] == "failure_kind=cuda_nvcc_permission_denied"
+
     archive = aime_eval.control_root(namespace) / "submission_attempts/attempt-1"
     archive.mkdir(parents=True)
     archived_journal = archive / "submission.json"
@@ -563,12 +583,12 @@ def test_resubmission_requires_exact_failure_and_records_supersession(
     namespace.audit_job = "901"
     namespace.attempt = 2
     namespace.supersedes_journal = str(archived_journal)
-    namespace.failure_kind = "metadata_publication_worktree_race"
+    namespace.failure_kind = "cuda_nvcc_permission_denied"
     namespace.failure_log = str(failure_log)
     aime_eval.record_submission(namespace)
     replacement = json.loads(journal.read_text())
     assert replacement["attempt"] == 2
-    assert replacement["supersedes"]["failure_kind"] == "metadata_publication_worktree_race"
+    assert replacement["supersedes"]["failure_kind"] == "cuda_nvcc_permission_denied"
     assert replacement["supersedes"]["journal"] == str(archived_journal.resolve())
 
 
