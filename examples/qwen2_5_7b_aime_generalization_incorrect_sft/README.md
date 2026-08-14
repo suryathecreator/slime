@@ -180,5 +180,9 @@ identities remain unchanged. Preflight proves the rendered probe, vocabulary
 size, EOS IDs, and every Qwen special-token ID agree across all 13 targets; the
 H200 canary uses the affected 3K trained checkpoint, and both prompt rendering
 and vLLM consume the same overlay. A guarded `--resubmit` accepts only the known
-legacy-tokenizer failure, archives the superseded journal, cancels its remaining
-dependency graph, and records the replacement attempt and failure provenance.
+legacy-tokenizer failure or the preserved metadata-publication worktree race,
+archives the superseded journal, cancels its remaining dependency graph, and
+records the replacement attempt and failure provenance.
+Submission metadata must be published through an isolated Git index; the live
+checkout stays clean and pinned to the exported runtime SHA while delayed jobs
+execute their revision gates.

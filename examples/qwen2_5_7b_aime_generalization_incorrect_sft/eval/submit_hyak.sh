@@ -73,10 +73,13 @@ else
   [[ -f "${JOURNAL}" ]] || { echo "Missing submission to supersede: ${JOURNAL}" >&2; exit 2; }
   prior_preflight="$(jq -er '.preflight_job' "${JOURNAL}")"
   failure_log="${LOG_DIR}/q25-aime-preflight-${prior_preflight}.out"
-  mapfile -t PRIOR_JOBS < <(
+  mapfile -t PRIOR_INFO < <(
     "${RUNTIME_PYTHON}" "${CONTROL}" --repo-root "${REPO_ROOT}" --experiment-root "${EVAL_EXPERIMENT_ROOT}" \
       validate-resubmission --journal "${JOURNAL}" --failure-log "${failure_log}"
   )
+  [[ "${PRIOR_INFO[0]:-}" == failure_kind=* ]] || { echo "Missing approved prior failure kind" >&2; exit 2; }
+  FAILURE_KIND="${PRIOR_INFO[0]#failure_kind=}"
+  PRIOR_JOBS=("${PRIOR_INFO[@]:1}")
   [[ ${#PRIOR_JOBS[@]} -eq 30 ]] || { echo "Expected 30 prior jobs; found ${#PRIOR_JOBS[@]}" >&2; exit 2; }
   prior_csv="$(IFS=,; echo "${PRIOR_JOBS[*]}")"
   mapfile -t ACTIVE_PRIOR_JOBS < <(squeue --noheader --jobs="${prior_csv}" --format='%A' | sort -u)
@@ -98,7 +101,7 @@ else
   ATTEMPT="$(( $(jq -r '.attempt // 1' "${PRIOR_ARCHIVE}/submission.json") + 1 ))"
   SUPERSESSION_ARGS=(
     --supersedes-journal "${PRIOR_ARCHIVE}/submission.json"
-    --failure-kind legacy_extra_special_tokens_list
+    --failure-kind "${FAILURE_KIND}"
     --failure-log "${failure_log}"
   )
   echo "AIME_EVAL_SUPERSEDED attempt=${ATTEMPT} archive=${PRIOR_ARCHIVE} jobs=${PRIOR_JOBS[*]}"

@@ -539,7 +539,17 @@ def test_resubmission_requires_exact_failure_and_records_supersession(
     retry.journal = str(journal)
     retry.failure_log = str(failure_log)
     aime_eval.validate_resubmission(retry)
-    assert len(capsys.readouterr().out.splitlines()) == 30
+    retry_output = capsys.readouterr().out.splitlines()
+    assert retry_output[0] == "failure_kind=legacy_extra_special_tokens_list"
+    assert len(retry_output[1:]) == 30
+
+    failure_log.write_text(
+        "runtime Git worktree is not clean:\n"
+        "M examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submission_metadata.json\n",
+        encoding="utf-8",
+    )
+    aime_eval.validate_resubmission(retry)
+    assert capsys.readouterr().out.splitlines()[0] == "failure_kind=metadata_publication_worktree_race"
 
     archive = aime_eval.control_root(namespace) / "submission_attempts/attempt-1"
     archive.mkdir(parents=True)
@@ -553,12 +563,12 @@ def test_resubmission_requires_exact_failure_and_records_supersession(
     namespace.audit_job = "901"
     namespace.attempt = 2
     namespace.supersedes_journal = str(archived_journal)
-    namespace.failure_kind = "legacy_extra_special_tokens_list"
+    namespace.failure_kind = "metadata_publication_worktree_race"
     namespace.failure_log = str(failure_log)
     aime_eval.record_submission(namespace)
     replacement = json.loads(journal.read_text())
     assert replacement["attempt"] == 2
-    assert replacement["supersedes"]["failure_kind"] == "legacy_extra_special_tokens_list"
+    assert replacement["supersedes"]["failure_kind"] == "metadata_publication_worktree_race"
     assert replacement["supersedes"]["journal"] == str(archived_journal.resolve())
 
 

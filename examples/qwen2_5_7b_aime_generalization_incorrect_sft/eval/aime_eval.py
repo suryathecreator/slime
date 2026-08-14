@@ -991,12 +991,19 @@ def validate_resubmission(args: argparse.Namespace) -> None:
     if preflight not in failure_log.name:
         raise RuntimeError("failure log does not belong to the prior preflight")
     log_text = failure_log.read_text(encoding="utf-8", errors="replace")
-    required = (
-        "AttributeError: 'list' object has no attribute 'keys'",
-        "_set_model_specific_special_tokens",
-    )
-    if not all(marker in log_text for marker in required):
-        raise RuntimeError("prior preflight does not contain the approved tokenizer compatibility failure")
+    signatures = {
+        "legacy_extra_special_tokens_list": (
+            "AttributeError: 'list' object has no attribute 'keys'",
+            "_set_model_specific_special_tokens",
+        ),
+        "metadata_publication_worktree_race": (
+            "runtime Git worktree is not clean:",
+            "M examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submission_metadata.json",
+        ),
+    }
+    matches = [kind for kind, markers in signatures.items() if all(marker in log_text for marker in markers)]
+    if len(matches) != 1:
+        raise RuntimeError(f"prior preflight does not contain exactly one approved failure: {matches}")
     generated = sorted(eval_root(args).glob("**/records.jsonl"))
     results = sorted(result_root(args).glob("**/*")) if result_root(args).is_dir() else []
     result_files = [path for path in results if path.is_file()]
@@ -1005,6 +1012,7 @@ def validate_resubmission(args: argparse.Namespace) -> None:
             "refusing to supersede an evaluation with generated/result artifacts: "
             f"records={generated} results={result_files}"
         )
+    print(f"failure_kind={matches[0]}")
     for job in sorted(jobs, key=int):
         print(job)
 
