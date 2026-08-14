@@ -1,0 +1,304 @@
+{
+  "array_jobs": {
+    "aime_correct_3000": "38482726",
+    "base_qwen2_5_7b": "38482724",
+    "continue_correct_only_1500": "38482731",
+    "continue_random_mask_10": "38482736",
+    "continue_random_mask_20": "38482738",
+    "continue_random_mask_30": "38482740",
+    "continue_random_mask_40": "38482742",
+    "continue_random_mask_50": "38482733",
+    "continue_random_mask_60": "38482744",
+    "continue_random_mask_70": "38482746",
+    "continue_random_mask_80": "38482748",
+    "continue_random_mask_90": "38482750",
+    "continue_wrong_unmasked": "38482729"
+  },
+  "artifact_schema_version": 2,
+  "audit_job": "38482752",
+  "canary_job": "38482723",
+  "dependency_edges": [
+    {
+      "afterok": [
+        "38482722"
+      ],
+      "job": "38482723",
+      "stage": "canary"
+    },
+    {
+      "afterok": [
+        "38482723"
+      ],
+      "job": "38482724",
+      "stage": "base_generation"
+    },
+    {
+      "afterok": [
+        "38482724"
+      ],
+      "job": "38482725",
+      "stage": "base_finalization"
+    },
+    {
+      "afterok": [
+        "38482723"
+      ],
+      "job": "38482726",
+      "stage": "priority_generation",
+      "target": "aime_correct_3000"
+    },
+    {
+      "afterok": [
+        "38482726"
+      ],
+      "job": "38482728",
+      "stage": "priority_finalization",
+      "target": "aime_correct_3000"
+    },
+    {
+      "afterok": [
+        "38482728"
+      ],
+      "job": "38482729",
+      "stage": "priority_generation",
+      "target": "continue_wrong_unmasked"
+    },
+    {
+      "afterok": [
+        "38482729"
+      ],
+      "job": "38482730",
+      "stage": "priority_finalization",
+      "target": "continue_wrong_unmasked"
+    },
+    {
+      "afterok": [
+        "38482730"
+      ],
+      "job": "38482731",
+      "stage": "priority_generation",
+      "target": "continue_correct_only_1500"
+    },
+    {
+      "afterok": [
+        "38482731"
+      ],
+      "job": "38482732",
+      "stage": "priority_finalization",
+      "target": "continue_correct_only_1500"
+    },
+    {
+      "afterok": [
+        "38482732"
+      ],
+      "job": "38482733",
+      "stage": "priority_generation",
+      "target": "continue_random_mask_50"
+    },
+    {
+      "afterok": [
+        "38482733"
+      ],
+      "job": "38482734",
+      "stage": "priority_finalization",
+      "target": "continue_random_mask_50"
+    },
+    {
+      "afterok": [
+        "38482725",
+        "38482734"
+      ],
+      "job": "38482735",
+      "stage": "interim_aggregation"
+    },
+    {
+      "afterok": [
+        "38482735"
+      ],
+      "job": "38482736",
+      "stage": "deferred_generation",
+      "target": "continue_random_mask_10"
+    },
+    {
+      "afterok": [
+        "38482736"
+      ],
+      "job": "38482737",
+      "stage": "deferred_finalization",
+      "target": "continue_random_mask_10"
+    },
+    {
+      "afterok": [
+        "38482735"
+      ],
+      "job": "38482738",
+      "stage": "deferred_generation",
+      "target": "continue_random_mask_20"
+    },
+    {
+      "afterok": [
+        "38482738"
+      ],
+      "job": "38482739",
+      "stage": "deferred_finalization",
+      "target": "continue_random_mask_20"
+    },
+    {
+      "afterok": [
+        "38482735"
+      ],
+      "job": "38482740",
+      "stage": "deferred_generation",
+      "target": "continue_random_mask_30"
+    },
+    {
+      "afterok": [
+        "38482740"
+      ],
+      "job": "38482741",
+      "stage": "deferred_finalization",
+      "target": "continue_random_mask_30"
+    },
+    {
+      "afterok": [
+        "38482735"
+      ],
+      "job": "38482742",
+      "stage": "deferred_generation",
+      "target": "continue_random_mask_40"
+    },
+    {
+      "afterok": [
+        "38482742"
+      ],
+      "job": "38482743",
+      "stage": "deferred_finalization",
+      "target": "continue_random_mask_40"
+    },
+    {
+      "afterok": [
+        "38482735"
+      ],
+      "job": "38482744",
+      "stage": "deferred_generation",
+      "target": "continue_random_mask_60"
+    },
+    {
+      "afterok": [
+        "38482744"
+      ],
+      "job": "38482745",
+      "stage": "deferred_finalization",
+      "target": "continue_random_mask_60"
+    },
+    {
+      "afterok": [
+        "38482735"
+      ],
+      "job": "38482746",
+      "stage": "deferred_generation",
+      "target": "continue_random_mask_70"
+    },
+    {
+      "afterok": [
+        "38482746"
+      ],
+      "job": "38482747",
+      "stage": "deferred_finalization",
+      "target": "continue_random_mask_70"
+    },
+    {
+      "afterok": [
+        "38482735"
+      ],
+      "job": "38482748",
+      "stage": "deferred_generation",
+      "target": "continue_random_mask_80"
+    },
+    {
+      "afterok": [
+        "38482748"
+      ],
+      "job": "38482749",
+      "stage": "deferred_finalization",
+      "target": "continue_random_mask_80"
+    },
+    {
+      "afterok": [
+        "38482735"
+      ],
+      "job": "38482750",
+      "stage": "deferred_generation",
+      "target": "continue_random_mask_90"
+    },
+    {
+      "afterok": [
+        "38482750"
+      ],
+      "job": "38482751",
+      "stage": "deferred_finalization",
+      "target": "continue_random_mask_90"
+    },
+    {
+      "afterok": [
+        "38482737",
+        "38482739",
+        "38482741",
+        "38482743",
+        "38482745",
+        "38482747",
+        "38482749",
+        "38482751"
+      ],
+      "job": "38482752",
+      "stage": "final_audit"
+    }
+  ],
+  "finalizer_jobs": {
+    "aime_correct_3000": "38482728",
+    "base_qwen2_5_7b": "38482725",
+    "continue_correct_only_1500": "38482732",
+    "continue_random_mask_10": "38482737",
+    "continue_random_mask_20": "38482739",
+    "continue_random_mask_30": "38482741",
+    "continue_random_mask_40": "38482743",
+    "continue_random_mask_50": "38482734",
+    "continue_random_mask_60": "38482745",
+    "continue_random_mask_70": "38482747",
+    "continue_random_mask_80": "38482749",
+    "continue_random_mask_90": "38482751",
+    "continue_wrong_unmasked": "38482730"
+  },
+  "git_commit": "424e7260ecc1c3941e7cc6952d52d7211b34ddad",
+  "interim_job": "38482735",
+  "preflight_job": "38482722",
+  "submitted_at": "2026-08-14T07:35:23.365183+00:00",
+  "target_groups": {
+    "base": [
+      "base_qwen2_5_7b"
+    ],
+    "deferred": [
+      "continue_random_mask_10",
+      "continue_random_mask_20",
+      "continue_random_mask_30",
+      "continue_random_mask_40",
+      "continue_random_mask_60",
+      "continue_random_mask_70",
+      "continue_random_mask_80",
+      "continue_random_mask_90"
+    ],
+    "interim": [
+      "base_qwen2_5_7b",
+      "aime_correct_3000",
+      "continue_wrong_unmasked",
+      "continue_correct_only_1500",
+      "continue_random_mask_50"
+    ],
+    "priority": [
+      "aime_correct_3000",
+      "continue_wrong_unmasked",
+      "continue_correct_only_1500",
+      "continue_random_mask_50"
+    ]
+  }
+}
