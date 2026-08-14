@@ -1,0 +1,65 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "9f7628fd2bcc6ee018e436f8cdb5845d6ff3b418c34b0ca5341b58edce06d697",
+  "contract_hash": "9c5acfdc3d3a6b44",
+  "created_at": "2026-08-11T22:06:04.755940+00:00",
+  "family": "2k",
+  "files": [
+    {
+      "bytes": 2427,
+      "name": "chat_template.jinja",
+      "sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5"
+    },
+    {
+      "bytes": 1424,
+      "name": "config.json",
+      "sha256": "261400c293dee67348df1a27c5140e73d81c9f9948aaa2feb67a0014e1fd17d2"
+    },
+    {
+      "bytes": 167,
+      "name": "generation_config.json",
+      "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+    },
+    {
+      "bytes": 3945441408,
+      "name": "model-00001-of-00004.safetensors",
+      "sha256": "9376ca1eccad6909cc0d17c5c9b21086baa70a87220bef9d7be18a7d754147a9"
+    },
+    {
+      "bytes": 3864726320,
+      "name": "model-00002-of-00004.safetensors",
+      "sha256": "67c02bcabf17724002230eb6d5e3824bdd481f49743dade5f08246023c619a5d"
+    },
+    {
+      "bytes": 3864726392,
+      "name": "model-00003-of-00004.safetensors",
+      "sha256": "4da7b4c5bf51d799827422e24cf972a37bb47383599e6ca9cc98ec799de4a817"
+    },
+    {
+      "bytes": 3556377640,
+      "name": "model-00004-of-00004.safetensors",
+      "sha256": "9cd48ffb0390282b2f2a4eec5210ccee0a30e8e88a16c79ff8d4c5c1e2f842e3"
+    },
+    {
+      "bytes": 29119,
+      "name": "model.safetensors.index.json",
+      "sha256": "be59bc2f6afcbb8a1f9c84523578eb2d6e5d87c150fb731d6a6d0535984a2f82"
+    },
+    {
+      "bytes": 11421892,
+      "name": "tokenizer.json",
+      "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+    },
+    {
+      "bytes": 695,
+      "name": "tokenizer_config.json",
+      "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    }
+  ],
+  "final_iteration": 124,
+  "full_sft": true,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "repo_commit": "13f54566adcd711d78587a3e5304c8e887671304",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-correct-recipe-random-mask-replicates-sft-2k/v1/9c5acfdc3d3a6b44/outputs/training/random_mask_15_seed43/weights/iter_0000124",
+  "variant": "qwen2_5_7b_8k.random_mask_15_seed43"
+}

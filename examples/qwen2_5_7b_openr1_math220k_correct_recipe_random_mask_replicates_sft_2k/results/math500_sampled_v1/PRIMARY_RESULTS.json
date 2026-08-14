@@ -1,0 +1,653 @@
+{
+  "artifact_schema_version": 1,
+  "prior_result_bundle": {
+    "path": "examples/qwen2_5_7b_openr1_math220k_correct_recipe_masked_sft_2k/results/math500_sampled_v1/RESULTS.json",
+    "sha256": "2d466abb65afe6c32357247d7af11c7c871cb3905c341d3aeef679e11fbdd6b3"
+  },
+  "results": [
+    {
+      "cap_hit_correct": 0,
+      "cap_hits": 23,
+      "generated_length_mean": {
+        "mean": 1065.2993333333334,
+        "sample_std": 125.09985650404774,
+        "values": [
+          1015.794,
+          1207.576,
+          972.528
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 17,
+      "prior_source": "reused",
+      "sampled_accuracy": {
+        "mean": 0.5566666666666668,
+        "sample_std": 0.0011547005383792525,
+        "values": [
+          0.556,
+          0.556,
+          0.558
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.015333333333333332,
+        "sample_std": 0.004163331998932265,
+        "values": [
+          0.012,
+          0.02,
+          0.014
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.8646666666666666,
+        "sample_std": 0.011015141094572214,
+        "values": [
+          0.876,
+          0.854,
+          0.864
+        ]
+      },
+      "source": "prior_reused",
+      "target": "base_qwen2_5_7b",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 3,
+      "cap_hits": 316,
+      "generated_length_mean": {
+        "mean": 9120.422,
+        "sample_std": 291.51372847946624,
+        "values": [
+          9455.984,
+          8975.638,
+          8929.644
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 29,
+      "prior_source": "reused",
+      "sampled_accuracy": {
+        "mean": 0.7200000000000001,
+        "sample_std": 0.014000000000000012,
+        "values": [
+          0.704,
+          0.726,
+          0.73
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.21066666666666667,
+        "sample_std": 0.013316656236958789,
+        "values": [
+          0.226,
+          0.202,
+          0.204
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.794,
+        "sample_std": 0.012489995996796807,
+        "values": [
+          0.78,
+          0.804,
+          0.798
+        ]
+      },
+      "source": "prior_reused",
+      "target": "qwen2_5_7b_8k",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 2,
+      "cap_hits": 302,
+      "generated_length_mean": {
+        "mean": 8858.582666666667,
+        "sample_std": 306.07807879907625,
+        "values": [
+          8655.6,
+          9210.638,
+          8709.51
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 26,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.7186666666666666,
+        "sample_std": 0.002309401076758505,
+        "values": [
+          0.72,
+          0.72,
+          0.716
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.20133333333333334,
+        "sample_std": 0.012858201014657268,
+        "values": [
+          0.196,
+          0.216,
+          0.192
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.802,
+        "sample_std": 0.014000000000000012,
+        "values": [
+          0.808,
+          0.786,
+          0.812
+        ]
+      },
+      "source": "prior_reused",
+      "target": "unmasked",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 3,
+      "cap_hits": 283,
+      "generated_length_mean": {
+        "mean": 8553.552,
+        "sample_std": 416.329644032226,
+        "values": [
+          8757.702,
+          8074.552,
+          8828.402
+        ]
+      },
+      "mask_probability": 0.05,
+      "parse_failures": 36,
+      "sampled_accuracy": {
+        "mean": 0.722,
+        "sample_std": 0.010392304845413272,
+        "values": [
+          0.716,
+          0.716,
+          0.734
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.18866666666666668,
+        "sample_std": 0.012055427546683426,
+        "values": [
+          0.19,
+          0.176,
+          0.2
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.8166666666666668,
+        "sample_std": 0.008326663997864494,
+        "values": [
+          0.814,
+          0.826,
+          0.81
+        ]
+      },
+      "source": "generated",
+      "target": "random_mask_05_seed42",
+      "training_mask_seed": 42
+    },
+    {
+      "cap_hit_correct": 1,
+      "cap_hits": 286,
+      "generated_length_mean": {
+        "mean": 8625.852666666668,
+        "sample_std": 320.28147934174024,
+        "values": [
+          8382.77,
+          8506.016,
+          8988.772
+        ]
+      },
+      "mask_probability": 0.15,
+      "parse_failures": 30,
+      "sampled_accuracy": {
+        "mean": 0.722,
+        "sample_std": 0.01216552506059645,
+        "values": [
+          0.736,
+          0.716,
+          0.714
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.19066666666666668,
+        "sample_std": 0.009865765724632504,
+        "values": [
+          0.184,
+          0.186,
+          0.202
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.8119999999999999,
+        "sample_std": 0.012489995996796746,
+        "values": [
+          0.822,
+          0.816,
+          0.798
+        ]
+      },
+      "source": "generated",
+      "target": "random_mask_15_seed42",
+      "training_mask_seed": 42
+    },
+    {
+      "cap_hit_correct": 2,
+      "cap_hits": 294,
+      "generated_length_mean": {
+        "mean": 8772.844,
+        "sample_std": 262.74550102332904,
+        "values": [
+          8894.508,
+          8952.706,
+          8471.318
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 28,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.7333333333333334,
+        "sample_std": 0.016653327995729078,
+        "values": [
+          0.728,
+          0.72,
+          0.752
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.19600000000000004,
+        "sample_std": 0.010392304845413272,
+        "values": [
+          0.202,
+          0.202,
+          0.184
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.8053333333333333,
+        "sample_std": 0.009237604307033956,
+        "values": [
+          0.8,
+          0.8,
+          0.816
+        ]
+      },
+      "source": "prior_reused",
+      "target": "random_mask_25",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 2,
+      "cap_hits": 317,
+      "generated_length_mean": {
+        "mean": 9177.68,
+        "sample_std": 137.33166725850225,
+        "values": [
+          9062.704,
+          9140.588,
+          9329.748
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 25,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.7093333333333334,
+        "sample_std": 0.013316656236958798,
+        "values": [
+          0.718,
+          0.716,
+          0.694
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.21133333333333335,
+        "sample_std": 0.006429100507328643,
+        "values": [
+          0.204,
+          0.214,
+          0.216
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.79,
+        "sample_std": 0.006928203230275516,
+        "values": [
+          0.798,
+          0.786,
+          0.786
+        ]
+      },
+      "source": "prior_reused",
+      "target": "random_mask_50",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 4,
+      "cap_hits": 311,
+      "generated_length_mean": {
+        "mean": 9013.124000000002,
+        "sample_std": 96.13070728960633,
+        "values": [
+          9023.884,
+          8912.066,
+          9103.422
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 27,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.7173333333333334,
+        "sample_std": 0.00461880215351701,
+        "values": [
+          0.72,
+          0.712,
+          0.72
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.20733333333333334,
+        "sample_std": 0.0030550504633038962,
+        "values": [
+          0.208,
+          0.204,
+          0.21
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.7959999999999999,
+        "sample_std": 0.0020000000000000018,
+        "values": [
+          0.798,
+          0.796,
+          0.794
+        ]
+      },
+      "source": "prior_reused",
+      "target": "random_mask_70",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 2,
+      "cap_hits": 338,
+      "generated_length_mean": {
+        "mean": 9432.709333333334,
+        "sample_std": 587.8617180573453,
+        "values": [
+          8775.284,
+          9615.048,
+          9907.796
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 30,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.6960000000000001,
+        "sample_std": 0.021633307652783894,
+        "values": [
+          0.714,
+          0.702,
+          0.672
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.22533333333333336,
+        "sample_std": 0.022300971578236968,
+        "values": [
+          0.2,
+          0.234,
+          0.242
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.7773333333333333,
+        "sample_std": 0.020033305601755643,
+        "values": [
+          0.8,
+          0.77,
+          0.762
+        ]
+      },
+      "source": "prior_reused",
+      "target": "random_mask_80",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 0,
+      "cap_hits": 342,
+      "generated_length_mean": {
+        "mean": 9407.924,
+        "sample_std": 73.45862419076428,
+        "values": [
+          9405.598,
+          9482.518,
+          9335.656
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 30,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.7026666666666666,
+        "sample_std": 0.002309401076758505,
+        "values": [
+          0.7,
+          0.704,
+          0.704
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.228,
+        "sample_std": 0.003464101615137758,
+        "values": [
+          0.226,
+          0.232,
+          0.226
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.7746666666666666,
+        "sample_std": 0.005773502691896263,
+        "values": [
+          0.778,
+          0.768,
+          0.778
+        ]
+      },
+      "source": "prior_reused",
+      "target": "random_mask_90",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 3,
+      "cap_hits": 326,
+      "generated_length_mean": {
+        "mean": 9284.106,
+        "sample_std": 434.7951736576661,
+        "values": [
+          8802.716,
+          9401.332,
+          9648.27
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 29,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.7079999999999999,
+        "sample_std": 0.015620499351813323,
+        "values": [
+          0.726,
+          0.698,
+          0.7
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.21733333333333335,
+        "sample_std": 0.015534906930308056,
+        "values": [
+          0.2,
+          0.222,
+          0.23
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.7866666666666667,
+        "sample_std": 0.012220201853215585,
+        "values": [
+          0.8,
+          0.784,
+          0.776
+        ]
+      },
+      "source": "prior_reused",
+      "target": "inverse_tau_0p20",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 0,
+      "cap_hits": 328,
+      "generated_length_mean": {
+        "mean": 9347.901333333333,
+        "sample_std": 767.0569362865662,
+        "values": [
+          9436.554,
+          8540.37,
+          10066.78
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 26,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.7073333333333333,
+        "sample_std": 0.018147543451754948,
+        "values": [
+          0.694,
+          0.728,
+          0.7
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.21866666666666668,
+        "sample_std": 0.027153882472555065,
+        "values": [
+          0.222,
+          0.19,
+          0.244
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.7826666666666666,
+        "sample_std": 0.027300793639257716,
+        "values": [
+          0.778,
+          0.812,
+          0.758
+        ]
+      },
+      "source": "prior_reused",
+      "target": "inverse_tau_0p05",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 3,
+      "cap_hits": 364,
+      "generated_length_mean": {
+        "mean": 10092.756,
+        "sample_std": 714.5605348995982,
+        "values": [
+          9269.402,
+          10550.94,
+          10457.926
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 28,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.6880000000000001,
+        "sample_std": 0.02599999999999996,
+        "values": [
+          0.718,
+          0.672,
+          0.674
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.24266666666666667,
+        "sample_std": 0.024846193538112304,
+        "values": [
+          0.214,
+          0.258,
+          0.256
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.7626666666666667,
+        "sample_std": 0.024684678108764846,
+        "values": [
+          0.79,
+          0.742,
+          0.756
+        ]
+      },
+      "source": "prior_reused",
+      "target": "margin_mask",
+      "training_mask_seed": null
+    },
+    {
+      "cap_hit_correct": 6,
+      "cap_hits": 549,
+      "generated_length_mean": {
+        "mean": 13492.330666666667,
+        "sample_std": 758.0805583164184,
+        "values": [
+          14318.756,
+          12829.214,
+          13329.022
+        ]
+      },
+      "mask_probability": null,
+      "parse_failures": 27,
+      "prior_source": "generated",
+      "sampled_accuracy": {
+        "mean": 0.5826666666666667,
+        "sample_std": 0.023180451534284902,
+        "values": [
+          0.556,
+          0.598,
+          0.594
+        ]
+      },
+      "sampled_cap_hit_rate": {
+        "mean": 0.36599999999999994,
+        "sample_std": 0.025534290669607433,
+        "values": [
+          0.394,
+          0.344,
+          0.36
+        ]
+      },
+      "sampled_valid_box_rate": {
+        "mean": 0.6473333333333334,
+        "sample_std": 0.02335237318418268,
+        "values": [
+          0.622,
+          0.668,
+          0.652
+        ]
+      },
+      "source": "prior_reused",
+      "target": "prob_ratio_mask",
+      "training_mask_seed": null
+    }
+  ],
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "status": "complete"
+}

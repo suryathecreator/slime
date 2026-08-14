@@ -1,0 +1,139 @@
+{
+  "artifact_schema_version": 1,
+  "benchmark": "HuggingFaceH4/MATH-500",
+  "checkpoint_manifest_sha256": "b4ffba9d534c15f113cf85a1671b07e89897fa46524c93cdb0aa9b0ed4c900b8",
+  "dataset_revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+  "policy_sha256": "7fa34c3fd4e18bd996a0e0b52d35af44254ad80bbe51d31ce0fe0cbf989abd9e",
+  "sampled": {
+    "aggregate": {
+      "accuracy": {
+        "mean": 0.7360000000000001,
+        "sample_std": 0.01743559577416271,
+        "values": [
+          0.716,
+          0.744,
+          0.748
+        ]
+      },
+      "cap_hit_accuracy": {
+        "mean": 0.0,
+        "sample_std": 0.0,
+        "values": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "cap_hit_rate": {
+        "mean": 0.18533333333333332,
+        "sample_std": 0.018147543451754934,
+        "values": [
+          0.206,
+          0.178,
+          0.172
+        ]
+      },
+      "generated_length_mean": {
+        "mean": 8421.612,
+        "sample_std": 500.5079218074371,
+        "values": [
+          8994.364,
+          8202.128,
+          8068.344
+        ]
+      },
+      "parse_failure_rate": {
+        "mean": 0.018,
+        "sample_std": 0.0,
+        "values": [
+          0.018,
+          0.018,
+          0.018
+        ]
+      },
+      "valid_box_rate": {
+        "mean": 0.818,
+        "sample_std": 0.017776388834631132,
+        "values": [
+          0.798,
+          0.824,
+          0.832
+        ]
+      }
+    },
+    "metric": "mean and sample standard deviation across three complete pass@1 repeats",
+    "repeats": [
+      {
+        "accuracy": 0.716,
+        "cap_hit_accuracy": 0.0,
+        "cap_hit_correct": 0,
+        "cap_hit_rate": 0.206,
+        "cap_hits": 103,
+        "correct": 358,
+        "finish_reasons": {
+          "length": 103,
+          "stop": 397
+        },
+        "generated_length_mean": 8994.364,
+        "mode": "sampled",
+        "parse_failure_count": 9,
+        "parse_failure_rate": 0.018,
+        "repeat": 0,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "random_mask_05_seed43",
+        "total": 500,
+        "valid_box_count": 399,
+        "valid_box_rate": 0.798
+      },
+      {
+        "accuracy": 0.744,
+        "cap_hit_accuracy": 0.0,
+        "cap_hit_correct": 0,
+        "cap_hit_rate": 0.178,
+        "cap_hits": 89,
+        "correct": 372,
+        "finish_reasons": {
+          "length": 89,
+          "stop": 411
+        },
+        "generated_length_mean": 8202.128,
+        "mode": "sampled",
+        "parse_failure_count": 9,
+        "parse_failure_rate": 0.018,
+        "repeat": 1,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "random_mask_05_seed43",
+        "total": 500,
+        "valid_box_count": 412,
+        "valid_box_rate": 0.824
+      },
+      {
+        "accuracy": 0.748,
+        "cap_hit_accuracy": 0.0,
+        "cap_hit_correct": 0,
+        "cap_hit_rate": 0.172,
+        "cap_hits": 86,
+        "correct": 374,
+        "finish_reasons": {
+          "length": 86,
+          "stop": 414
+        },
+        "generated_length_mean": 8068.344,
+        "mode": "sampled",
+        "parse_failure_count": 9,
+        "parse_failure_rate": 0.018,
+        "repeat": 2,
+        "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+        "target": "random_mask_05_seed43",
+        "total": 500,
+        "valid_box_count": 416,
+        "valid_box_rate": 0.832
+      }
+    ]
+  },
+  "scorer_version": "math500_last_boxed_symmetric_scorer_v6",
+  "source": "generated",
+  "target": "random_mask_05_seed43",
+  "tokenizer_family": "qwen2_5",
+  "training_condition": "random_mask_05_seed43"
+}
