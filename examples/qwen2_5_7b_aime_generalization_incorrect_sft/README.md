@@ -157,3 +157,13 @@ three-sample held-in/held-out evaluation chain:
 bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submit_hyak.sh --test-only-shapes
 bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submit_hyak.sh --submit
 ```
+
+The evaluator passes each transferred row's decoded `prompt` value verbatim as
+one user message, with no system message or added prefix/suffix, before applying
+the Qwen chat template with `add_generation_prompt=true`. Sampling uses three
+paired repeats at temperature 0.7 and top-p 0.8. The base reference and 3K
+correct checkpoint start after the canary; trained checkpoints then proceed in
+priority order through unmasked, 1.5K correct, and random-mask 50. A CPU interim
+table is finalized for those five targets before masks 10, 20, 30, 40, 60, 70,
+80, and 90 are released concurrently. Scoring uses the existing strict
+`aime_last_boxed_integer_scorer_v1` implementation in `eval/aime_scorer.py`.

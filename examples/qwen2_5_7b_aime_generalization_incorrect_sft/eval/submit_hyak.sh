@@ -21,20 +21,22 @@ HELD_IN_EVAL_JSONL="${HYAK_HELD_IN_EVAL_JSONL:-${EVAL_EXPERIMENT_ROOT}/data/eval
 HELD_OUT_EVAL_JSONL="${HYAK_HELD_OUT_EVAL_JSONL:-${EVAL_EXPERIMENT_ROOT}/data/eval/held_out_problem.jsonl}"
 HYAK_HF_HOME="${HYAK_HF_HOME:-/gscratch/scrubbed/suryadv/hf_cache}"
 HYAK_CACHE_ROOT="${HYAK_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/q25-aime-eval}"
-TARGETS=(
-  base_qwen2_5_7b
+BASE_TARGET=base_qwen2_5_7b
+PRIORITY_TARGETS=(
   aime_correct_3000
   continue_wrong_unmasked
+  continue_correct_only_1500
+  continue_random_mask_50
+)
+DEFERRED_TARGETS=(
   continue_random_mask_10
   continue_random_mask_20
   continue_random_mask_30
   continue_random_mask_40
-  continue_random_mask_50
   continue_random_mask_60
   continue_random_mask_70
   continue_random_mask_80
   continue_random_mask_90
-  continue_correct_only_1500
 )
 COMMON=(
   --account=raivn-ckpt --partition=ckpt-all --qos=ckpt --requeue --chdir="${REPO_ROOT}"
@@ -49,6 +51,7 @@ if [[ "${MODE}" == "--test-only-shapes" ]]; then
   sbatch --test-only "${COMMON[@]}" --export="${EXPORT_COMMON}" --gpus=h200:1 --exclude=g3130 --time=00:30:00 --output="${LOG_DIR}/%x-%j.out" "${EVAL_DIR}/canary_h200.sbatch"
   sbatch --test-only "${COMMON[@]}" --export="${EXPORT_COMMON},EVAL_TARGET=base_qwen2_5_7b" --array=0-23 --gpus=h200:1 --exclude=g3130 --time=02:00:00 --output="${LOG_DIR}/%x-%A_%a.out" "${EVAL_DIR}/run_h200.sbatch"
   sbatch --test-only "${COMMON[@]}" --export="${EXPORT_COMMON},EVAL_TARGET=base_qwen2_5_7b" --output="${LOG_DIR}/%x-%j.out" "${EVAL_DIR}/finalize_cpu.sbatch"
+  sbatch --test-only "${COMMON[@]}" --export="${EXPORT_COMMON}" --output="${LOG_DIR}/%x-%j.out" "${EVAL_DIR}/interim_cpu.sbatch"
   sbatch --test-only "${COMMON[@]}" --export="${EXPORT_COMMON}" --output="${LOG_DIR}/%x-%j.out" "${EVAL_DIR}/audit_cpu.sbatch"
   echo "AIME_EVAL_SLURM_SHAPES_VALID targets=13 array_tasks_per_target=24 generations=31200"
   exit 0
@@ -84,9 +87,10 @@ submit_job "${COMMON[@]}" --dependency="afterok:${preflight_job}" --export="${EX
   --gpus=h200:1 --exclude=g3130 --time=00:30:00 --output="${LOG_DIR}/%x-%j.out" "${EVAL_DIR}/canary_h200.sbatch"
 canary_job="${LAST_JOB}"
 array_jobs=(); finalizer_jobs=(); array_assignments=(); finalizer_assignments=()
-for target in "${TARGETS[@]}"; do
+submit_target() {
+  local target="${1:?target}" predecessor="${2:?predecessor job}" slug array_job finalizer_job
   slug="${target//_/-}"
-  submit_job "${COMMON[@]}" --dependency="afterok:${canary_job}" --job-name="q25a-${slug}" \
+  submit_job "${COMMON[@]}" --dependency="afterok:${predecessor}" --job-name="q25a-${slug}" \
     --array=0-23 --gpus=h200:1 --exclude=g3130 --cpus-per-task=8 --mem=96G --time=02:00:00 \
     --signal=B:USR1@600 --export="${EXPORT_COMMON},EVAL_TARGET=${target}" \
     --output="${LOG_DIR}/%x-%A_%a.out" "${EVAL_DIR}/run_h200.sbatch"
@@ -99,8 +103,29 @@ for target in "${TARGETS[@]}"; do
   array_jobs+=("${array_job}"); finalizer_jobs+=("${finalizer_job}")
   array_assignments+=(--array-job "${target}=${array_job}")
   finalizer_assignments+=(--finalizer-job "${target}=${finalizer_job}")
+  TARGET_FINALIZER_JOB="${finalizer_job}"
+}
+
+submit_target "${BASE_TARGET}" "${canary_job}"
+base_finalizer_job="${TARGET_FINALIZER_JOB}"
+
+priority_predecessor="${canary_job}"
+for target in "${PRIORITY_TARGETS[@]}"; do
+  submit_target "${target}" "${priority_predecessor}"
+  priority_predecessor="${TARGET_FINALIZER_JOB}"
 done
-dependency="afterok:$(IFS=:; echo "${finalizer_jobs[*]}")"
+
+submit_job "${COMMON[@]}" --dependency="afterok:${base_finalizer_job}:${priority_predecessor}" \
+  --job-name=q25-aime-interim --cpus-per-task=2 --mem=16G --time=00:30:00 \
+  --export="${EXPORT_COMMON}" --output="${LOG_DIR}/%x-%j.out" "${EVAL_DIR}/interim_cpu.sbatch"
+interim_job="${LAST_JOB}"
+
+deferred_finalizer_jobs=()
+for target in "${DEFERRED_TARGETS[@]}"; do
+  submit_target "${target}" "${interim_job}"
+  deferred_finalizer_jobs+=("${TARGET_FINALIZER_JOB}")
+done
+dependency="afterok:$(IFS=:; echo "${deferred_finalizer_jobs[*]}")"
 submit_job "${COMMON[@]}" --dependency="${dependency}" --job-name=q25-aime-audit \
   --cpus-per-task=8 --mem=64G --time=02:00:00 --export="${EXPORT_COMMON}" \
   --output="${LOG_DIR}/%x-%j.out" "${EVAL_DIR}/audit_cpu.sbatch"
@@ -108,6 +133,6 @@ audit_job="${LAST_JOB}"
 "${RUNTIME_PYTHON}" "${CONTROL}" --repo-root "${REPO_ROOT}" --experiment-root "${EVAL_EXPERIMENT_ROOT}" record-submission \
   --preflight-job "${preflight_job}" --canary-job "${canary_job}" \
   "${array_assignments[@]}" "${finalizer_assignments[@]}" \
-  --audit-job "${audit_job}" --git-commit "${git_commit}"
+  --interim-job "${interim_job}" --audit-job "${audit_job}" --git-commit "${git_commit}"
 RECORDED=1; trap - EXIT
-echo "AIME_EVAL_SUBMITTED commit=${git_commit} preflight=${preflight_job} canary=${canary_job} arrays=${array_jobs[*]} finalizers=${finalizer_jobs[*]} audit=${audit_job}"
+echo "AIME_EVAL_SUBMITTED commit=${git_commit} preflight=${preflight_job} canary=${canary_job} arrays=${array_jobs[*]} finalizers=${finalizer_jobs[*]} interim=${interim_job} audit=${audit_job}"

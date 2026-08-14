@@ -7,7 +7,7 @@ from argparse import Namespace
 from pathlib import Path
 
 import pytest
-from examples.qwen2_5_7b_aime_generalization_incorrect_sft.eval import aime_eval
+from examples.qwen2_5_7b_aime_generalization_incorrect_sft.eval import aime_eval, generate_aime
 from examples.qwen2_5_7b_aime_generalization_incorrect_sft.eval.generate_aime import (
     DECODING,
     effective_response_budget,
@@ -71,6 +71,13 @@ def test_sampling_and_context_policy_are_exact() -> None:
     assert policy["stop_token_ids"] == [151643, 151645]
     assert policy["response_budget"] == "32768 - rendered_prompt_tokens"
     assert policy["target_context"] == 32768
+
+
+def test_generator_forwards_transferred_prompt_verbatim() -> None:
+    source = inspect.getsource(generate_aime.run)
+    assert '[{"role": "user", "content": str(row["prompt"])}]' in source
+    assert "PROMPT_SUFFIX" not in source
+    assert "Problem:" not in source
 
 
 def test_generation_resume_recovers_only_one_unterminated_trailing_record(
@@ -157,6 +164,16 @@ def test_target_contract_and_array_shape() -> None:
         "aime_correct_3000",
     )
     assert aime_eval.TARGETS[-1] == "continue_correct_only_1500"
+    assert aime_eval.INTERIM_TARGETS == (
+        "base_qwen2_5_7b",
+        "aime_correct_3000",
+        "continue_wrong_unmasked",
+        "continue_correct_only_1500",
+        "continue_random_mask_50",
+    )
+    assert len(aime_eval.DEFERRED_TARGETS) == 8
+    assert set(aime_eval.INTERIM_TARGETS).isdisjoint(aime_eval.DEFERRED_TARGETS)
+    assert set(aime_eval.INTERIM_TARGETS) | set(aime_eval.DEFERRED_TARGETS) == set(aime_eval.TARGETS)
     assert len(aime_eval.TARGETS) * len(aime_eval.SPLITS) * 3 * 400 == 31200
 
 
@@ -243,6 +260,7 @@ def test_every_hyak_job_is_revision_pinned_and_results_stay_outside_repo() -> No
         "canary_h200.sbatch",
         "run_h200.sbatch",
         "finalize_cpu.sbatch",
+        "interim_cpu.sbatch",
         "audit_cpu.sbatch",
     ):
         text = (aime_eval.EVAL_DIR / name).read_text(encoding="utf-8")
@@ -252,6 +270,17 @@ def test_every_hyak_job_is_revision_pinned_and_results_stay_outside_repo() -> No
     assert aime_eval.result_root(namespace) == (
         Path(namespace.experiment_root).resolve() / "results/aime_generalization_sampled_v1"
     )
+
+
+def test_submission_script_encodes_priority_and_interim_dependencies() -> None:
+    submit = (aime_eval.EVAL_DIR / "submit_hyak.sh").read_text(encoding="utf-8")
+    assert "PRIORITY_TARGETS=(" in submit
+    assert "DEFERRED_TARGETS=(" in submit
+    assert 'submit_target "${BASE_TARGET}" "${canary_job}"' in submit
+    assert 'priority_predecessor="${TARGET_FINALIZER_JOB}"' in submit
+    assert '--dependency="afterok:${base_finalizer_job}:${priority_predecessor}"' in submit
+    assert 'submit_target "${target}" "${interim_job}"' in submit
+    assert '--interim-job "${interim_job}"' in submit
 
 
 def test_merge_rejects_generation_policy_drift(tmp_path: Path) -> None:
@@ -325,7 +354,7 @@ def test_merge_rejects_generation_policy_drift(tmp_path: Path) -> None:
         aime_eval.records_for_pass(namespace, target, split, repeat)
 
 
-def test_audit_writes_13_target_main_table_and_diagnostics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_interim_and_final_audits_are_distinct(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(aime_eval, "PACKAGE", tmp_path / "package")
     namespace = args(tmp_path)
     common = {
@@ -363,13 +392,50 @@ def test_audit_writes_13_target_main_table_and_diagnostics(tmp_path: Path, monke
             aime_eval.canonical_json({**common, "splits": splits, "target": target}),
             encoding="utf-8",
         )
+    aime_eval.interim_audit(namespace)
+    interim_path = aime_eval.result_root(namespace) / "INTERIM_RESULTS.json"
+    interim = json.loads(interim_path.read_text())
+    assert interim["status"] == "interim"
+    assert interim["included_targets"] == list(aime_eval.INTERIM_TARGETS)
+    assert interim["pending_targets"] == [target for target in aime_eval.TARGETS if target not in aime_eval.INTERIM_TARGETS]
+    interim_report = (aime_eval.result_root(namespace) / "INTERIM_RESULTS.md").read_text(encoding="utf-8")
+    for target in aime_eval.INTERIM_TARGETS:
+        assert f"| {target} |" in interim_report
+    for target in aime_eval.DEFERRED_TARGETS:
+        assert f"| {target} |" not in interim_report
+
     aime_eval.audit(namespace)
     report = (aime_eval.result_root(namespace) / "RESULTS.md").read_text(encoding="utf-8")
     assert "| Target | Held-in accuracy | Held-out accuracy |" in report
     assert "| Target | Split | Valid box | Cap hit |" in report
     for target in aime_eval.TARGETS:
         assert f"| {target} |" in report
+    assert json.loads(interim_path.read_text()) == interim
     assert json.loads((aime_eval.control_root(namespace) / "FINAL_AUDIT.json").read_text())["status"] == "complete"
+
+
+def test_submission_metadata_records_staged_dependency_graph(tmp_path: Path) -> None:
+    namespace = args(tmp_path)
+    namespace.preflight_job = "100"
+    namespace.canary_job = "101"
+    namespace.array_job = [f"{target}={200 + index}" for index, target in enumerate(aime_eval.TARGETS)]
+    namespace.finalizer_job = [f"{target}={300 + index}" for index, target in enumerate(aime_eval.TARGETS)]
+    namespace.interim_job = "400"
+    namespace.audit_job = "500"
+    namespace.git_commit = "a" * 40
+    aime_eval.record_submission(namespace)
+    submission = json.loads((aime_eval.control_root(namespace) / "submission.json").read_text())
+    assert submission["artifact_schema_version"] == 2
+    assert submission["target_groups"]["priority"] == list(aime_eval.PRIORITY_TARGETS)
+    assert submission["target_groups"]["deferred"] == list(aime_eval.DEFERRED_TARGETS)
+    interim = next(edge for edge in submission["dependency_edges"] if edge["stage"] == "interim_aggregation")
+    assert interim["job"] == "400"
+    assert interim["afterok"] == [
+        submission["finalizer_jobs"][aime_eval.BASE_TARGET],
+        submission["finalizer_jobs"][aime_eval.PRIORITY_TARGETS[-1]],
+    ]
+    final = next(edge for edge in submission["dependency_edges"] if edge["stage"] == "final_audit")
+    assert final["afterok"] == [submission["finalizer_jobs"][target] for target in aime_eval.DEFERRED_TARGETS]
 
 
 if __name__ == "__main__":

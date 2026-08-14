@@ -52,7 +52,25 @@ TARGETS = (
     "continue_random_mask_90",
     "continue_correct_only_1500",
 )
-REFERENCE_TARGETS = ("base_qwen2_5_7b", "aime_correct_3000")
+BASE_TARGET = "base_qwen2_5_7b"
+PRIORITY_TARGETS = (
+    "aime_correct_3000",
+    "continue_wrong_unmasked",
+    "continue_correct_only_1500",
+    "continue_random_mask_50",
+)
+INTERIM_TARGETS = (BASE_TARGET, *PRIORITY_TARGETS)
+DEFERRED_TARGETS = (
+    "continue_random_mask_10",
+    "continue_random_mask_20",
+    "continue_random_mask_30",
+    "continue_random_mask_40",
+    "continue_random_mask_60",
+    "continue_random_mask_70",
+    "continue_random_mask_80",
+    "continue_random_mask_90",
+)
+REFERENCE_TARGETS = (BASE_TARGET, "aime_correct_3000")
 PROBLEMS_PER_SPLIT = 400
 REPEATS = 3
 SHARDS = 4
@@ -286,23 +304,11 @@ def normalize_rows(path: Path, split: str) -> list[dict[str, Any]]:
 
 
 def validate_eval_config(held_in: Path, held_out: Path) -> None:
-    from omegaconf import OmegaConf
+    import yaml
 
-    previous = {
-        "HELD_IN_EVAL_JSONL": os.environ.get("HELD_IN_EVAL_JSONL"),
-        "HELD_OUT_EVAL_JSONL": os.environ.get("HELD_OUT_EVAL_JSONL"),
-    }
-    os.environ["HELD_IN_EVAL_JSONL"] = str(held_in)
-    os.environ["HELD_OUT_EVAL_JSONL"] = str(held_out)
-    try:
-        config = OmegaConf.to_container(OmegaConf.load(EVAL_CONFIG), resolve=True)
-    finally:
-        for key, value in previous.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-    assert isinstance(config, dict)
+    config = yaml.safe_load(EVAL_CONFIG.read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        raise RuntimeError("eval-config is not a mapping")
     eval_value = config.get("eval")
     if not isinstance(eval_value, dict):
         raise RuntimeError("eval-config is missing eval mapping")
@@ -321,13 +327,17 @@ def validate_eval_config(held_in: Path, held_out: Path) -> None:
         raise RuntimeError("eval-config defaults changed")
     if not isinstance(datasets, list) or [item.get("name") for item in datasets] != list(SPLITS):
         raise RuntimeError("eval-config dataset order changed")
-    expected_paths = [str(held_in), str(held_out)]
-    for item, expected_path, split in zip(datasets, expected_paths, SPLITS, strict=True):
+    expected_paths = (
+        (held_in, "${oc.env:HELD_IN_EVAL_JSONL}"),
+        (held_out, "${oc.env:HELD_OUT_EVAL_JSONL}"),
+    )
+    for item, (source_path, path_reference), split in zip(datasets, expected_paths, SPLITS, strict=True):
         if (
-            item.get("path") != expected_path
+            item.get("path") != path_reference
             or item.get("input_key") != "prompt"
             or item.get("label_key") != "answer"
             or item.get("metadata_overrides", {}).get("distribution") != split
+            or not source_path.is_file()
         ):
             raise RuntimeError(f"eval-config contract changed: {split}")
 
@@ -732,9 +742,20 @@ def merge_target(args: argparse.Namespace) -> None:
     print(f"AIME_TARGET_FINALIZED target={args.target}", flush=True)
 
 
-def audit(args: argparse.Namespace) -> None:
-    results = {target: load_json(result_root(args) / target / "RESULTS.json") for target in TARGETS}
-    reference_result = results[TARGETS[0]]
+def aggregate_results(
+    args: argparse.Namespace,
+    targets: tuple[str, ...],
+    *,
+    status: str,
+    audit_name: str,
+    result_name: str,
+) -> None:
+    if not set(REFERENCE_TARGETS).issubset(targets):
+        raise RuntimeError("aggregate requires the base and 3K reference targets")
+    if len(targets) != len(set(targets)) or not set(targets).issubset(TARGETS):
+        raise RuntimeError("invalid aggregate target selection")
+    results = {target: load_json(result_root(args) / target / "RESULTS.json") for target in targets}
+    reference_result = results[BASE_TARGET]
     for target, result in results.items():
         if (
             result.get("target") != target
@@ -745,10 +766,10 @@ def audit(args: argparse.Namespace) -> None:
             or result.get("generation_contract_sha256") != reference_result.get("generation_contract_sha256")
             or result.get("dataset_hashes") != reference_result.get("dataset_hashes")
         ):
-            raise RuntimeError(f"invalid final result: {target}")
+            raise RuntimeError(f"invalid aggregate result: {target}")
 
     rows = []
-    for target in TARGETS:
+    for target in targets:
         result = results[target]
         split_values = {split: result["splits"][split]["aggregate"]["accuracy"] for split in SPLITS}
         gap = mean_sd(
@@ -801,17 +822,20 @@ def audit(args: argparse.Namespace) -> None:
     value = {
         "artifact_schema_version": 1,
         "audited_at": now_iso(),
+        "included_targets": list(targets),
+        "pending_targets": [target for target in TARGETS if target not in targets],
         "results": rows,
         "scorer_commit": reference_result["scorer_commit"],
         "scorer_sha256": reference_result["scorer_sha256"],
         "scorer_version": SCORER_VERSION,
-        "status": "complete",
+        "status": status,
     }
-    atomic_text(control_root(args) / "FINAL_AUDIT.json", canonical_json(value))
-    atomic_text(result_root(args) / "RESULTS.json", canonical_json(value))
+    atomic_text(control_root(args) / audit_name, canonical_json(value))
+    atomic_text(result_root(args) / f"{result_name}.json", canonical_json(value))
 
+    title_status = " — interim" if status == "interim" else ""
     lines = [
-        f"# Qwen2.5-7B AIME distribution generalization ({SCORER_VERSION})",
+        f"# Qwen2.5-7B AIME distribution generalization{title_status} ({SCORER_VERSION})",
         "",
         "| Target | Held-in accuracy | Held-out accuracy | Held-out − held-in | Δ held-in vs base | Δ held-out vs base | Δ held-in vs 3K | Δ held-out vs 3K |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
@@ -849,11 +873,32 @@ def audit(args: argparse.Namespace) -> None:
                 f"{diagnostics['parse_failures']}/1200 | "
                 f"{diagnostics['generated_length_mean']['mean']:.1f} |"
             )
-    atomic_text(result_root(args) / "RESULTS.md", "\n".join(lines) + "\n")
+    atomic_text(result_root(args) / f"{result_name}.md", "\n".join(lines) + "\n")
     print(
-        f"AIME_ALL_RESULTS_COMPLETE targets={len(TARGETS)} generations=31200 "
-        f"audit={control_root(args) / 'FINAL_AUDIT.json'}",
+        f"AIME_RESULTS_AGGREGATED status={status} targets={len(targets)} "
+        f"generations={len(targets) * len(SPLITS) * REPEATS * PROBLEMS_PER_SPLIT} "
+        f"audit={control_root(args) / audit_name}",
         flush=True,
+    )
+
+
+def interim_audit(args: argparse.Namespace) -> None:
+    aggregate_results(
+        args,
+        INTERIM_TARGETS,
+        status="interim",
+        audit_name="INTERIM_AUDIT.json",
+        result_name="INTERIM_RESULTS",
+    )
+
+
+def audit(args: argparse.Namespace) -> None:
+    aggregate_results(
+        args,
+        TARGETS,
+        status="complete",
+        audit_name="FINAL_AUDIT.json",
+        result_name="RESULTS",
     )
 
 
@@ -885,17 +930,86 @@ def path_command(args: argparse.Namespace) -> None:
 def record_submission(args: argparse.Namespace) -> None:
     arrays = dict(item.split("=", 1) for item in args.array_job)
     finalizers = dict(item.split("=", 1) for item in args.finalizer_job)
-    if tuple(arrays) != TARGETS or tuple(finalizers) != TARGETS:
-        raise RuntimeError("submission target order changed")
+    if len(arrays) != len(TARGETS) or set(arrays) != set(TARGETS):
+        raise RuntimeError("submission arrays do not cover every target exactly once")
+    if len(finalizers) != len(TARGETS) or set(finalizers) != set(TARGETS):
+        raise RuntimeError("submission finalizers do not cover every target exactly once")
+    dependency_edges = [
+        {"afterok": [args.preflight_job], "job": args.canary_job, "stage": "canary"},
+        {"afterok": [args.canary_job], "job": arrays[BASE_TARGET], "stage": "base_generation"},
+        {
+            "afterok": [arrays[BASE_TARGET]],
+            "job": finalizers[BASE_TARGET],
+            "stage": "base_finalization",
+        },
+    ]
+    predecessor = args.canary_job
+    for target in PRIORITY_TARGETS:
+        dependency_edges.extend(
+            [
+                {
+                    "afterok": [predecessor],
+                    "job": arrays[target],
+                    "stage": "priority_generation",
+                    "target": target,
+                },
+                {
+                    "afterok": [arrays[target]],
+                    "job": finalizers[target],
+                    "stage": "priority_finalization",
+                    "target": target,
+                },
+            ]
+        )
+        predecessor = finalizers[target]
+    dependency_edges.append(
+        {
+            "afterok": [finalizers[BASE_TARGET], predecessor],
+            "job": args.interim_job,
+            "stage": "interim_aggregation",
+        }
+    )
+    for target in DEFERRED_TARGETS:
+        dependency_edges.extend(
+            [
+                {
+                    "afterok": [args.interim_job],
+                    "job": arrays[target],
+                    "stage": "deferred_generation",
+                    "target": target,
+                },
+                {
+                    "afterok": [arrays[target]],
+                    "job": finalizers[target],
+                    "stage": "deferred_finalization",
+                    "target": target,
+                },
+            ]
+        )
+    dependency_edges.append(
+        {
+            "afterok": [finalizers[target] for target in DEFERRED_TARGETS],
+            "job": args.audit_job,
+            "stage": "final_audit",
+        }
+    )
     value = {
-        "artifact_schema_version": 1,
+        "artifact_schema_version": 2,
         "array_jobs": arrays,
         "audit_job": args.audit_job,
         "canary_job": args.canary_job,
+        "dependency_edges": dependency_edges,
         "finalizer_jobs": finalizers,
         "git_commit": args.git_commit,
+        "interim_job": args.interim_job,
         "preflight_job": args.preflight_job,
         "submitted_at": now_iso(),
+        "target_groups": {
+            "base": [BASE_TARGET],
+            "deferred": list(DEFERRED_TARGETS),
+            "interim": list(INTERIM_TARGETS),
+            "priority": list(PRIORITY_TARGETS),
+        },
     }
     destination = control_root(args) / "submission.json"
     if destination.exists():
@@ -921,6 +1035,7 @@ def parse_args() -> argparse.Namespace:
     merge.add_argument("--target", required=True, choices=TARGETS)
     merge.add_argument("--scorer-commit", required=True)
 
+    subparsers.add_parser("interim-audit")
     subparsers.add_parser("audit")
 
     path_parser = subparsers.add_parser("path")
@@ -949,6 +1064,7 @@ def parse_args() -> argparse.Namespace:
     record.add_argument("--canary-job", required=True)
     record.add_argument("--array-job", action="append", default=[])
     record.add_argument("--finalizer-job", action="append", default=[])
+    record.add_argument("--interim-job", required=True)
     record.add_argument("--audit-job", required=True)
     record.add_argument("--git-commit", required=True)
     return parser.parse_args()
@@ -962,6 +1078,8 @@ def main() -> None:
         verify_checkpoints(args)
     elif args.command == "merge-target":
         merge_target(args)
+    elif args.command == "interim-audit":
+        interim_audit(args)
     elif args.command == "audit":
         audit(args)
     elif args.command == "path":
