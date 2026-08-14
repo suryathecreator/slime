@@ -22,12 +22,13 @@ GENERATOR="${EVAL_DIR}/generate_aime.py"
   --repo-root "${REPO_ROOT}" --expected-commit "${AIME_EXPECTED_GIT_COMMIT}"
 
 common=(--repo-root "${REPO_ROOT}" --experiment-root "${EVAL_EXPERIMENT_ROOT}")
-model="$("${RUNTIME_PYTHON}" "${CONTROL}" "${common[@]}" path --field model --target base_qwen2_5_7b)"
-tokenizer="$("${RUNTIME_PYTHON}" "${CONTROL}" "${common[@]}" path --field tokenizer --target base_qwen2_5_7b)"
-identity="$("${RUNTIME_PYTHON}" "${CONTROL}" "${common[@]}" path --field checkpoint-identity --target base_qwen2_5_7b)"
+CANARY_TARGET=aime_correct_3000
+model="$("${RUNTIME_PYTHON}" "${CONTROL}" "${common[@]}" path --field model --target "${CANARY_TARGET}")"
+tokenizer="$("${RUNTIME_PYTHON}" "${CONTROL}" "${common[@]}" path --field tokenizer --target "${CANARY_TARGET}")"
+identity="$("${RUNTIME_PYTHON}" "${CONTROL}" "${common[@]}" path --field checkpoint-identity --target "${CANARY_TARGET}")"
 smoke="$("${RUNTIME_PYTHON}" "${CONTROL}" "${common[@]}" path --field smoke --dataset held_in)"
 control_root="$("${RUNTIME_PYTHON}" "${CONTROL}" "${common[@]}" path --field control)"
-output="${control_root}/canary/base_qwen2_5_7b/held_in/repeat_00"
+output="${control_root}/canary/${CANARY_TARGET}/held_in/repeat_00"
 
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1
 export HF_HOME="${HF_HOME:-/gscratch/scrubbed/suryadv/hf_cache}"
@@ -51,7 +52,7 @@ requeue_job() {
 trap requeue_job USR1
 "${RUNTIME_PYTHON}" "${GENERATOR}" \
   --model "${model}" --tokenizer "${tokenizer}" \
-  --checkpoint-manifest-sha256 "${identity}" --target base_qwen2_5_7b \
+  --checkpoint-manifest-sha256 "${identity}" --target "${CANARY_TARGET}" \
   --dataset held_in --repeat 0 --eval-file "${smoke}" --output-dir "${output}" \
   --chunk-size 1 --max-num-seqs 1 &
 child_pid="$!"; wait "${child_pid}"; child_pid=""

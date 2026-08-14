@@ -123,9 +123,10 @@ def generation_policy(
     repeat: int,
     checkpoint_identity: str,
     eval_file_sha256: str,
+    tokenizer_overlay_identity: str,
 ) -> dict[str, Any]:
     return {
-        "artifact_schema_version": 1,
+        "artifact_schema_version": 2,
         "checkpoint_manifest_sha256": checkpoint_identity,
         "dataset": dataset,
         "decoding": DECODING,
@@ -142,6 +143,7 @@ def generation_policy(
         "target": target,
         "target_context": TARGET_CONTEXT,
         "tokenizer_family": "qwen2_5",
+        "tokenizer_overlay_identity": tokenizer_overlay_identity,
     }
 
 
@@ -181,7 +183,16 @@ def run(args: argparse.Namespace) -> None:
         if isinstance(answer, bool) or not isinstance(answer, int) or not 0 <= answer <= 999:
             raise RuntimeError(f"invalid AIME answer at eval_index={row.get('eval_index')}")
 
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, trust_remote_code=True, use_fast=True)
+    tokenizer_path = Path(args.tokenizer).resolve()
+    overlay_metadata = json.loads((tokenizer_path / "overlay_metadata.json").read_text(encoding="utf-8"))
+    if not isinstance(overlay_metadata, dict):
+        raise RuntimeError(f"invalid tokenizer overlay metadata: {tokenizer_path}")
+    if overlay_metadata.get("checkpoint_identity") != args.checkpoint_manifest_sha256:
+        raise RuntimeError(f"tokenizer overlay/checkpoint mismatch: {tokenizer_path}")
+    overlay_identity = overlay_metadata.get("overlay_identity")
+    if not isinstance(overlay_identity, str) or len(overlay_identity) != 64:
+        raise RuntimeError(f"invalid tokenizer overlay identity: {tokenizer_path}")
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True, use_fast=True)
     actual_stops = {token: int(tokenizer.convert_tokens_to_ids(token)) for token in STOP_TOKENS}
     if actual_stops != STOP_TOKENS or int(tokenizer.eos_token_id) != 151643:
         raise RuntimeError(
@@ -194,6 +205,7 @@ def run(args: argparse.Namespace) -> None:
         repeat=args.repeat,
         checkpoint_identity=args.checkpoint_manifest_sha256,
         eval_file_sha256=sha256_file(eval_file),
+        tokenizer_overlay_identity=overlay_identity,
     )
     fingerprint = sha256_text(json.dumps(policy, sort_keys=True, separators=(",", ":")))
     policy_path = output_dir / "generation_policy.json"
@@ -222,7 +234,7 @@ def run(args: argparse.Namespace) -> None:
 
     llm = LLM(
         model=args.model,
-        tokenizer=args.tokenizer,
+        tokenizer=str(tokenizer_path),
         trust_remote_code=True,
         dtype="bfloat16",
         max_model_len=TARGET_CONTEXT,
@@ -286,6 +298,7 @@ def run(args: argparse.Namespace) -> None:
                     "stop_reason": stop_reason,
                     "target": args.target,
                     "total_context_limit": TARGET_CONTEXT,
+                    "tokenizer_overlay_identity": overlay_identity,
                 }
                 append_jsonl(records_path, record)
                 completed[index] = record

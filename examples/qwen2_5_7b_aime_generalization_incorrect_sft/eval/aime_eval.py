@@ -28,6 +28,13 @@ from examples.qwen2_5_7b_aime_generalization_incorrect_sft.eval.generate_aime im
     generation_policy,
     sample_seed,
 )
+from examples.qwen2_5_7b_aime_generalization_incorrect_sft.eval.tokenizer_compat import (
+    QWEN_SPECIAL_TOKENS,
+    expected_overlay_path,
+    overlay_spec,
+    prepare_overlay,
+    validate_overlay,
+)
 from examples.qwen2_5_7b_aime_generalization_incorrect_sft.hf_checkpoint_gate import (
     validate_checkpoint,
 )
@@ -227,6 +234,19 @@ def eval_root(args: argparse.Namespace) -> Path:
 
 def control_root(args: argparse.Namespace) -> Path:
     return eval_root(args) / "_control"
+
+
+def tokenizer_overlay_root(args: argparse.Namespace) -> Path:
+    return control_root(args) / "tokenizer_overlays"
+
+
+def tokenizer_path(args: argparse.Namespace, target: str, item: dict[str, Any]) -> Path:
+    model = model_path(args, item)
+    identity = str(item["checkpoint_identity"])
+    path = expected_overlay_path(tokenizer_overlay_root(args), target, model, identity)
+    _, metadata = overlay_spec(model, identity)
+    validate_overlay(path, metadata)
+    return path
 
 
 def result_root(args: argparse.Namespace) -> Path:
@@ -488,8 +508,15 @@ def verify_checkpoints(args: argparse.Namespace) -> None:
         if identity != item["checkpoint_identity"]:
             raise RuntimeError(f"checkpoint identity mismatch: {target}")
         file_contract = tokenizer_file_contract(model)
+        overlay, overlay_metadata = prepare_overlay(
+            tokenizer_overlay_root(args),
+            target,
+            model,
+            identity,
+        )
+        file_contract["compatibility_overlay"] = overlay_metadata
         tokenizer_files[target] = file_contract
-        tokenizer = AutoTokenizer.from_pretrained(model, trust_remote_code=True, use_fast=True)
+        tokenizer = AutoTokenizer.from_pretrained(overlay, trust_remote_code=True, use_fast=True)
         rendered = tokenizer.apply_chat_template(probe_messages, tokenize=False, add_generation_prompt=True)
         probe_ids = [int(value) for value in tokenizer.encode(rendered, add_special_tokens=False)]
         current_semantics = {
@@ -498,6 +525,10 @@ def verify_checkpoints(args: argparse.Namespace) -> None:
             "im_end_token_id": int(tokenizer.convert_tokens_to_ids("<|im_end|>")),
             "rendered_probe_sha256": sha256_bytes(rendered.encode()),
             "rendered_probe_token_ids_sha256": sha256_bytes(json.dumps(probe_ids, separators=(",", ":")).encode()),
+            "special_token_ids": {
+                token: int(tokenizer.convert_tokens_to_ids(token)) for token in QWEN_SPECIAL_TOKENS
+            },
+            "tokenizer_length": len(tokenizer),
         }
         if current_semantics["eos_token_id"] != 151643 or current_semantics["im_end_token_id"] != 151645:
             raise RuntimeError(f"Qwen stop-token IDs changed: {target}")
@@ -528,7 +559,9 @@ def verify_checkpoints(args: argparse.Namespace) -> None:
 
 def records_for_pass(args: argparse.Namespace, target: str, split: str, repeat: int) -> list[dict[str, Any]]:
     inventory = load_inventory(args)
-    checkpoint = item_for(inventory, target)["checkpoint_identity"]
+    item = item_for(inventory, target)
+    checkpoint = item["checkpoint_identity"]
+    overlay_metadata = load_json(tokenizer_path(args, target, item) / "overlay_metadata.json")
     records: list[dict[str, Any]] = []
     for shard in range(SHARDS):
         eval_file = benchmark_shard(args, split, shard)
@@ -546,6 +579,7 @@ def records_for_pass(args: argparse.Namespace, target: str, split: str, repeat: 
             repeat=repeat,
             checkpoint_identity=checkpoint,
             eval_file_sha256=sha256_file(eval_file),
+            tokenizer_overlay_identity=str(overlay_metadata["overlay_identity"]),
         )
         if policy != expected_policy:
             raise RuntimeError(f"generation policy mismatch: {target}/{split}/{repeat}/{shard}")
@@ -562,6 +596,7 @@ def records_for_pass(args: argparse.Namespace, target: str, split: str, repeat: 
                 or record.get("dataset") != split
                 or int(record.get("repeat", -1)) != repeat
                 or record.get("checkpoint_manifest_sha256") != checkpoint
+                or record.get("tokenizer_overlay_identity") != overlay_metadata["overlay_identity"]
                 or record.get("policy_sha256") != fingerprint
                 or budget < 1
                 or int(record.get("rendered_prompt_tokens", 0)) < 1
@@ -916,15 +951,62 @@ def path_command(args: argparse.Namespace) -> None:
         value = benchmark_full(args, args.dataset).parent / "smoke.jsonl"
     elif args.field == "pass-output":
         value = pass_output(args, args.target, args.dataset, args.repeat)
-    elif args.field in {"model", "tokenizer"}:
+    elif args.field == "model":
         assert inventory is not None
         value = model_path(args, item_for(inventory, args.target))
+    elif args.field == "tokenizer":
+        assert inventory is not None
+        value = tokenizer_path(args, args.target, item_for(inventory, args.target))
     elif args.field == "checkpoint-identity":
         assert inventory is not None
         value = item_for(inventory, args.target)["checkpoint_identity"]
     else:
         raise AssertionError(args.field)
     print(value)
+
+
+def validate_resubmission(args: argparse.Namespace) -> None:
+    journal_path = Path(args.journal).resolve()
+    failure_log = Path(args.failure_log).resolve()
+    value = load_json(journal_path)
+    if value.get("artifact_schema_version") not in {2, 3}:
+        raise RuntimeError(f"unsupported prior submission schema: {journal_path}")
+    arrays = value.get("array_jobs")
+    finalizers = value.get("finalizer_jobs")
+    if not isinstance(arrays, dict) or set(arrays) != set(TARGETS):
+        raise RuntimeError("prior submission array inventory changed")
+    if not isinstance(finalizers, dict) or set(finalizers) != set(TARGETS):
+        raise RuntimeError("prior submission finalizer inventory changed")
+    jobs = {
+        str(value.get("preflight_job")),
+        str(value.get("canary_job")),
+        str(value.get("interim_job")),
+        str(value.get("audit_job")),
+        *(str(job) for job in arrays.values()),
+        *(str(job) for job in finalizers.values()),
+    }
+    if len(jobs) != 30 or any(not job.isdigit() for job in jobs):
+        raise RuntimeError(f"prior submission job inventory changed: {sorted(jobs)}")
+    preflight = str(value["preflight_job"])
+    if preflight not in failure_log.name:
+        raise RuntimeError("failure log does not belong to the prior preflight")
+    log_text = failure_log.read_text(encoding="utf-8", errors="replace")
+    required = (
+        "AttributeError: 'list' object has no attribute 'keys'",
+        "_set_model_specific_special_tokens",
+    )
+    if not all(marker in log_text for marker in required):
+        raise RuntimeError("prior preflight does not contain the approved tokenizer compatibility failure")
+    generated = sorted(eval_root(args).glob("**/records.jsonl"))
+    results = sorted(result_root(args).glob("**/*")) if result_root(args).is_dir() else []
+    result_files = [path for path in results if path.is_file()]
+    if generated or result_files:
+        raise RuntimeError(
+            "refusing to supersede an evaluation with generated/result artifacts: "
+            f"records={generated} results={result_files}"
+        )
+    for job in sorted(jobs, key=int):
+        print(job)
 
 
 def record_submission(args: argparse.Namespace) -> None:
@@ -993,9 +1075,23 @@ def record_submission(args: argparse.Namespace) -> None:
             "stage": "final_audit",
         }
     )
+    if args.attempt < 1:
+        raise RuntimeError("submission attempt must be positive")
+    supersedes = None
+    if args.attempt > 1:
+        if not args.supersedes_journal or not args.failure_kind or not args.failure_log:
+            raise RuntimeError("replacement submissions require complete supersession provenance")
+        if not Path(args.supersedes_journal).is_file() or not Path(args.failure_log).is_file():
+            raise RuntimeError("replacement submission provenance files are missing")
+        supersedes = {
+            "failure_kind": args.failure_kind,
+            "failure_log": str(Path(args.failure_log).resolve()),
+            "journal": str(Path(args.supersedes_journal).resolve()),
+        }
     value = {
-        "artifact_schema_version": 2,
+        "artifact_schema_version": 3,
         "array_jobs": arrays,
+        "attempt": args.attempt,
         "audit_job": args.audit_job,
         "canary_job": args.canary_job,
         "dependency_edges": dependency_edges,
@@ -1004,6 +1100,7 @@ def record_submission(args: argparse.Namespace) -> None:
         "interim_job": args.interim_job,
         "preflight_job": args.preflight_job,
         "submitted_at": now_iso(),
+        "supersedes": supersedes,
         "target_groups": {
             "base": [BASE_TARGET],
             "deferred": list(DEFERRED_TARGETS),
@@ -1067,6 +1164,14 @@ def parse_args() -> argparse.Namespace:
     record.add_argument("--interim-job", required=True)
     record.add_argument("--audit-job", required=True)
     record.add_argument("--git-commit", required=True)
+    record.add_argument("--attempt", required=True, type=int)
+    record.add_argument("--supersedes-journal")
+    record.add_argument("--failure-kind")
+    record.add_argument("--failure-log")
+
+    retry = subparsers.add_parser("validate-resubmission")
+    retry.add_argument("--journal", required=True)
+    retry.add_argument("--failure-log", required=True)
     return parser.parse_args()
 
 
@@ -1086,6 +1191,8 @@ def main() -> None:
         path_command(args)
     elif args.command == "record-submission":
         record_submission(args)
+    elif args.command == "validate-resubmission":
+        validate_resubmission(args)
     else:
         raise AssertionError(args.command)
 

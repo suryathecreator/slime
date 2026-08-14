@@ -15,6 +15,9 @@ from examples.qwen2_5_7b_aime_generalization_incorrect_sft.eval.generate_aime im
     read_jsonl_recover_truncated_tail,
     sample_seed,
 )
+from examples.qwen2_5_7b_aime_generalization_incorrect_sft.eval.tokenizer_compat import (
+    prepare_overlay,
+)
 from examples.qwen2_5_7b_aime_generalization_incorrect_sft.eval.verify_transfer import (
     validate_hf_checkpoint,
 )
@@ -65,12 +68,14 @@ def test_sampling_and_context_policy_are_exact() -> None:
         repeat=2,
         checkpoint_identity="a" * 64,
         eval_file_sha256="b" * 64,
+        tokenizer_overlay_identity="c" * 64,
     )
     assert policy["decoding"] == DECODING
     assert policy["seed_formula"] == "1234 + 400 * repeat + eval_index"
     assert policy["stop_token_ids"] == [151643, 151645]
     assert policy["response_budget"] == "32768 - rendered_prompt_tokens"
     assert policy["target_context"] == 32768
+    assert policy["tokenizer_overlay_identity"] == "c" * 64
 
 
 def test_generator_forwards_transferred_prompt_verbatim() -> None:
@@ -219,6 +224,49 @@ def test_tokenizer_template_may_be_embedded_or_external(tmp_path: Path) -> None:
     assert external_contract["chat_template_embedded_sha256"] is None
 
 
+def test_legacy_tokenizer_config_gets_manifest_preserving_overlay(tmp_path: Path) -> None:
+    model = tmp_path / "checkpoint"
+    model.mkdir()
+    template = "{{ messages[0]['content'] }}"
+    legacy_tokens = ["<|im_start|>", "<|im_end|>"]
+    source_config = {
+        "chat_template": None,
+        "eos_token": "<|endoftext|>",
+        "extra_special_tokens": legacy_tokens,
+        "tokenizer_class": "Qwen2Tokenizer",
+    }
+    (model / "tokenizer.json").write_text("{}\n", encoding="utf-8")
+    (model / "tokenizer_config.json").write_text(json.dumps(source_config), encoding="utf-8")
+    (model / "chat_template.jinja").write_text(template, encoding="utf-8")
+
+    overlay, metadata = prepare_overlay(tmp_path / "overlays", "trained", model, "a" * 64)
+    normalized = json.loads((overlay / "tokenizer_config.json").read_text())
+    assert normalized["extra_special_tokens"] == {}
+    assert normalized["additional_special_tokens"] == legacy_tokens
+    assert normalized["chat_template"] == template
+    assert metadata["normalization_action"] == "legacy_list_to_additional_special_tokens"
+    assert (overlay / "tokenizer.json").resolve() == (model / "tokenizer.json").resolve()
+    assert json.loads((model / "tokenizer_config.json").read_text()) == source_config
+
+
+def test_tokenizer_overlay_rejects_conflicting_special_token_lists(tmp_path: Path) -> None:
+    model = tmp_path / "checkpoint"
+    model.mkdir()
+    (model / "tokenizer.json").write_text("{}\n", encoding="utf-8")
+    (model / "tokenizer_config.json").write_text(
+        json.dumps(
+            {
+                "additional_special_tokens": ["<different>"],
+                "chat_template": "{{ messages }}",
+                "extra_special_tokens": ["<legacy>"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="conflicting additional_special_tokens"):
+        prepare_overlay(tmp_path / "overlays", "trained", model, "a" * 64)
+
+
 def test_transfer_accepts_only_final_hf_checkpoint_files(tmp_path: Path) -> None:
     checkpoint = tmp_path / "checkpoint"
     checkpoint.mkdir()
@@ -281,6 +329,10 @@ def test_submission_script_encodes_priority_and_interim_dependencies() -> None:
     assert '--dependency="afterok:${base_finalizer_job}:${priority_predecessor}"' in submit
     assert 'submit_target "${target}" "${interim_job}"' in submit
     assert '--interim-job "${interim_job}"' in submit
+    assert '"${MODE}" == "--resubmit"' in submit
+    assert 'scancel "${ACTIVE_PRIOR_JOBS[@]}"' in submit
+    canary = (aime_eval.EVAL_DIR / "canary_h200.sbatch").read_text(encoding="utf-8")
+    assert "CANARY_TARGET=aime_correct_3000" in canary
 
 
 def test_merge_rejects_generation_policy_drift(tmp_path: Path) -> None:
@@ -294,15 +346,28 @@ def test_merge_rejects_generation_policy_drift(tmp_path: Path) -> None:
     aime_eval.prepare(namespace)
 
     identity = "a" * 64
+    model = tmp_path / "model"
+    model.mkdir()
+    (model / "tokenizer.json").write_text("{}\n", encoding="utf-8")
+    (model / "tokenizer_config.json").write_text(
+        json.dumps({"chat_template": "{{ messages[0]['content'] }}", "extra_special_tokens": {}}),
+        encoding="utf-8",
+    )
     inventory = {
         "comparison_checkpoint_count": len(aime_eval.TARGETS),
-        "targets": [{"checkpoint_identity": identity, "id": target} for target in aime_eval.TARGETS],
+        "targets": [
+            {"checkpoint_identity": identity, "id": target, "source_checkpoint": str(model)}
+            for target in aime_eval.TARGETS
+        ],
     }
     path = aime_eval.inventory_path(namespace)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(aime_eval.canonical_json(inventory), encoding="utf-8")
 
     target = "base_qwen2_5_7b"
+    _, overlay_metadata = prepare_overlay(
+        aime_eval.tokenizer_overlay_root(namespace), target, model, identity
+    )
     split = "held_in"
     repeat = 0
     for shard in range(aime_eval.SHARDS):
@@ -313,6 +378,7 @@ def test_merge_rejects_generation_policy_drift(tmp_path: Path) -> None:
             repeat=repeat,
             checkpoint_identity=identity,
             eval_file_sha256=aime_eval.sha256_file(eval_file),
+            tokenizer_overlay_identity=overlay_metadata["overlay_identity"],
         )
         fingerprint = aime_eval.sha256_bytes(json.dumps(policy, sort_keys=True, separators=(",", ":")).encode())
         output = aime_eval.pass_output(namespace, target, split, repeat) / "shards" / f"shard_{shard:02d}"
@@ -341,6 +407,7 @@ def test_merge_rejects_generation_policy_drift(tmp_path: Path) -> None:
                     "seed": sample_seed(repeat, row["eval_index"]),
                     "target": target,
                     "total_context_limit": 32768,
+                    "tokenizer_overlay_identity": overlay_metadata["overlay_identity"],
                 }
             )
         (output / "records.jsonl").write_text(aime_eval.jsonl_text(records), encoding="utf-8")
@@ -423,9 +490,15 @@ def test_submission_metadata_records_staged_dependency_graph(tmp_path: Path) -> 
     namespace.interim_job = "400"
     namespace.audit_job = "500"
     namespace.git_commit = "a" * 40
+    namespace.attempt = 1
+    namespace.supersedes_journal = None
+    namespace.failure_kind = None
+    namespace.failure_log = None
     aime_eval.record_submission(namespace)
     submission = json.loads((aime_eval.control_root(namespace) / "submission.json").read_text())
-    assert submission["artifact_schema_version"] == 2
+    assert submission["artifact_schema_version"] == 3
+    assert submission["attempt"] == 1
+    assert submission["supersedes"] is None
     assert submission["target_groups"]["priority"] == list(aime_eval.PRIORITY_TARGETS)
     assert submission["target_groups"]["deferred"] == list(aime_eval.DEFERRED_TARGETS)
     interim = next(edge for edge in submission["dependency_edges"] if edge["stage"] == "interim_aggregation")
@@ -436,6 +509,57 @@ def test_submission_metadata_records_staged_dependency_graph(tmp_path: Path) -> 
     ]
     final = next(edge for edge in submission["dependency_edges"] if edge["stage"] == "final_audit")
     assert final["afterok"] == [submission["finalizer_jobs"][target] for target in aime_eval.DEFERRED_TARGETS]
+
+
+def test_resubmission_requires_exact_failure_and_records_supersession(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    namespace = args(tmp_path)
+    namespace.preflight_job = "100"
+    namespace.canary_job = "101"
+    namespace.array_job = [f"{target}={200 + index}" for index, target in enumerate(aime_eval.TARGETS)]
+    namespace.finalizer_job = [f"{target}={300 + index}" for index, target in enumerate(aime_eval.TARGETS)]
+    namespace.interim_job = "400"
+    namespace.audit_job = "500"
+    namespace.git_commit = "a" * 40
+    namespace.attempt = 1
+    namespace.supersedes_journal = None
+    namespace.failure_kind = None
+    namespace.failure_log = None
+    aime_eval.record_submission(namespace)
+
+    journal = aime_eval.control_root(namespace) / "submission.json"
+    failure_log = aime_eval.control_root(namespace) / "slurm_logs/q25-aime-preflight-100.out"
+    failure_log.parent.mkdir(parents=True)
+    failure_log.write_text(
+        "_set_model_specific_special_tokens\nAttributeError: 'list' object has no attribute 'keys'\n",
+        encoding="utf-8",
+    )
+    retry = args(tmp_path)
+    retry.journal = str(journal)
+    retry.failure_log = str(failure_log)
+    aime_eval.validate_resubmission(retry)
+    assert len(capsys.readouterr().out.splitlines()) == 30
+
+    archive = aime_eval.control_root(namespace) / "submission_attempts/attempt-1"
+    archive.mkdir(parents=True)
+    archived_journal = archive / "submission.json"
+    journal.replace(archived_journal)
+    namespace.preflight_job = "600"
+    namespace.canary_job = "601"
+    namespace.array_job = [f"{target}={700 + index}" for index, target in enumerate(aime_eval.TARGETS)]
+    namespace.finalizer_job = [f"{target}={800 + index}" for index, target in enumerate(aime_eval.TARGETS)]
+    namespace.interim_job = "900"
+    namespace.audit_job = "901"
+    namespace.attempt = 2
+    namespace.supersedes_journal = str(archived_journal)
+    namespace.failure_kind = "legacy_extra_special_tokens_list"
+    namespace.failure_log = str(failure_log)
+    aime_eval.record_submission(namespace)
+    replacement = json.loads(journal.read_text())
+    assert replacement["attempt"] == 2
+    assert replacement["supersedes"]["failure_kind"] == "legacy_extra_special_tokens_list"
+    assert replacement["supersedes"]["journal"] == str(archived_journal.resolve())
 
 
 if __name__ == "__main__":

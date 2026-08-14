@@ -156,6 +156,8 @@ three-sample held-in/held-out evaluation chain:
 ```bash
 bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submit_hyak.sh --test-only-shapes
 bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submit_hyak.sh --submit
+# Only after an audited infrastructure/runtime failure:
+bash examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/submit_hyak.sh --resubmit
 ```
 
 The evaluator passes each transferred row's decoded `prompt` value verbatim as
@@ -167,3 +169,16 @@ priority order through unmasked, 1.5K correct, and random-mask 50. A CPU interim
 table is finalized for those five targets before masks 10, 20, 30, 40, 60, 70,
 80, and 90 are released concurrently. Scoring uses the existing strict
 `aime_last_boxed_integer_scorer_v1` implementation in `eval/aime_scorer.py`.
+
+Transferred trained checkpoints retain a legacy tokenizer serialization in
+which `extra_special_tokens` is a list. Pinned Transformers 4.57.6 expects that
+field to be a mapping. Evaluation therefore builds a content-addressed tokenizer
+overlay outside the checkpoint: it preserves the original `tokenizer.json` and
+chat template, moves the legacy list to `additional_special_tokens`, and sets
+`extra_special_tokens` to an empty mapping. Checkpoint files and manifest
+identities remain unchanged. Preflight proves the rendered probe, vocabulary
+size, EOS IDs, and every Qwen special-token ID agree across all 13 targets; the
+H200 canary uses the affected 3K trained checkpoint, and both prompt rendering
+and vLLM consume the same overlay. A guarded `--resubmit` accepts only the known
+legacy-tokenizer failure, archives the superseded journal, cancels its remaining
+dependency graph, and records the replacement attempt and failure provenance.

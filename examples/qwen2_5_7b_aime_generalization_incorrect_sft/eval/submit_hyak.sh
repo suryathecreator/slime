@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE="${1:?Use --test-only-shapes or --submit}"
-[[ "${MODE}" == "--test-only-shapes" || "${MODE}" == "--submit" ]] || {
-  echo "Usage: $0 --test-only-shapes|--submit" >&2
+MODE="${1:?Use --test-only-shapes, --submit, or --resubmit}"
+[[ "${MODE}" == "--test-only-shapes" || "${MODE}" == "--submit" || "${MODE}" == "--resubmit" ]] || {
+  echo "Usage: $0 --test-only-shapes|--submit|--resubmit" >&2
   exit 2
 }
-[[ $# -eq 1 ]] || { echo "Usage: $0 --test-only-shapes|--submit" >&2; exit 2; }
+[[ $# -eq 1 ]] || { echo "Usage: $0 --test-only-shapes|--submit|--resubmit" >&2; exit 2; }
 EVAL_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 PACKAGE="$(cd -- "${EVAL_DIR}/.." >/dev/null 2>&1 && pwd)"
 REPO_ROOT="$(cd -- "${PACKAGE}/../.." >/dev/null 2>&1 && pwd)"
@@ -66,12 +66,51 @@ remote_commit="$(git -C "${REPO_ROOT}" rev-parse "refs/remotes/origin/${BRANCH}"
 [[ -f "${HELD_IN_EVAL_JSONL}" && -f "${HELD_OUT_EVAL_JSONL}" ]] || { echo "Transferred eval data are missing" >&2; exit 2; }
 [[ -f "${EVAL_EXPERIMENT_ROOT}/handoff/comparison_sources.json" ]] || { echo "Transferred checkpoint inventory is missing" >&2; exit 2; }
 JOURNAL="${EVAL_EXPERIMENT_ROOT}/outputs/eval/aime_generalization_sampled_v1/_control/submission.json"
-[[ ! -e "${JOURNAL}" ]] || { echo "Submission already exists: ${JOURNAL}" >&2; exit 2; }
+ATTEMPT=1; SUPERSESSION_ARGS=(); PRIOR_ARCHIVE=""
+if [[ "${MODE}" == "--submit" ]]; then
+  [[ ! -e "${JOURNAL}" ]] || { echo "Submission already exists: ${JOURNAL}" >&2; exit 2; }
+else
+  [[ -f "${JOURNAL}" ]] || { echo "Missing submission to supersede: ${JOURNAL}" >&2; exit 2; }
+  prior_preflight="$(jq -er '.preflight_job' "${JOURNAL}")"
+  failure_log="${LOG_DIR}/q25-aime-preflight-${prior_preflight}.out"
+  mapfile -t PRIOR_JOBS < <(
+    "${RUNTIME_PYTHON}" "${CONTROL}" --repo-root "${REPO_ROOT}" --experiment-root "${EVAL_EXPERIMENT_ROOT}" \
+      validate-resubmission --journal "${JOURNAL}" --failure-log "${failure_log}"
+  )
+  [[ ${#PRIOR_JOBS[@]} -eq 30 ]] || { echo "Expected 30 prior jobs; found ${#PRIOR_JOBS[@]}" >&2; exit 2; }
+  prior_csv="$(IFS=,; echo "${PRIOR_JOBS[*]}")"
+  mapfile -t ACTIVE_PRIOR_JOBS < <(squeue --noheader --jobs="${prior_csv}" --format='%A' | sort -u)
+  if (( ${#ACTIVE_PRIOR_JOBS[@]} )); then
+    scancel "${ACTIVE_PRIOR_JOBS[@]}"
+  fi
+  for _ in {1..60}; do
+    [[ -z "$(squeue --noheader --jobs="${prior_csv}" --format='%i')" ]] && break
+    sleep 2
+  done
+  [[ -z "$(squeue --noheader --jobs="${prior_csv}" --format='%i')" ]] || {
+    echo "Superseded jobs did not leave the queue within 120 seconds" >&2
+    exit 2
+  }
+  attempt_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  PRIOR_ARCHIVE="$(dirname "${JOURNAL}")/submission_attempts/${attempt_stamp}"
+  mkdir -p "${PRIOR_ARCHIVE}"
+  mv "${JOURNAL}" "${PRIOR_ARCHIVE}/submission.json"
+  ATTEMPT="$(( $(jq -r '.attempt // 1' "${PRIOR_ARCHIVE}/submission.json") + 1 ))"
+  SUPERSESSION_ARGS=(
+    --supersedes-journal "${PRIOR_ARCHIVE}/submission.json"
+    --failure-kind legacy_extra_special_tokens_list
+    --failure-log "${failure_log}"
+  )
+  echo "AIME_EVAL_SUPERSEDED attempt=${ATTEMPT} archive=${PRIOR_ARCHIVE} jobs=${PRIOR_JOBS[*]}"
+fi
 
 SUBMITTED=(); RECORDED=0; LAST_JOB=""
 rollback() {
   status=$?; trap - EXIT
   if [[ "${RECORDED}" != 1 && ${#SUBMITTED[@]} -gt 0 ]]; then scancel "${SUBMITTED[@]}" 2>/dev/null || true; fi
+  if [[ "${RECORDED}" != 1 && -n "${PRIOR_ARCHIVE}" && ! -e "${JOURNAL}" && -f "${PRIOR_ARCHIVE}/submission.json" ]]; then
+    mv "${PRIOR_ARCHIVE}/submission.json" "${JOURNAL}"
+  fi
   exit "${status}"
 }
 trap rollback EXIT
@@ -133,6 +172,7 @@ audit_job="${LAST_JOB}"
 "${RUNTIME_PYTHON}" "${CONTROL}" --repo-root "${REPO_ROOT}" --experiment-root "${EVAL_EXPERIMENT_ROOT}" record-submission \
   --preflight-job "${preflight_job}" --canary-job "${canary_job}" \
   "${array_assignments[@]}" "${finalizer_assignments[@]}" \
-  --interim-job "${interim_job}" --audit-job "${audit_job}" --git-commit "${git_commit}"
+  --interim-job "${interim_job}" --audit-job "${audit_job}" --git-commit "${git_commit}" \
+  --attempt "${ATTEMPT}" "${SUPERSESSION_ARGS[@]}"
 RECORDED=1; trap - EXIT
 echo "AIME_EVAL_SUBMITTED commit=${git_commit} preflight=${preflight_job} canary=${canary_job} arrays=${array_jobs[*]} finalizers=${finalizer_jobs[*]} interim=${interim_job} audit=${audit_job}"
