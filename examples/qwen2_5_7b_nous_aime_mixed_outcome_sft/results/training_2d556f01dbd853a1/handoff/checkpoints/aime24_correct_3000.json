@@ -1,0 +1,65 @@
+{
+  "artifact_schema_version": 1,
+  "checkpoint_manifest_sha256": "65cba6f3690639d4f7cf9806220405cb766dc29ae008b8f60596d91f95f21d48",
+  "contract_hash": "2d556f01dbd853a1",
+  "created_at": "2026-08-15T13:34:16.978488+00:00",
+  "family": "nous_aime_mixed_outcome",
+  "files": [
+    {
+      "bytes": 2427,
+      "name": "chat_template.jinja",
+      "sha256": "44d5f08f3f72b837eaad09f13a54c1f9f4eb58d75240334548b7fd52a5437fa5"
+    },
+    {
+      "bytes": 1424,
+      "name": "config.json",
+      "sha256": "261400c293dee67348df1a27c5140e73d81c9f9948aaa2feb67a0014e1fd17d2"
+    },
+    {
+      "bytes": 167,
+      "name": "generation_config.json",
+      "sha256": "026c2bc587507e36570ddf537c44c87d7acff04fc07054191e8d7b93efd9d102"
+    },
+    {
+      "bytes": 3945441408,
+      "name": "model-00001-of-00004.safetensors",
+      "sha256": "6bb5655a5e77e9f29bee812087fc1f770e075e01f4d0e212e22c4a3836550faf"
+    },
+    {
+      "bytes": 3864726320,
+      "name": "model-00002-of-00004.safetensors",
+      "sha256": "78af9b3c60f4ccde1719e0c2fbb45f69a87c68b30330d04628f6e66b0adaeaa8"
+    },
+    {
+      "bytes": 3864726392,
+      "name": "model-00003-of-00004.safetensors",
+      "sha256": "c5be819bfb3163dc055da08da01b7f1d265fdd8a8e37569956e62f2e611f49f5"
+    },
+    {
+      "bytes": 3556377640,
+      "name": "model-00004-of-00004.safetensors",
+      "sha256": "5a577d1935288ae992c1991a8f2b324358dcd8afea281c4af3b2e66f44f2bfef"
+    },
+    {
+      "bytes": 29119,
+      "name": "model.safetensors.index.json",
+      "sha256": "b046273320c0b5330043c64d9cabd120d1e197c3237385b24f1080ca5b639658"
+    },
+    {
+      "bytes": 11421892,
+      "name": "tokenizer.json",
+      "sha256": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+    },
+    {
+      "bytes": 695,
+      "name": "tokenizer_config.json",
+      "sha256": "cbea7bca9904d56693d2226b00fd564e3be053609d1e50f8f1885510f0f6e790"
+    }
+  ],
+  "final_iteration": 46,
+  "full_sft": true,
+  "identity_scheme": "hf_checkpoint_all_regular_files_v1",
+  "repo_commit": "418b0a1d3fce75898f4d5f01381da6f8433b18f2",
+  "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2d556f01dbd853a1/outputs/training/aime24_correct_3000/weights/iter_0000046",
+  "variant": "aime24_correct_3000"
+}

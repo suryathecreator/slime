@@ -1,0 +1,63 @@
+{
+  "aggregation": "mean of all independent correctness indicators; expected single-sample accuracy",
+  "artifact_schema_version": 1,
+  "cap_hits_scored": true,
+  "checkpoints": [
+    "base_qwen2_5_7b",
+    "aime24_correct_3000",
+    "aime24_incorrect_3000",
+    "aime25_correct_3000",
+    "aime25_incorrect_3000"
+  ],
+  "draws_per_prompt": 16,
+  "evaluation_sources": [
+    {
+      "path": "data/eval/aime24_30.jsonl",
+      "rows": 30,
+      "sha256": "0c838ee6351d9636a7fdb62dbf9a1123c3fbf1cd13e61325aa892ac4343f6538",
+      "year": "aime24"
+    },
+    {
+      "path": "data/eval/aime25_30.jsonl",
+      "rows": 30,
+      "sha256": "195dd659d4c20a3900875cfe7e83acc9a69c16a7c73ad6d6eb5f61c9fd30f70e",
+      "year": "aime25"
+    }
+  ],
+  "generation_count": 4800,
+  "max_total_context_tokens": 32768,
+  "prompt": {
+    "add_generation_prompt": true,
+    "messages": [
+      {
+        "content": "{query verbatim}",
+        "role": "user"
+      }
+    ],
+    "source_system_message_omitted": "/think",
+    "system_inserted_by_template": "You are a helpful assistant."
+  },
+  "sampling": {
+    "n": 1,
+    "seed": "1234 + 60 * draw_index + global_eval_index",
+    "temperature": 0.7,
+    "top_k": -1,
+    "top_p": 0.8
+  },
+  "scorer": {
+    "path_in_repo": "examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/aime_scorer.py",
+    "sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+    "version": "aime_last_boxed_integer_scorer_v1"
+  },
+  "semantics": "not pass@16, best-of-16, or majority vote",
+  "split_counts": {
+    "aime24": {
+      "held_in": 10,
+      "held_out": 20
+    },
+    "aime25": {
+      "held_in": 10,
+      "held_out": 20
+    }
+  }
+}

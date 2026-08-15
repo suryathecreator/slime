@@ -1,0 +1,154 @@
+{
+  "artifact_schema_version": 1,
+  "contract_hash": "2d556f01dbd853a1",
+  "contract_relative_path": "config/experiment_contract.json",
+  "contract_sha256": "2d556f01dbd853a1c53d2fb04ba260b498491178b0fcd836190410a93465ff9e",
+  "excluded_large_payloads": {
+    "canary_payloads": "excluded from Git; required audit hashes are recorded in TRAINING_STATUS.json",
+    "checkpoints_and_optimizer_state": "transferred by rsync, not stored in Git",
+    "raw_nous_generations": "excluded from Git; source revision and hashes are recorded",
+    "training_datasets": "excluded from Git; selection and tokenization hashes are recorded"
+  },
+  "published_at": "2026-08-15T15:39:33.953613+00:00",
+  "published_file_count_excluding_self": 17,
+  "published_files": [
+    {
+      "bytes": 2856,
+      "origin": "copied",
+      "path": "TRAINING_STATUS.json",
+      "sha256": "4819a0337532f0cfdb3e5c1aa38666bd851a2fbcf5c087e30e9b129df5746b32",
+      "source_relative": "TRAINING_STATUS.json",
+      "source_sha256": "4819a0337532f0cfdb3e5c1aa38666bd851a2fbcf5c087e30e9b129df5746b32"
+    },
+    {
+      "bytes": 1194,
+      "origin": "generated",
+      "path": "TRAINING_SUMMARY.md",
+      "sha256": "f9d9ad4c01c01b699e2983401473bde3dfd7f16c07bef5392345c833d589da9f",
+      "source_relative": null,
+      "source_sha256": null
+    },
+    {
+      "bytes": 2854,
+      "origin": "copied",
+      "path": "data/schedule_audit.json",
+      "sha256": "833ffb80f3ff8f6055bce9546922ebce25016693d53c1de20674f21c4b9f378c",
+      "source_relative": "data/schedule_audit.json",
+      "source_sha256": "833ffb80f3ff8f6055bce9546922ebce25016693d53c1de20674f21c4b9f378c"
+    },
+    {
+      "bytes": 17053,
+      "origin": "copied",
+      "path": "data/selection_and_tokenization_stats.json",
+      "sha256": "e7d2a08f301bb4651785b1424632d33437e3960c9d3fab5885e52358d765755b",
+      "source_relative": "data/selection_and_tokenization_stats.json",
+      "source_sha256": "e7d2a08f301bb4651785b1424632d33437e3960c9d3fab5885e52358d765755b"
+    },
+    {
+      "bytes": 2491,
+      "origin": "copied",
+      "path": "data/source_artifacts.json",
+      "sha256": "8a77ec5b9e7b41cbe779e7060fc50c55c79fec5c4da77583c133f435bfe7c47d",
+      "source_relative": "data/source_artifacts.json",
+      "source_sha256": "8a77ec5b9e7b41cbe779e7060fc50c55c79fec5c4da77583c133f435bfe7c47d"
+    },
+    {
+      "bytes": 1128,
+      "origin": "copied",
+      "path": "data/tokenizer_control_inventory.json",
+      "sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85",
+      "source_relative": "data/tokenizer_control_inventory.json",
+      "source_sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85"
+    },
+    {
+      "bytes": 1785,
+      "origin": "copied",
+      "path": "handoff/EVAL_HANDOFF.md",
+      "sha256": "bd706e01a6c0c67b7ef1c2897e3bc80f96dc0845aec00f9bb0e4bfa805417164",
+      "source_relative": "handoff/EVAL_HANDOFF.md",
+      "source_sha256": "bd706e01a6c0c67b7ef1c2897e3bc80f96dc0845aec00f9bb0e4bfa805417164"
+    },
+    {
+      "bytes": 4291,
+      "origin": "copied",
+      "path": "handoff/checkpoint_sources.json",
+      "sha256": "06bf52375a025ddd558a7e29c9eddf065ff057cf5fff26df1edd9a860dd3213e",
+      "source_relative": "handoff/checkpoint_sources.json",
+      "source_sha256": "06bf52375a025ddd558a7e29c9eddf065ff057cf5fff26df1edd9a860dd3213e"
+    },
+    {
+      "bytes": 2275,
+      "origin": "copied",
+      "path": "handoff/checkpoints/aime24_correct_3000.json",
+      "sha256": "b13191a9080b8e6c7e502e70d4a86d678d6e47111b3d5dbd94040ec90b72ce8e",
+      "source_relative": "handoff/checkpoints/aime24_correct_3000.json",
+      "source_sha256": "b13191a9080b8e6c7e502e70d4a86d678d6e47111b3d5dbd94040ec90b72ce8e"
+    },
+    {
+      "bytes": 2279,
+      "origin": "copied",
+      "path": "handoff/checkpoints/aime24_incorrect_3000.json",
+      "sha256": "cd24a95deefa3f448ce85e899dd10936ea2fb0cc4445ac0f31f8aba2df4f9201",
+      "source_relative": "handoff/checkpoints/aime24_incorrect_3000.json",
+      "source_sha256": "cd24a95deefa3f448ce85e899dd10936ea2fb0cc4445ac0f31f8aba2df4f9201"
+    },
+    {
+      "bytes": 2275,
+      "origin": "copied",
+      "path": "handoff/checkpoints/aime25_correct_3000.json",
+      "sha256": "e7fad9036c564969090bd3532771372990f0c825414843590398bb33c3900f0b",
+      "source_relative": "handoff/checkpoints/aime25_correct_3000.json",
+      "source_sha256": "e7fad9036c564969090bd3532771372990f0c825414843590398bb33c3900f0b"
+    },
+    {
+      "bytes": 2279,
+      "origin": "copied",
+      "path": "handoff/checkpoints/aime25_incorrect_3000.json",
+      "sha256": "d46d63cac9626b043365f72ad301de454b03a39b6638492fad888da82cc565ba",
+      "source_relative": "handoff/checkpoints/aime25_incorrect_3000.json",
+      "source_sha256": "d46d63cac9626b043365f72ad301de454b03a39b6638492fad888da82cc565ba"
+    },
+    {
+      "bytes": 5780,
+      "origin": "copied",
+      "path": "handoff/checkpoints/base_qwen2_5_7b.json",
+      "sha256": "d74a074cffaa351f1f4db655a6a4a0f5100971433c2b4fd47db7bc68484ac848",
+      "source_relative": "handoff/checkpoints/base_qwen2_5_7b.json",
+      "source_sha256": "d74a074cffaa351f1f4db655a6a4a0f5100971433c2b4fd47db7bc68484ac848"
+    },
+    {
+      "bytes": 4332,
+      "origin": "copied",
+      "path": "handoff/comparison_sources.json",
+      "sha256": "1878a1e5f07626ecebdfee5fa0a2aad31a28136b3297947b6f67722bcd32e472",
+      "source_relative": "handoff/comparison_sources.json",
+      "source_sha256": "1878a1e5f07626ecebdfee5fa0a2aad31a28136b3297947b6f67722bcd32e472"
+    },
+    {
+      "bytes": 1685,
+      "origin": "copied",
+      "path": "handoff/eval_contract.json",
+      "sha256": "f49e6b6337ed2b2186b0412cd874583e79d96d89c8b80a91b13d37f0a6ac8b92",
+      "source_relative": "handoff/eval_contract.json",
+      "source_sha256": "f49e6b6337ed2b2186b0412cd874583e79d96d89c8b80a91b13d37f0a6ac8b92"
+    },
+    {
+      "bytes": 49613,
+      "origin": "copied",
+      "path": "handoff/training_metrics.json",
+      "sha256": "154a7cbf52483d59b787b03bbc3214f53dc26322e90a29185f69b2c5970b66a2",
+      "source_relative": "handoff/training_metrics.json",
+      "source_sha256": "154a7cbf52483d59b787b03bbc3214f53dc26322e90a29185f69b2c5970b66a2"
+    },
+    {
+      "bytes": 2155,
+      "origin": "copied",
+      "path": "submission/training_chain.json",
+      "sha256": "50c82955d4f2ded275d8be03b56994e0fbf03b839dee24a4489918f6d3c26b3f",
+      "source_relative": "manifests/training_chain.json",
+      "source_sha256": "50c82955d4f2ded275d8be03b56994e0fbf03b839dee24a4489918f6d3c26b3f"
+    }
+  ],
+  "source_experiment_root": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2d556f01dbd853a1",
+  "training_repo_commit": "418b0a1d3fce75898f4d5f01381da6f8433b18f2"
+}

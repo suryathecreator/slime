@@ -1,0 +1,45 @@
+{
+  "artifact_schema_version": 1,
+  "datasets": {
+    "aime24": {
+      "path": "/gpfs/scrubbed/suryadv/datasets/NousResearch_eval-Qwen3-235B-A22B-reasoning/67bba1eb0642bc9a39d6971fd6c149e6bbbbb0c8/aime24/conversations.parquet",
+      "sha256": "1df735b01ae4b479a027d58dc53f79d7b4d38a8b6207c00cd9208779cba0cdb7"
+    },
+    "aime25": {
+      "path": "/gpfs/scrubbed/suryadv/datasets/NousResearch_eval-Qwen3-235B-A22B-reasoning/67bba1eb0642bc9a39d6971fd6c149e6bbbbb0c8/aime25/conversations.parquet",
+      "sha256": "4d41cb204087ffa313d14fbdde9cfb40f937623ff250f1e5aed664810826f004"
+    }
+  },
+  "eval": {
+    "aime24": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2d556f01dbd853a1/data/eval/aime24_30.jsonl",
+      "sha256": "0c838ee6351d9636a7fdb62dbf9a1123c3fbf1cd13e61325aa892ac4343f6538"
+    },
+    "aime25": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2d556f01dbd853a1/data/eval/aime25_30.jsonl",
+      "sha256": "195dd659d4c20a3900875cfe7e83acc9a69c16a7c73ad6d6eb5f61c9fd30f70e"
+    }
+  },
+  "outputs": {
+    "aime24_correct_3000": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2d556f01dbd853a1/data/datasets/aime24_correct_3000.jsonl",
+      "sha256": "778b88f50088a89065cec47867d9d4f3b1610f4c8f537081f1caa5a0ea327104"
+    },
+    "aime24_incorrect_3000": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2d556f01dbd853a1/data/datasets/aime24_incorrect_3000.jsonl",
+      "sha256": "7670c8a82dd8da7c82e590e660bad6f2c9321c70b8939bec5002047d13ff5ade"
+    },
+    "aime25_correct_3000": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2d556f01dbd853a1/data/datasets/aime25_correct_3000.jsonl",
+      "sha256": "40b96ba2b1705f9e02192475385954010756f00f3a746b6ecea7e4730d242b2b"
+    },
+    "aime25_incorrect_3000": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2d556f01dbd853a1/data/datasets/aime25_incorrect_3000.jsonl",
+      "sha256": "6b16a27f738bf1d6bd4698cd045d425c0982005ce8b24f58454b8cde21b485ae"
+    }
+  },
+  "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+  "selection_stats_sha256": "e7d2a08f301bb4651785b1424632d33437e3960c9d3fab5885e52358d765755b",
+  "tokenizer_inventory_sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85",
+  "training_datasets_transferred": false
+}

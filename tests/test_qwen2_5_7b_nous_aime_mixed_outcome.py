@@ -14,6 +14,10 @@ from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.data_utils import (
     expand_balanced,
     select_conditioned_problem_subset,
 )
+from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.publish_provenance import (
+    render_training_summary,
+    validate_metrics,
+)
 
 NUM_GPUS = 0
 ROOT = Path(__file__).resolve().parents[1]
@@ -201,6 +205,50 @@ def test_sbatch_resources_and_independent_base_initialization() -> None:
     assert "#SBATCH --time=04:00:00" in train
     assert "#SBATCH --requeue" in train
     assert "#SBATCH --gres=gpu:h200:4" in canary
+
+
+def test_training_provenance_requires_complete_losses_and_summarizes_them() -> None:
+    variants = []
+    for variant_index, variant in enumerate(VARIANTS):
+        history = [
+            {
+                "grad_norm": 1.0 / (step + 1),
+                "loss": 1.0 + variant_index - step / 100,
+                "step": step,
+            }
+            for step in range(47)
+        ]
+        variants.append(
+            {
+                "first": history[0],
+                "history": history,
+                "last": history[-1],
+                "variant": variant,
+            }
+        )
+    metrics = {"optimizer_updates_per_variant": 47, "variants": variants}
+    validate_metrics(metrics)
+    summary = render_training_summary(
+        {
+            "contract_hash": "0123456789abcdef",
+            "finalized_at": "2026-08-15T00:00:00+00:00",
+            "repo_commit": "a" * 40,
+        },
+        metrics,
+    )
+    assert "complete 47-update metric history" in summary
+    assert "aime24_correct_3000 | 1.000000 | 0.540000 | -0.460000" in summary
+    assert "aime25_incorrect_3000 | 4.000000 | 3.540000 | -0.460000" in summary
+    with pytest.raises(ValueError, match="incomplete loss history"):
+        validate_metrics(
+            {
+                "optimizer_updates_per_variant": 47,
+                "variants": [
+                    {**item, "history": item["history"][:-1]} if item["variant"] == VARIANTS[0] else item
+                    for item in variants
+                ],
+            }
+        )
 
 
 if __name__ == "__main__":

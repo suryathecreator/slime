@@ -1,0 +1,111 @@
+{
+  "artifact_schema_version": 1,
+  "global_batch_size": 64,
+  "learning_rate_schedule": {
+    "maximum_lr": 5e-06,
+    "minimum_lr": 1e-06,
+    "style": "cosine",
+    "warmup_fraction": 0.03,
+    "warmup_init": 0.0
+  },
+  "variants": {
+    "aime24_correct_3000": {
+      "dataset_rows": 3000,
+      "dataset_rows_over_16384": 995,
+      "effective_presentations": 3008,
+      "epochs_entered": 2,
+      "final_epoch_id": 1,
+      "final_sample_offset": 8,
+      "maximum_microbatch_tokens": 25885,
+      "maximum_sample_tokens": 25885,
+      "microbatch_sample_count_histogram": {
+        "1": 2772,
+        "2": 118
+      },
+      "over_16384_exposures": 999,
+      "over_16384_singleton_microbatches": 999,
+      "row_exposure_histogram": {
+        "1": 2992,
+        "2": 8
+      },
+      "source_exposure_histogram": {
+        "16": 69,
+        "17": 112
+      },
+      "updates": 47
+    },
+    "aime24_incorrect_3000": {
+      "dataset_rows": 3000,
+      "dataset_rows_over_16384": 2700,
+      "effective_presentations": 3008,
+      "epochs_entered": 2,
+      "final_epoch_id": 1,
+      "final_sample_offset": 8,
+      "maximum_microbatch_tokens": 29882,
+      "maximum_sample_tokens": 29882,
+      "microbatch_sample_count_histogram": {
+        "1": 3008
+      },
+      "over_16384_exposures": 2707,
+      "over_16384_singleton_microbatches": 2707,
+      "row_exposure_histogram": {
+        "1": 2992,
+        "2": 8
+      },
+      "source_exposure_histogram": {
+        "16": 69,
+        "17": 112
+      },
+      "updates": 47
+    },
+    "aime25_correct_3000": {
+      "dataset_rows": 3000,
+      "dataset_rows_over_16384": 1041,
+      "effective_presentations": 3008,
+      "epochs_entered": 2,
+      "final_epoch_id": 1,
+      "final_sample_offset": 8,
+      "maximum_microbatch_tokens": 31140,
+      "maximum_sample_tokens": 31140,
+      "microbatch_sample_count_histogram": {
+        "1": 2948,
+        "2": 30
+      },
+      "over_16384_exposures": 1045,
+      "over_16384_singleton_microbatches": 1045,
+      "row_exposure_histogram": {
+        "1": 2992,
+        "2": 8
+      },
+      "source_exposure_histogram": {
+        "16": 69,
+        "17": 112
+      },
+      "updates": 47
+    },
+    "aime25_incorrect_3000": {
+      "dataset_rows": 3000,
+      "dataset_rows_over_16384": 2286,
+      "effective_presentations": 3008,
+      "epochs_entered": 2,
+      "final_epoch_id": 1,
+      "final_sample_offset": 8,
+      "maximum_microbatch_tokens": 31825,
+      "maximum_sample_tokens": 31825,
+      "microbatch_sample_count_histogram": {
+        "1": 3008
+      },
+      "over_16384_exposures": 2294,
+      "over_16384_singleton_microbatches": 2294,
+      "row_exposure_histogram": {
+        "1": 2992,
+        "2": 8
+      },
+      "source_exposure_histogram": {
+        "16": 69,
+        "17": 112
+      },
+      "updates": 47
+    }
+  }
+}

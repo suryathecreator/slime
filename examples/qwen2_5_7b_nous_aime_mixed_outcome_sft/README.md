@@ -118,6 +118,14 @@ submitted Git commit and clean worktree. Canary prompt-copy generation is
 nonblocking, while decoded shifted-label/loss-weight, longest-sequence,
 topology, schedule, checkpoint, and HF-shard checks fail closed.
 
+The completed contract `2d556f01dbd853a1` is published under
+[`results/training_2d556f01dbd853a1`](results/training_2d556f01dbd853a1).
+That immutable compact record includes checkpoint identities, selection and
+schedule audits, all 47 loss/gradient-norm observations for every run, and a
+human-readable first/last-loss summary. It deliberately excludes model
+weights, optimizer state, training datasets, raw source generations, and large
+canary token dumps.
+
 ```bash
 bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/submit_training_only.sh --dry-run
 bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/submit_training_only.sh --submit
