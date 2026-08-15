@@ -1,0 +1,73 @@
+{
+  "artifact_schema_version": 1,
+  "cancelled_at": "2026-08-15T09:38:09-07:00",
+  "cancelled_jobs": {
+    "audit": "38487474",
+    "continue_random_mask_10": {
+      "array": "38487458",
+      "finalizer": "38487459"
+    },
+    "continue_random_mask_20": {
+      "array": "38487460",
+      "finalizer": "38487461"
+    },
+    "continue_random_mask_30": {
+      "array": "38487462",
+      "finalizer": "38487463"
+    },
+    "continue_random_mask_40": {
+      "array": "38487464",
+      "finalizer": "38487465"
+    },
+    "continue_random_mask_60": {
+      "array": "38487466",
+      "finalizer": "38487467"
+    },
+    "continue_random_mask_70": {
+      "array": "38487468",
+      "finalizer": "38487469"
+    },
+    "continue_random_mask_80": {
+      "array": "38487470",
+      "finalizer": "38487471"
+    },
+    "continue_random_mask_90": {
+      "array": "38487472",
+      "finalizer": "38487473"
+    }
+  },
+  "completed_targets": [
+    "base_qwen2_5_7b",
+    "aime_correct_3000",
+    "continue_wrong_unmasked",
+    "continue_correct_only_1500",
+    "continue_random_mask_50"
+  ],
+  "decision_evidence": {
+    "aime_correct_3000": {
+      "held_in_accuracy": 0.38666666666666666,
+      "held_out_accuracy": 0.305
+    },
+    "base_qwen2_5_7b": {
+      "held_in_accuracy": 0.22166666666666668,
+      "held_out_accuracy": 0.21416666666666664
+    },
+    "continue_correct_only_1500": {
+      "held_in_accuracy": 0.245,
+      "held_out_accuracy": 0.26166666666666666
+    },
+    "continue_random_mask_50": {
+      "held_in_accuracy": 0.23583333333333334,
+      "held_out_accuracy": 0.23083333333333333
+    },
+    "continue_wrong_unmasked": {
+      "held_in_accuracy": 0.22916666666666666,
+      "held_out_accuracy": 0.23
+    }
+  },
+  "interim_job": "38487457",
+  "interim_published_at": "2026-08-15T08:12:14-07:00",
+  "partial_outputs_policy": "Partial deferred generations are preserved locally but are not scored, aggregated, or published as target results because random-10 and random-20 did not complete all three repeats.",
+  "reason": "All evaluated OpenR1 continuations regressed substantially from the AIME-trained 3K checkpoint, including the correct-only control. This is consistent with the external OpenR1 source being poorly matched to AIME and made the remaining mask-rate sweep unlikely to add decision-relevant information.",
+  "status": "stopped_after_interim"
+}

@@ -1,0 +1,337 @@
+{
+  "artifact_schema_version": 1,
+  "benchmark": "sxiong/AIME-trajectory",
+  "checkpoint_manifest_sha256": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+  "dataset_hashes": {
+    "held_in": "0f4b6e237ab42c44a8dc036750208ec065276ed1d5e009e1f3eaadb7bf7deed6",
+    "held_out_problem": "c4657864ab601f13557d80406c79f26466e603f336d36153f6ef0c586560e227"
+  },
+  "eval_config_sha256": "36298d5b2990e621520299c937175674acd5499661dc25aaf55af9dbed16cbf4",
+  "generation_contract": {
+    "decoding": {
+      "n": 1,
+      "temperature": 0.7,
+      "top_k": -1,
+      "top_p": 0.8
+    },
+    "repeats": 3,
+    "response_budget": "32768 - rendered_prompt_tokens",
+    "seed_formula": "1234 + 400 * repeat + eval_index",
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "target_context": 32768
+  },
+  "generation_contract_sha256": "a408db05a42cf9bb0744bc8b99e48af464fb52b026aa943be7f486b425e7aff5",
+  "scorer_commit": "3b952620275c45c511367bb43dd1c54d168ca1b1",
+  "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+  "scorer_version": "aime_last_boxed_integer_scorer_v1",
+  "source": "generated",
+  "splits": {
+    "held_in": {
+      "aggregate": {
+        "accuracy": {
+          "mean": 0.22166666666666668,
+          "sample_std": 0.006291528696058963,
+          "values": [
+            0.215,
+            0.2225,
+            0.2275
+          ]
+        },
+        "cap_hit_accuracy": {
+          "mean": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "cap_hit_rate": {
+          "mean": 0.04583333333333334,
+          "sample_std": 0.011273124382057235,
+          "values": [
+            0.0575,
+            0.045,
+            0.035
+          ]
+        },
+        "generated_length_mean": {
+          "mean": 2328.74,
+          "sample_std": 353.16493245897175,
+          "values": [
+            2689.0875,
+            2313.9075,
+            1983.225
+          ]
+        },
+        "generated_length_p50": {
+          "mean": 774.8333333333334,
+          "sample_std": 25.540817005987364,
+          "values": [
+            754.5,
+            803.5,
+            766.5
+          ]
+        },
+        "generated_length_p95": {
+          "mean": 12634.266666666656,
+          "sample_std": 17136.9372912237,
+          "values": [
+            32418.099999999995,
+            3095.2999999999784,
+            2389.3999999999905
+          ]
+        },
+        "parse_failure_rate": {
+          "mean": 0.11583333333333333,
+          "sample_std": 0.005204164998665329,
+          "values": [
+            0.12,
+            0.1175,
+            0.11
+          ]
+        },
+        "valid_box_rate": {
+          "mean": 0.8641666666666667,
+          "sample_std": 0.01842778698957999,
+          "values": [
+            0.85,
+            0.8575,
+            0.885
+          ]
+        }
+      },
+      "metric": "mean and sample standard deviation across three complete sampled pass@1 repeats",
+      "repeats": [
+        {
+          "accuracy": 0.215,
+          "cap_hit_accuracy": 0.0,
+          "cap_hit_correct": 0,
+          "cap_hit_rate": 0.0575,
+          "cap_hits": 23,
+          "correct": 86,
+          "dataset": "held_in",
+          "finish_reasons": {
+            "length": 23,
+            "stop": 377
+          },
+          "generated_length_mean": 2689.0875,
+          "generated_length_p50": 754.5,
+          "generated_length_p95": 32418.099999999995,
+          "parse_failure_count": 48,
+          "parse_failure_rate": 0.12,
+          "repeat": 0,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "base_qwen2_5_7b",
+          "total": 400,
+          "valid_box_count": 340,
+          "valid_box_rate": 0.85
+        },
+        {
+          "accuracy": 0.2225,
+          "cap_hit_accuracy": 0.0,
+          "cap_hit_correct": 0,
+          "cap_hit_rate": 0.045,
+          "cap_hits": 18,
+          "correct": 89,
+          "dataset": "held_in",
+          "finish_reasons": {
+            "length": 18,
+            "stop": 382
+          },
+          "generated_length_mean": 2313.9075,
+          "generated_length_p50": 803.5,
+          "generated_length_p95": 3095.2999999999784,
+          "parse_failure_count": 47,
+          "parse_failure_rate": 0.1175,
+          "repeat": 1,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "base_qwen2_5_7b",
+          "total": 400,
+          "valid_box_count": 343,
+          "valid_box_rate": 0.8575
+        },
+        {
+          "accuracy": 0.2275,
+          "cap_hit_accuracy": 0.0,
+          "cap_hit_correct": 0,
+          "cap_hit_rate": 0.035,
+          "cap_hits": 14,
+          "correct": 91,
+          "dataset": "held_in",
+          "finish_reasons": {
+            "length": 14,
+            "stop": 386
+          },
+          "generated_length_mean": 1983.225,
+          "generated_length_p50": 766.5,
+          "generated_length_p95": 2389.3999999999905,
+          "parse_failure_count": 44,
+          "parse_failure_rate": 0.11,
+          "repeat": 2,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "base_qwen2_5_7b",
+          "total": 400,
+          "valid_box_count": 354,
+          "valid_box_rate": 0.885
+        }
+      ]
+    },
+    "held_out_problem": {
+      "aggregate": {
+        "accuracy": {
+          "mean": 0.21416666666666664,
+          "sample_std": 0.025041632002194527,
+          "values": [
+            0.2125,
+            0.19,
+            0.24
+          ]
+        },
+        "cap_hit_accuracy": {
+          "mean": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "cap_hit_rate": {
+          "mean": 0.0525,
+          "sample_std": 0.006614378277661479,
+          "values": [
+            0.055,
+            0.0575,
+            0.045
+          ]
+        },
+        "generated_length_mean": {
+          "mean": 2579.085,
+          "sample_std": 198.06001142330572,
+          "values": [
+            2662.51,
+            2721.785,
+            2352.96
+          ]
+        },
+        "generated_length_p50": {
+          "mean": 762.3333333333334,
+          "sample_std": 24.98165993951029,
+          "values": [
+            733.5,
+            776.0,
+            777.5
+          ]
+        },
+        "generated_length_p95": {
+          "mean": 22838.96666666666,
+          "sample_std": 16665.464996913037,
+          "values": [
+            32374.899999999994,
+            32546.4,
+            3595.5999999999804
+          ]
+        },
+        "parse_failure_rate": {
+          "mean": 0.10833333333333332,
+          "sample_std": 0.008036375634160795,
+          "values": [
+            0.1025,
+            0.1175,
+            0.105
+          ]
+        },
+        "valid_box_rate": {
+          "mean": 0.8574999999999999,
+          "sample_std": 0.012500000000000011,
+          "values": [
+            0.87,
+            0.845,
+            0.8575
+          ]
+        }
+      },
+      "metric": "mean and sample standard deviation across three complete sampled pass@1 repeats",
+      "repeats": [
+        {
+          "accuracy": 0.2125,
+          "cap_hit_accuracy": 0.0,
+          "cap_hit_correct": 0,
+          "cap_hit_rate": 0.055,
+          "cap_hits": 22,
+          "correct": 85,
+          "dataset": "held_out_problem",
+          "finish_reasons": {
+            "length": 22,
+            "stop": 378
+          },
+          "generated_length_mean": 2662.51,
+          "generated_length_p50": 733.5,
+          "generated_length_p95": 32374.899999999994,
+          "parse_failure_count": 41,
+          "parse_failure_rate": 0.1025,
+          "repeat": 0,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "base_qwen2_5_7b",
+          "total": 400,
+          "valid_box_count": 348,
+          "valid_box_rate": 0.87
+        },
+        {
+          "accuracy": 0.19,
+          "cap_hit_accuracy": 0.0,
+          "cap_hit_correct": 0,
+          "cap_hit_rate": 0.0575,
+          "cap_hits": 23,
+          "correct": 76,
+          "dataset": "held_out_problem",
+          "finish_reasons": {
+            "length": 23,
+            "stop": 377
+          },
+          "generated_length_mean": 2721.785,
+          "generated_length_p50": 776.0,
+          "generated_length_p95": 32546.4,
+          "parse_failure_count": 47,
+          "parse_failure_rate": 0.1175,
+          "repeat": 1,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "base_qwen2_5_7b",
+          "total": 400,
+          "valid_box_count": 338,
+          "valid_box_rate": 0.845
+        },
+        {
+          "accuracy": 0.24,
+          "cap_hit_accuracy": 0.0,
+          "cap_hit_correct": 0,
+          "cap_hit_rate": 0.045,
+          "cap_hits": 18,
+          "correct": 96,
+          "dataset": "held_out_problem",
+          "finish_reasons": {
+            "length": 18,
+            "stop": 382
+          },
+          "generated_length_mean": 2352.96,
+          "generated_length_p50": 777.5,
+          "generated_length_p95": 3595.5999999999804,
+          "parse_failure_count": 42,
+          "parse_failure_rate": 0.105,
+          "repeat": 2,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "base_qwen2_5_7b",
+          "total": 400,
+          "valid_box_count": 343,
+          "valid_box_rate": 0.8575
+        }
+      ]
+    }
+  },
+  "target": "base_qwen2_5_7b",
+  "training_condition": "base"
+}

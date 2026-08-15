@@ -274,6 +274,35 @@
   "interim_job": "38487457",
   "preflight_job": "38487445",
   "submitted_at": "2026-08-14T10:28:54.912510+00:00",
+  "termination": {
+    "cancelled_at": "2026-08-15T09:38:09-07:00",
+    "cancelled_job_ids": [
+      "38487458",
+      "38487459",
+      "38487460",
+      "38487461",
+      "38487462",
+      "38487463",
+      "38487464",
+      "38487465",
+      "38487466",
+      "38487467",
+      "38487468",
+      "38487469",
+      "38487470",
+      "38487471",
+      "38487472",
+      "38487473",
+      "38487474"
+    ],
+    "completed_interim_job": "38487457",
+    "excluded_partial_targets": [
+      "continue_random_mask_10",
+      "continue_random_mask_20"
+    ],
+    "reason": "The interim showed that all evaluated OpenR1 continuations regressed substantially from the AIME-trained 3K checkpoint, including the correct-only control, so the remaining mask sweep was unlikely to add decision-relevant information.",
+    "status": "stopped_after_interim"
+  },
   "supersedes": {
     "failure_kind": "cuda_nvcc_permission_denied",
     "failure_log": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_aime_generalization_incorrect_sft/v1/ded3390ab073b15f/outputs/eval/aime_generalization_sampled_v1/_control/slurm_logs/q25-aime-canary-38484933.out",

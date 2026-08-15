@@ -190,3 +190,26 @@ graph, and records the replacement attempt and failure provenance.
 Submission metadata must be published through an isolated Git index; the live
 checkout stays clean and pinned to the exported runtime SHA while delayed jobs
 execute their revision gates.
+
+## Evaluation outcome
+
+The planned five-target interim completed on 2026-08-15 and is the terminal
+evaluation result for this experiment. Across three paired sampled repeats, the
+3,000-example AIME checkpoint reached 38.67% held-in and 30.50% held-out
+accuracy, compared with 22.17% and 21.42% for the base model. Every evaluated
+1,500-example OpenR1 continuation regressed substantially from that checkpoint:
+the unmasked, correct-only, and 50%-masked continuations reached respectively
+22.92%, 24.50%, and 23.58% held-in accuracy and 23.00%, 26.17%, and 23.08%
+held-out accuracy. Their context-cap rates also rose to approximately 60--66%,
+from approximately 32% for the 3,000-example checkpoint.
+
+This pattern, including regression from the correct-only control, is consistent
+with the external OpenR1 continuation source being poorly matched to the AIME
+task rather than masking rate being the dominant issue. The remaining random
+mask sweep was therefore judged unlikely to add decision-relevant information.
+Its arrays, finalizers, and final audit were canceled at 2026-08-15 09:38 PDT.
+Partial random-10 and random-20 generations are not scored or included as
+results because they do not form complete three-repeat target evaluations.
+
+The exact five target result bundles, interim JSON/Markdown table, and
+cancellation record are published under `results/aime_generalization_sampled_v1`.

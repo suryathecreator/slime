@@ -1,0 +1,337 @@
+{
+  "artifact_schema_version": 1,
+  "benchmark": "sxiong/AIME-trajectory",
+  "checkpoint_manifest_sha256": "9f1ebba5610a8d9aaed3d0bc082f3f6b6f97db651abbed49a218da0b8070dc0f",
+  "dataset_hashes": {
+    "held_in": "0f4b6e237ab42c44a8dc036750208ec065276ed1d5e009e1f3eaadb7bf7deed6",
+    "held_out_problem": "c4657864ab601f13557d80406c79f26466e603f336d36153f6ef0c586560e227"
+  },
+  "eval_config_sha256": "36298d5b2990e621520299c937175674acd5499661dc25aaf55af9dbed16cbf4",
+  "generation_contract": {
+    "decoding": {
+      "n": 1,
+      "temperature": 0.7,
+      "top_k": -1,
+      "top_p": 0.8
+    },
+    "repeats": 3,
+    "response_budget": "32768 - rendered_prompt_tokens",
+    "seed_formula": "1234 + 400 * repeat + eval_index",
+    "stop_token_ids": [
+      151643,
+      151645
+    ],
+    "target_context": 32768
+  },
+  "generation_contract_sha256": "a408db05a42cf9bb0744bc8b99e48af464fb52b026aa943be7f486b425e7aff5",
+  "scorer_commit": "3b952620275c45c511367bb43dd1c54d168ca1b1",
+  "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+  "scorer_version": "aime_last_boxed_integer_scorer_v1",
+  "source": "generated",
+  "splits": {
+    "held_in": {
+      "aggregate": {
+        "accuracy": {
+          "mean": 0.22916666666666666,
+          "sample_std": 0.029825883613622144,
+          "values": [
+            0.2625,
+            0.22,
+            0.205
+          ]
+        },
+        "cap_hit_accuracy": {
+          "mean": 0.003846546270788695,
+          "sample_std": 0.0037119581249985597,
+          "values": [
+            0.004132231404958678,
+            0.007407407407407408,
+            0.0
+          ]
+        },
+        "cap_hit_rate": {
+          "mean": 0.6508333333333334,
+          "sample_std": 0.03971250852481287,
+          "values": [
+            0.605,
+            0.675,
+            0.6725
+          ]
+        },
+        "generated_length_mean": {
+          "mean": 24100.593333333334,
+          "sample_std": 827.3485741222279,
+          "values": [
+            23145.6075,
+            24555.565,
+            24600.6075
+          ]
+        },
+        "generated_length_p50": {
+          "mean": 32594.833333333332,
+          "sample_std": 12.413030787576954,
+          "values": [
+            32580.5,
+            32602.0,
+            32602.0
+          ]
+        },
+        "generated_length_p95": {
+          "mean": 32691.033333333336,
+          "sample_std": 2.6269437248130694,
+          "values": [
+            32688.05,
+            32692.05,
+            32693.0
+          ]
+        },
+        "parse_failure_rate": {
+          "mean": 0.016666666666666666,
+          "sample_std": 0.0028867513459481294,
+          "values": [
+            0.015,
+            0.015,
+            0.02
+          ]
+        },
+        "valid_box_rate": {
+          "mean": 0.35333333333333333,
+          "sample_std": 0.04259792639710686,
+          "values": [
+            0.4025,
+            0.33,
+            0.3275
+          ]
+        }
+      },
+      "metric": "mean and sample standard deviation across three complete sampled pass@1 repeats",
+      "repeats": [
+        {
+          "accuracy": 0.2625,
+          "cap_hit_accuracy": 0.004132231404958678,
+          "cap_hit_correct": 1,
+          "cap_hit_rate": 0.605,
+          "cap_hits": 242,
+          "correct": 105,
+          "dataset": "held_in",
+          "finish_reasons": {
+            "length": 242,
+            "stop": 158
+          },
+          "generated_length_mean": 23145.6075,
+          "generated_length_p50": 32580.5,
+          "generated_length_p95": 32688.05,
+          "parse_failure_count": 6,
+          "parse_failure_rate": 0.015,
+          "repeat": 0,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "continue_wrong_unmasked",
+          "total": 400,
+          "valid_box_count": 161,
+          "valid_box_rate": 0.4025
+        },
+        {
+          "accuracy": 0.22,
+          "cap_hit_accuracy": 0.007407407407407408,
+          "cap_hit_correct": 2,
+          "cap_hit_rate": 0.675,
+          "cap_hits": 270,
+          "correct": 88,
+          "dataset": "held_in",
+          "finish_reasons": {
+            "length": 270,
+            "stop": 130
+          },
+          "generated_length_mean": 24555.565,
+          "generated_length_p50": 32602.0,
+          "generated_length_p95": 32692.05,
+          "parse_failure_count": 6,
+          "parse_failure_rate": 0.015,
+          "repeat": 1,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "continue_wrong_unmasked",
+          "total": 400,
+          "valid_box_count": 132,
+          "valid_box_rate": 0.33
+        },
+        {
+          "accuracy": 0.205,
+          "cap_hit_accuracy": 0.0,
+          "cap_hit_correct": 0,
+          "cap_hit_rate": 0.6725,
+          "cap_hits": 269,
+          "correct": 82,
+          "dataset": "held_in",
+          "finish_reasons": {
+            "length": 269,
+            "stop": 131
+          },
+          "generated_length_mean": 24600.6075,
+          "generated_length_p50": 32602.0,
+          "generated_length_p95": 32693.0,
+          "parse_failure_count": 8,
+          "parse_failure_rate": 0.02,
+          "repeat": 2,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "continue_wrong_unmasked",
+          "total": 400,
+          "valid_box_count": 131,
+          "valid_box_rate": 0.3275
+        }
+      ]
+    },
+    "held_out_problem": {
+      "aggregate": {
+        "accuracy": {
+          "mean": 0.22999999999999998,
+          "sample_std": 0.009013878188659966,
+          "values": [
+            0.2225,
+            0.2275,
+            0.24
+          ]
+        },
+        "cap_hit_accuracy": {
+          "mean": 0.003770353118299844,
+          "sample_std": 9.230907608045575e-05,
+          "values": [
+            0.0037735849056603774,
+            0.003676470588235294,
+            0.003861003861003861
+          ]
+        },
+        "cap_hit_rate": {
+          "mean": 0.6633333333333333,
+          "sample_std": 0.016266017746619323,
+          "values": [
+            0.6625,
+            0.68,
+            0.6475
+          ]
+        },
+        "generated_length_mean": {
+          "mean": 24342.331666666665,
+          "sample_std": 457.84385704444355,
+          "values": [
+            24408.625,
+            24763.415,
+            23854.955
+          ]
+        },
+        "generated_length_p50": {
+          "mean": 32589.333333333332,
+          "sample_std": 4.010403138505321,
+          "values": [
+            32589.0,
+            32593.5,
+            32585.5
+          ]
+        },
+        "generated_length_p95": {
+          "mean": 32684.7,
+          "sample_std": 1.1269427669578833,
+          "values": [
+            32686.0,
+            32684.100000000002,
+            32684.0
+          ]
+        },
+        "parse_failure_rate": {
+          "mean": 0.014166666666666668,
+          "sample_std": 0.0028867513459481294,
+          "values": [
+            0.0175,
+            0.0125,
+            0.0125
+          ]
+        },
+        "valid_box_rate": {
+          "mean": 0.3408333333333333,
+          "sample_std": 0.016645820296198467,
+          "values": [
+            0.345,
+            0.3225,
+            0.355
+          ]
+        }
+      },
+      "metric": "mean and sample standard deviation across three complete sampled pass@1 repeats",
+      "repeats": [
+        {
+          "accuracy": 0.2225,
+          "cap_hit_accuracy": 0.0037735849056603774,
+          "cap_hit_correct": 1,
+          "cap_hit_rate": 0.6625,
+          "cap_hits": 265,
+          "correct": 89,
+          "dataset": "held_out_problem",
+          "finish_reasons": {
+            "length": 265,
+            "stop": 135
+          },
+          "generated_length_mean": 24408.625,
+          "generated_length_p50": 32589.0,
+          "generated_length_p95": 32686.0,
+          "parse_failure_count": 7,
+          "parse_failure_rate": 0.0175,
+          "repeat": 0,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "continue_wrong_unmasked",
+          "total": 400,
+          "valid_box_count": 138,
+          "valid_box_rate": 0.345
+        },
+        {
+          "accuracy": 0.2275,
+          "cap_hit_accuracy": 0.003676470588235294,
+          "cap_hit_correct": 1,
+          "cap_hit_rate": 0.68,
+          "cap_hits": 272,
+          "correct": 91,
+          "dataset": "held_out_problem",
+          "finish_reasons": {
+            "length": 272,
+            "stop": 128
+          },
+          "generated_length_mean": 24763.415,
+          "generated_length_p50": 32593.5,
+          "generated_length_p95": 32684.100000000002,
+          "parse_failure_count": 5,
+          "parse_failure_rate": 0.0125,
+          "repeat": 1,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "continue_wrong_unmasked",
+          "total": 400,
+          "valid_box_count": 129,
+          "valid_box_rate": 0.3225
+        },
+        {
+          "accuracy": 0.24,
+          "cap_hit_accuracy": 0.003861003861003861,
+          "cap_hit_correct": 1,
+          "cap_hit_rate": 0.6475,
+          "cap_hits": 259,
+          "correct": 96,
+          "dataset": "held_out_problem",
+          "finish_reasons": {
+            "length": 259,
+            "stop": 141
+          },
+          "generated_length_mean": 23854.955,
+          "generated_length_p50": 32585.5,
+          "generated_length_p95": 32684.0,
+          "parse_failure_count": 5,
+          "parse_failure_rate": 0.0125,
+          "repeat": 2,
+          "scorer_version": "aime_last_boxed_integer_scorer_v1",
+          "target": "continue_wrong_unmasked",
+          "total": 400,
+          "valid_box_count": 142,
+          "valid_box_rate": 0.355
+        }
+      ]
+    }
+  },
+  "target": "continue_wrong_unmasked",
+  "training_condition": "continue_wrong_unmasked"
+}

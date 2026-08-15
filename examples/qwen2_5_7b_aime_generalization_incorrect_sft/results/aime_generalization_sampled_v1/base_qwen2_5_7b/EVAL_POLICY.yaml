@@ -1,0 +1,23 @@
+eval:
+  defaults:
+    n_samples_per_eval_prompt: 1
+    temperature: 0.7
+    top_p: 0.8
+    top_k: -1
+    max_response_len: 32768
+    input_key: prompt
+    label_key: answer
+    apply_chat_template: true
+  datasets:
+    - name: held_in
+      path: ${oc.env:HELD_IN_EVAL_JSONL}
+      input_key: prompt
+      label_key: answer
+      metadata_overrides:
+        distribution: held_in
+    - name: held_out_problem
+      path: ${oc.env:HELD_OUT_EVAL_JSONL}
+      input_key: prompt
+      label_key: answer
+      metadata_overrides:
+        distribution: held_out_problem

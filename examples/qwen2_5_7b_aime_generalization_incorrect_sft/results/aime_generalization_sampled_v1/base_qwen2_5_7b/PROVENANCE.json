@@ -1,0 +1,6 @@
+{
+  "artifact_schema_version": 1,
+  "generated_results": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_aime_generalization_incorrect_sft/v1/ded3390ab073b15f/outputs/eval/aime_generalization_sampled_v1/base_qwen2_5_7b",
+  "scorer_commit": "3b952620275c45c511367bb43dd1c54d168ca1b1",
+  "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256"
+}
