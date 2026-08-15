@@ -23,6 +23,7 @@ from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.data_utils import (
     expand_balanced,
     length_summary,
     ordered_values_sha256,
+    select_conditioned_problem_subset,
     sha256_file,
     sha256_text,
     source_trace_id,
@@ -230,37 +231,33 @@ def select_year(
     *,
     year: str,
     seed: int,
+    selected_doc_ids: set[str],
+    full_mixed_doc_ids: set[str],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
-    mixed_doc_ids = {
-        doc_id
-        for doc_id, records in by_doc.items()
-        if any(bool(row["metadata"]["is_correct"]) for row in records)
-        and any(not bool(row["metadata"]["is_correct"]) for row in records)
-    }
-    if not mixed_doc_ids:
-        raise ValueError(f"{year} has no post-rescore mixed-outcome problems")
+    if not selected_doc_ids or not selected_doc_ids <= full_mixed_doc_ids:
+        raise ValueError(f"{year} selected problems are not a nonempty subset of the mixed pool")
     incorrect = [
         row
-        for doc_id in sorted(mixed_doc_ids, key=int)
+        for doc_id in sorted(selected_doc_ids, key=int)
         for row in by_doc[doc_id]
         if not bool(row["metadata"]["is_correct"])
     ]
     correct_pool = [
         row
-        for doc_id in sorted(mixed_doc_ids, key=int)
+        for doc_id in sorted(selected_doc_ids, key=int)
         for row in by_doc[doc_id]
         if bool(row["metadata"]["is_correct"])
     ]
     selected_correct, attempt = conditionally_uniform_subset(
         correct_pool,
         count=len(incorrect),
-        required_doc_ids=mixed_doc_ids,
+        required_doc_ids=selected_doc_ids,
         seed=seed,
         year=year,
     )
     correct_docs = {str(row["metadata"]["doc_id"]) for row in selected_correct}
     incorrect_docs = {str(row["metadata"]["doc_id"]) for row in incorrect}
-    if correct_docs != incorrect_docs or correct_docs != mixed_doc_ids:
+    if correct_docs != incorrect_docs or correct_docs != selected_doc_ids:
         raise AssertionError(f"{year} correct/incorrect mixed-problem coverage drift")
     selected_correct.sort(key=lambda row: str(row["metadata"]["base_trace_id"]))
     incorrect.sort(key=lambda row: str(row["metadata"]["base_trace_id"]))
@@ -271,12 +268,13 @@ def select_year(
             "selected_correct": sum(str(row["metadata"]["doc_id"]) == doc_id for row in selected_correct),
             "selected_incorrect": sum(str(row["metadata"]["doc_id"]) == doc_id for row in incorrect),
         }
-        for doc_id in sorted(mixed_doc_ids, key=int)
+        for doc_id in sorted(selected_doc_ids, key=int)
     }
     report = {
         "correct_pool_rows": len(correct_pool),
         "correct_selection_attempt": attempt,
-        "mixed_doc_ids": sorted(mixed_doc_ids, key=int),
+        "full_mixed_doc_ids": sorted(full_mixed_doc_ids, key=int),
+        "mixed_doc_ids": sorted(selected_doc_ids, key=int),
         "per_problem": per_problem,
         "selected_correct_rows": len(selected_correct),
         "selected_correct_trace_ids_sha256": ordered_values_sha256(
@@ -323,6 +321,7 @@ def main() -> None:
     all_stats: dict[str, Any] = {}
     expansion_stats: dict[str, Any] = {}
     output_paths: dict[str, Path] = {}
+    scored: dict[str, dict[str, Any]] = {}
     for year in YEARS:
         by_doc, source_report, eval_rows = score_year(
             source_paths[year],
@@ -330,7 +329,76 @@ def main() -> None:
             tokenizer=tokenizer,
             max_sequence_length=max_length,
         )
-        correct, incorrect, selection_report = select_year(by_doc, year=year, seed=seed)
+        full_mixed_doc_ids = {
+            doc_id
+            for doc_id, records in by_doc.items()
+            if any(bool(row["metadata"]["is_correct"]) for row in records)
+            and any(not bool(row["metadata"]["is_correct"]) for row in records)
+        }
+        if not full_mixed_doc_ids:
+            raise ValueError(f"{year} has no post-rescore mixed-outcome problems")
+        scored[year] = {
+            "by_doc": by_doc,
+            "eval_rows": eval_rows,
+            "full_mixed_doc_ids": full_mixed_doc_ids,
+            "source_report": source_report,
+        }
+
+    subset_contract = contract["selection"]["conditioned_problem_subset"]
+    problem_count = int(subset_contract["problem_count"])
+    epsilon = int(subset_contract["incorrect_trace_epsilon"])
+    aime24_mixed = set(scored["aime24"]["full_mixed_doc_ids"])
+    if len(aime24_mixed) != problem_count:
+        raise ValueError(f"aime24 must realize exactly {problem_count} mixed problems, found {len(aime24_mixed)}")
+    aime24_incorrect_rows = sum(
+        not bool(row["metadata"]["is_correct"])
+        for doc_id in aime24_mixed
+        for row in scored["aime24"]["by_doc"][doc_id]
+    )
+    selected_doc_ids: dict[str, set[str]] = {"aime24": aime24_mixed}
+    subset_reports: dict[str, dict[str, Any]] = {
+        "aime24": {
+            "algorithm": "all_post_rescore_mixed_problems",
+            "epsilon": epsilon,
+            "full_mixed_doc_ids": sorted(aime24_mixed, key=int),
+            "full_mixed_incorrect_counts": {
+                doc_id: sum(not bool(row["metadata"]["is_correct"]) for row in scored["aime24"]["by_doc"][doc_id])
+                for doc_id in sorted(aime24_mixed, key=int)
+            },
+            "full_mixed_problem_count": len(aime24_mixed),
+            "problem_count": problem_count,
+            "selected_delta": 0,
+            "selected_doc_ids": sorted(aime24_mixed, key=int),
+            "selected_incorrect_rows": aime24_incorrect_rows,
+            "target_incorrect_rows": aime24_incorrect_rows,
+        }
+    }
+    aime25_mixed = set(scored["aime25"]["full_mixed_doc_ids"])
+    aime25_incorrect_counts = {
+        doc_id: sum(not bool(row["metadata"]["is_correct"]) for row in scored["aime25"]["by_doc"][doc_id])
+        for doc_id in aime25_mixed
+    }
+    selected_doc_ids["aime25"], subset_reports["aime25"] = select_conditioned_problem_subset(
+        aime25_incorrect_counts,
+        problem_count=problem_count,
+        target_incorrect_rows=aime24_incorrect_rows,
+        epsilon=epsilon,
+        seed=int(subset_contract["seed"]),
+        year="aime25",
+    )
+
+    for year in YEARS:
+        by_doc = scored[year]["by_doc"]
+        eval_rows = scored[year]["eval_rows"]
+        full_mixed_doc_ids = set(scored[year]["full_mixed_doc_ids"])
+        source_report = scored[year]["source_report"]
+        correct, incorrect, selection_report = select_year(
+            by_doc,
+            year=year,
+            seed=seed,
+            selected_doc_ids=selected_doc_ids[year],
+            full_mixed_doc_ids=full_mixed_doc_ids,
+        )
         held_in = set(selection_report["mixed_doc_ids"])
         for row in eval_rows:
             row["split"] = "held_in" if row["doc_id"] in held_in else "held_out"
@@ -340,10 +408,13 @@ def main() -> None:
             "expected_post_rescore_diagnostic": contract["selection"]["expected_post_rescore_diagnostic"][year],
             "observed_differs_from_expected": (
                 selection_report["mixed_doc_ids"]
-                != contract["selection"]["expected_post_rescore_diagnostic"][year]["mixed_doc_ids"]
+                != contract["selection"]["expected_post_rescore_diagnostic"][year]["selected_mixed_doc_ids"]
+                or selection_report["full_mixed_doc_ids"]
+                != contract["selection"]["expected_post_rescore_diagnostic"][year]["full_mixed_doc_ids"]
                 or selection_report["selected_incorrect_rows"]
                 != contract["selection"]["expected_post_rescore_diagnostic"][year]["incorrect_rows"]
             ),
+            "problem_subset_selection": subset_reports[year],
             "selection": selection_report,
             "source_audit": source_report,
         }
@@ -369,9 +440,11 @@ def main() -> None:
             "artifact_schema_version": 1,
             "expansion": expansion_stats,
             "invariants": {
-                "all_incorrect_from_all_rescored_mixed_problems": True,
+                "all_incorrect_from_selected_rescored_mixed_problems": True,
                 "correct_and_incorrect_exact_same_problem_set_per_year": True,
                 "correct_and_incorrect_same_source_trace_count_per_year": True,
+                "equal_selected_problem_count_across_all_variants": True,
+                "equal_source_trace_count_across_all_variants": True,
                 "no_synthetic_endoftext": True,
                 "query_equals_source_user_message_byte_for_byte": True,
                 "runtime_source_exposure_max_difference": 1,

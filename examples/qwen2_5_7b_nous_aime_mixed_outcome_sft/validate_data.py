@@ -180,6 +180,8 @@ def main() -> None:
             if bool(metadata["is_correct"]) != expected_correct:
                 raise ValueError(f"correctness drift in {variant}: {trace_id}")
         rows_by_variant[variant] = rows
+    source_trace_counts = set()
+    problem_counts = set()
     for year in ("aime24", "aime25"):
         correct = rows_by_variant[f"{year}_correct_3000"]
         incorrect = rows_by_variant[f"{year}_incorrect_3000"]
@@ -187,10 +189,18 @@ def main() -> None:
         incorrect_base = {str(row["metadata"]["base_trace_id"]) for row in incorrect}
         if len(correct_base) != len(incorrect_base):
             raise ValueError(f"{year} condition source-trace counts differ")
+        if len(correct_base) != 181:
+            raise ValueError(f"{year} must contain exactly 181 source traces per condition")
+        source_trace_counts.add(len(correct_base))
         correct_docs = {str(row["metadata"]["doc_id"]) for row in correct}
         incorrect_docs = {str(row["metadata"]["doc_id"]) for row in incorrect}
         if correct_docs != incorrect_docs:
             raise ValueError(f"{year} condition problem coverage differs")
+        if len(correct_docs) != 10:
+            raise ValueError(f"{year} must contain exactly 10 selected problems")
+        problem_counts.add(len(correct_docs))
+    if source_trace_counts != {181} or problem_counts != {10}:
+        raise ValueError("cross-variant source-trace/problem-count controls drifted")
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True, local_files_only=True)
@@ -199,6 +209,8 @@ def main() -> None:
         eval_rows = read_jsonl(eval_path)
         if len(eval_rows) != 30 or {str(row["doc_id"]) for row in eval_rows} != {str(index) for index in range(30)}:
             raise ValueError(f"{year} evaluation rows are not exact doc_id 0..29")
+        if Counter(str(row["split"]) for row in eval_rows) != Counter({"held_in": 10, "held_out": 20}):
+            raise ValueError(f"{year} evaluation split must be exactly 10 held-in / 20 held-out")
         held_in = {str(row["metadata"]["doc_id"]) for row in rows_by_variant[f"{year}_correct_3000"]}
         for eval_row in eval_rows:
             expected_split = "held_in" if str(eval_row["doc_id"]) in held_in else "held_out"
@@ -227,6 +239,32 @@ def main() -> None:
                         )
     stats = load_json(args.data_root / "selection_and_tokenization_stats.json")
     sources = load_json(args.data_root / "source_artifacts.json")
+    diagnostic = contract["selection"]["expected_post_rescore_diagnostic"]
+    for year in ("aime24", "aime25"):
+        year_stats = stats["years"][year]
+        if year_stats["observed_differs_from_expected"]:
+            raise ValueError(f"{year} realized selection differs from the pinned diagnostic")
+        selection = year_stats["selection"]
+        if selection["mixed_doc_ids"] != diagnostic[year]["selected_mixed_doc_ids"]:
+            raise ValueError(f"{year} selected problem IDs drifted")
+        if selection["full_mixed_doc_ids"] != diagnostic[year]["full_mixed_doc_ids"]:
+            raise ValueError(f"{year} full mixed-problem pool drifted")
+        if selection["selected_incorrect_rows"] != 181 or selection["selected_correct_rows"] != 181:
+            raise ValueError(f"{year} selected source-trace count drifted")
+    aime25_subset = stats["years"]["aime25"]["problem_subset_selection"]
+    expected_subset = diagnostic["aime25"]
+    for key, expected in (
+        ("accepted_candidate_rank_zero_based", expected_subset["accepted_candidate_rank_zero_based"]),
+        ("candidates_evaluated", expected_subset["candidates_evaluated"]),
+        ("epsilon", 0),
+        ("problem_count", 10),
+        ("qualifying_candidate_count", expected_subset["qualifying_candidate_count"]),
+        ("selected_delta", 0),
+        ("selected_incorrect_rows", 181),
+        ("target_incorrect_rows", 181),
+    ):
+        if aime25_subset.get(key) != expected:
+            raise ValueError(f"aime25 conditioned subset audit drift: {key}")
     for variant in VARIANTS:
         path = args.data_root / "datasets" / f"{variant}.jsonl"
         if sources["outputs"][variant]["sha256"] != sha256_file(path):

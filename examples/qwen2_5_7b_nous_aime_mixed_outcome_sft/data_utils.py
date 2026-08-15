@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import itertools
 import json
 import math
 import random
@@ -153,6 +154,86 @@ def conditionally_uniform_subset(
     raise RuntimeError(f"failed to sample a covered {year} correct subset after 10000 attempts")
 
 
+def select_conditioned_problem_subset(
+    incorrect_counts: dict[str, int],
+    *,
+    problem_count: int,
+    target_incorrect_rows: int,
+    epsilon: int,
+    seed: int,
+    year: str,
+) -> tuple[set[str], dict[str, Any]]:
+    """Choose a deterministic random-priority problem subset under a count constraint."""
+    doc_ids = sorted(incorrect_counts, key=int)
+    if not 0 < problem_count <= len(doc_ids):
+        raise ValueError(f"{year} cannot select {problem_count} problems from {len(doc_ids)} mixed problems")
+    if epsilon < 0:
+        raise ValueError("incorrect-trace epsilon must be nonnegative")
+    if target_incorrect_rows < 1:
+        raise ValueError("target incorrect rows must be positive")
+    if any(int(incorrect_counts[doc_id]) < 1 for doc_id in doc_ids):
+        raise ValueError(f"{year} mixed problems must each have an incorrect trajectory")
+    candidates = list(itertools.combinations(doc_ids, problem_count))
+    candidates.sort(
+        key=lambda candidate: (
+            stable_hex(
+                "nous-aime-mixed-problem-subset-v1",
+                seed,
+                year,
+                ",".join(candidate),
+            ),
+            tuple(int(doc_id) for doc_id in candidate),
+        )
+    )
+    qualifying_candidate_count = sum(
+        abs(sum(int(incorrect_counts[doc_id]) for doc_id in candidate) - target_incorrect_rows) <= epsilon
+        for candidate in candidates
+    )
+    closest: list[tuple[int, int, tuple[str, ...]]] = []
+    for rank, candidate in enumerate(candidates):
+        incorrect_rows = sum(int(incorrect_counts[doc_id]) for doc_id in candidate)
+        delta = abs(incorrect_rows - target_incorrect_rows)
+        closest.append((delta, incorrect_rows, candidate))
+        if delta <= epsilon:
+            priority = stable_hex(
+                "nous-aime-mixed-problem-subset-v1",
+                seed,
+                year,
+                ",".join(candidate),
+            )
+            return set(candidate), {
+                "accepted_candidate_rank_zero_based": rank,
+                "algorithm": "sha256_random_priority_over_all_unique_combinations_v1",
+                "candidate_space_size": len(candidates),
+                "candidates_evaluated": rank + 1,
+                "epsilon": epsilon,
+                "full_mixed_doc_ids": doc_ids,
+                "full_mixed_incorrect_counts": {doc_id: int(incorrect_counts[doc_id]) for doc_id in doc_ids},
+                "full_mixed_problem_count": len(doc_ids),
+                "problem_count": problem_count,
+                "qualifying_candidate_count": qualifying_candidate_count,
+                "seed": seed,
+                "selected_delta": delta,
+                "selected_doc_ids": sorted(candidate, key=int),
+                "selected_incorrect_rows": incorrect_rows,
+                "selected_priority_sha256": priority,
+                "target_incorrect_rows": target_incorrect_rows,
+            }
+    closest.sort(key=lambda value: (value[0], value[1], tuple(map(int, value[2]))))
+    summary = [
+        {
+            "delta": delta,
+            "incorrect_rows": incorrect_rows,
+            "doc_ids": list(candidate),
+        }
+        for delta, incorrect_rows, candidate in closest[:5]
+    ]
+    raise ValueError(
+        f"{year} has no {problem_count}-problem subset within epsilon={epsilon} "
+        f"of target={target_incorrect_rows}; closest={summary}"
+    )
+
+
 def expand_balanced(
     records: list[dict[str, Any]], *, variant: str, seed: int
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -263,6 +344,7 @@ __all__ = [
     "normalize_token_ids",
     "ordered_values_sha256",
     "read_jsonl",
+    "select_conditioned_problem_subset",
     "sha256_file",
     "sha256_text",
     "source_trace_id",

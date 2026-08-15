@@ -16,33 +16,44 @@ in its complete Qwen2.5 training form and reject totals over 32,768 tokens
 without truncation. We then rescore the retained assistant generation with
 SLIME's whole-response last-balanced-`\boxed{}` AIME integer scorer.
 
-For each year, the authoritative held-in set is every problem that has at least
-one retained scorer-correct and one retained scorer-incorrect generation. We
-take **all** retained incorrect generations from those mixed-outcome problems,
-then conditionally uniformly subsample exactly the same number of distinct
-correct generations from the exact same problems, requiring every problem to
-appear. Correct and incorrect conditions therefore have the same total trace
-count and identical unique-problem coverage, but their per-problem frequencies
-may vary naturally.
+The AIME 2024 held-in set is every post-rescore mixed-outcome problem, and it
+must contain exactly 10 problems. Its realized incorrect-trace count becomes
+the matching target. For AIME 2025, preparation enumerates every unique
+10-problem subset of the full mixed pool, assigns each combination a seeded
+SHA-256 random priority, and accepts the first whose incorrect count differs
+from the AIME 2024 target by at most epsilon. Epsilon is zero, so this is an
+exact match. The resulting sample is uniformly randomized conditional on the
+trace-count constraint; it is not an unconditional draw or the 10 problems
+with the most errors.
 
-The expected post-rescore diagnostic is 181 incorrect traces over AIME 2024
-`doc_id` values `1,2,5,10,13,14,20,25,28,29`, and 268 over AIME 2025 values
-`1,6,8,9,10,11,12,18,19,20,21,22,23,26,27,28,29`. These lists are not forced.
-If the pinned scorer/cutoff produces a different mixed set, preparation records
-the difference and uses the observed set: it never forces a stale expected ID
-or drops a newly mixed problem.
+For each selected year-specific set, we take **all** retained incorrect
+generations from those 10 problems, then conditionally uniformly subsample
+exactly the same number of distinct correct generations from the exact same
+problems, requiring every problem to appear. Correct and incorrect conditions
+therefore have the same total trace count and exact problem coverage, while
+their per-problem frequencies may vary naturally.
+
+The expected post-rescore result is 181 traces over AIME 2024 `doc_id` values
+`1,2,5,10,13,14,20,25,28,29`. The full AIME 2025 mixed pool contains 17
+problems; the deterministic seed-42 conditioned selection accepts candidate
+359 (zero-based rank 358): `6,8,10,19,20,21,22,26,27,29`, also totaling 181
+incorrect traces. These values are derived rather than forced, and validation
+fails closed if the pinned source, scorer, or algorithm produces a different
+diagnostic.
 
 Each fixed selected set is expanded to exactly 3,000 physical rows. For `N`
 source traces, every trace gets `floor(3000/N)` copies and a seeded random set
-of `3000 mod N` traces gets one extra. Under the expected counts, 2024 uses 16
-copies each plus a 17th for 104 traces; 2025 uses 11 each plus a 12th for 52.
+of `3000 mod N` traces gets one extra. With 181 traces in every condition, each
+uses 16 copies per trace plus a 17th for 104 seeded traces.
 The 47 global batches consume 3,008 presentations, so the physical ordering
 places the eight wrap rows on distinct lower-copy traces. Realized source-trace
 exposure still differs by at most one.
 
 Using only mixed-outcome problems removes problem identity and coverage as a
-confound between correct and incorrect supervision. Same-year held-out problems
-have a real selection shift because they tend toward all-correct/all-incorrect.
+confound between correct and incorrect supervision. Every variant now has 10
+held-in problems and 181 distinct source traces before expansion; the literal
+problem identities remain year-specific. Same-year held-out problems have a
+real selection shift because they tend toward all-correct/all-incorrect.
 Same-year held-out and cross-year AIME are treated as two different
 generalization checks; neither is assumed to be more distribution-aligned.
 
@@ -127,7 +138,7 @@ average their 0/1 correctness indicators. This is a Monte Carlo estimator of
 expected single-sample accuracy—not pass@16, best-of-16, or majority voting.
 The full run is `5 × 60 × 16 = 4,800` completions.
 
-For each year-trained correct/incorrect pair, report held-in mixed problems,
-held-out same-year problems, same-year all-30 overall, and complete other-year
-accuracy. Include incorrect-minus-correct deltas, the base reference, Monte
-Carlo standard errors, valid-box and cap-hit rates, and length diagnostics.
+For each year-trained correct/incorrect pair, report the 10 held-in mixed
+problems, 20 held-out same-year problems, same-year all-30 overall, and complete
+other-year accuracy. Include incorrect-minus-correct deltas, the base reference,
+Monte Carlo standard errors, valid-box and cap-hit rates, and length diagnostics.

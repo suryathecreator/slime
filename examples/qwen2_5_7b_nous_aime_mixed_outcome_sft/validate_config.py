@@ -71,7 +71,18 @@ def validate_contract(contract: dict[str, Any]) -> None:
     require("synchronous train.py" in training["train_entrypoint"], "entrypoint drift")
     selection = contract["selection"]
     require(selection["training_rows_per_variant"] == 3000, "3K expansion drift")
-    require("take every eligible scorer-incorrect" in selection["rule"], "selection rule drift")
+    require("exact incorrect-trace-count match" in selection["rule"], "selection rule drift")
+    subset = selection["conditioned_problem_subset"]
+    require(subset["algorithm"] == "sha256_random_priority_over_all_unique_combinations_v1", "subset algorithm drift")
+    require(subset["problem_count"] == 10, "selected problem-count drift")
+    require(subset["incorrect_trace_epsilon"] == 0, "incorrect-trace epsilon drift")
+    require(subset["seed"] == 42, "problem-subset seed drift")
+    diagnostic = selection["expected_post_rescore_diagnostic"]
+    for year in ("aime24", "aime25"):
+        require(diagnostic[year]["incorrect_rows"] == 181, f"{year} diagnostic trace-count drift")
+        require(len(diagnostic[year]["selected_mixed_doc_ids"]) == 10, f"{year} diagnostic coverage drift")
+    supersedes = contract["supersedes"]
+    require(supersedes["contract_hash"] == "432ab0c3e16a40d8", "superseded contract drift")
     require(contract["evaluation_handoff"]["draws_per_prompt"] == 16, "Monte Carlo draw drift")
 
 

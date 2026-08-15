@@ -273,6 +273,8 @@ def main() -> None:
         counts = Counter(str(row["split"]) for row in rows)
         if len(rows) != 30 or set(counts) != {"held_in", "held_out"}:
             raise ValueError(f"{year} evaluation split drift")
+        if counts != Counter({"held_in": 10, "held_out": 20}):
+            raise ValueError(f"{year} evaluation split must be exactly 10 held-in / 20 held-out")
         split_counts[year] = {"held_in": counts["held_in"], "held_out": counts["held_out"]}
         eval_sources.append(
             {

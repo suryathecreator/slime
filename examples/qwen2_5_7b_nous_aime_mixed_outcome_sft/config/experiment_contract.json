@@ -23,6 +23,12 @@
     "submits_evaluation_jobs": false
   },
   "family": "qwen2_5_7b_nous_aime_mixed_outcome_sft",
+  "supersedes": {
+    "contract_hash": "432ab0c3e16a40d8",
+    "repo_commit": "c6f9d6f3e7f8d785d209f99f8a038b38ca70b41d",
+    "submitted_jobs": [231874, 231875, 231876, 231877, 231878, 231879, 231880, 231881, 231882, 231883],
+    "reason": "replace the 17-problem AIME 2025 condition with a conditioned uniform 10-problem selection matched exactly to the AIME 2024 incorrect-trace count"
+  },
   "formatting": {
     "assistant": "exact messages[assistant].content bytes; no trimming or wrapper insertion",
     "chat_template": "pinned Qwen2.5 tokenizer apply_chat_template over one exact user message with add_generation_prompt=true",
@@ -34,6 +40,15 @@
   },
   "selection": {
     "cutoff_order": "render full Qwen2.5 training sequence, reject totals above 32768 without truncation, then rescore retained assistant generations",
+    "conditioned_problem_subset": {
+      "aime24_policy": "use every post-cutoff post-rescore mixed-outcome problem and require exactly 10",
+      "aime25_policy": "assign every unique 10-problem combination a seeded SHA-256 random priority and accept the first whose incorrect-trace count is within epsilon of the realized AIME 2024 count",
+      "algorithm": "sha256_random_priority_over_all_unique_combinations_v1",
+      "incorrect_trace_epsilon": 0,
+      "problem_count": 10,
+      "seed": 42,
+      "target": "realized AIME 2024 selected incorrect-trace count"
+    },
     "dataset": {
       "aime24_path": "aime24/conversations.parquet",
       "aime24_sha256": "1df735b01ae4b479a027d58dc53f79d7b4d38a8b6207c00cd9208779cba0cdb7",
@@ -45,17 +60,22 @@
     },
     "expected_post_rescore_diagnostic": {
       "aime24": {
+        "full_mixed_doc_ids": ["1", "2", "5", "10", "13", "14", "20", "25", "28", "29"],
         "incorrect_rows": 181,
-        "mixed_doc_ids": ["1", "2", "5", "10", "13", "14", "20", "25", "28", "29"]
+        "selected_mixed_doc_ids": ["1", "2", "5", "10", "13", "14", "20", "25", "28", "29"]
       },
       "aime25": {
-        "incorrect_rows": 268,
-        "mixed_doc_ids": ["1", "6", "8", "9", "10", "11", "12", "18", "19", "20", "21", "22", "23", "26", "27", "28", "29"]
+        "accepted_candidate_rank_zero_based": 358,
+        "candidates_evaluated": 359,
+        "full_mixed_doc_ids": ["1", "6", "8", "9", "10", "11", "12", "18", "19", "20", "21", "22", "23", "26", "27", "28", "29"],
+        "incorrect_rows": 181,
+        "qualifying_candidate_count": 212,
+        "selected_mixed_doc_ids": ["6", "8", "10", "19", "20", "21", "22", "26", "27", "29"]
       },
-      "policy": "diagnostic only; observed post-cutoff scorer outcomes define training"
+      "policy": "diagnostic only; the pinned algorithm derives selection from observed post-cutoff scorer outcomes and validation fails if the realized diagnostic drifts"
     },
     "expansion": "for observed N traces, floor(3000/N) copies each plus one extra copy for 3000 mod N seeded traces; deterministic ordering also balances the eight 64-batch wrap exposures",
-    "rule": "per year, take every eligible scorer-incorrect generation from every mixed-outcome problem, then conditionally uniformly subsample the same number of eligible scorer-correct generations from that exact problem set with every problem represented",
+    "rule": "use all 10 AIME 2024 mixed problems; select 10 AIME 2025 mixed problems uniformly conditional on an exact incorrect-trace-count match; per year take every eligible scorer-incorrect generation from the selected problem set, then conditionally uniformly subsample the same number of eligible scorer-correct generations from that exact set with every problem represented",
     "seed": 42,
     "training_rows_per_variant": 3000
   },
