@@ -150,3 +150,35 @@ For each year-trained correct/incorrect pair, report the 10 held-in mixed
 problems, 20 held-out same-year problems, same-year all-30 overall, and complete
 other-year accuracy. Include incorrect-minus-correct deltas, the base reference,
 Monte Carlo standard errors, valid-box and cap-hit rates, and length diagnostics.
+
+### Hyak evaluator
+
+The Hyak implementation lives in [`eval`](eval) and consumes the transferred
+`handoff/eval_contract.json` directly as its authoritative policy. It renders
+each JSONL `query` byte-for-byte as one user message. The Qwen2.5 template adds
+`You are a helpful assistant.` and the assistant transition; the Nous `/think`
+message and stored source answer are not included.
+
+Each of the five targets has a 16-element H200 array. Element `d` evaluates all
+60 prompts with `temperature=0.7`, `top_p=0.8`, `top_k=-1`, `n=1`, and seed
+`1234 + 60*d + global_eval_index`. The total context is 32,768 tokens and the
+per-prompt generation allowance is `32768 - rendered_prompt_tokens`. Generation
+may stop on Qwen `<|endoftext|>` (`151643`) or `<|im_end|>` (`151645`); neither
+control token is included in the decoded assistant response.
+
+Every completion, including a length-cap completion, is scored using the
+contracted whole-response scorer at its pinned SHA-256. It chooses the last
+complete, nonempty, brace-balanced `\boxed{...}`. After fixed presentation
+wrapper removal, the content must be exactly one integer from 0 through 999.
+There is no unboxed, heuristic, majority-vote, best-of-16, or pass@16 fallback.
+
+```bash
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --test-only-shapes
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --submit
+```
+
+The dependency graph is CPU preflight, one H200 runtime canary, five parallel
+16-way generation arrays, five CPU target finalizers, and one final audit. The
+final report contains the symmetric AIME 2024/AIME 2025 held-in, held-out,
+same-year, and cross-year tables; paired incorrect-minus-correct deltas; Monte
+Carlo standard errors; valid-box and cap-hit rates; and token-length summaries.
