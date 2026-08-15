@@ -1,0 +1,151 @@
+{
+  "array_jobs": {
+    "aime24_correct_3000": "38546385",
+    "aime24_incorrect_3000": "38546387",
+    "aime25_correct_3000": "38546389",
+    "aime25_incorrect_3000": "38546391",
+    "base_qwen2_5_7b": "38546383"
+  },
+  "artifact_schema_version": 1,
+  "audit_job": "38546395",
+  "canary_job": "38546382",
+  "contract_id": "2d556f01dbd853a1",
+  "contract_sha256": "f49e6b6337ed2b2186b0412cd874583e79d96d89c8b80a91b13d37f0a6ac8b92",
+  "dependency_edges": [
+    {
+      "afterok": [
+        "38546381"
+      ],
+      "job": "38546382",
+      "stage": "canary"
+    },
+    {
+      "afterok": [
+        "38546382"
+      ],
+      "job": "38546383",
+      "stage": "generation",
+      "target": "base_qwen2_5_7b"
+    },
+    {
+      "afterok": [
+        "38546383"
+      ],
+      "job": "38546384",
+      "stage": "finalization",
+      "target": "base_qwen2_5_7b"
+    },
+    {
+      "afterok": [
+        "38546382"
+      ],
+      "job": "38546385",
+      "stage": "generation",
+      "target": "aime24_correct_3000"
+    },
+    {
+      "afterok": [
+        "38546385"
+      ],
+      "job": "38546386",
+      "stage": "finalization",
+      "target": "aime24_correct_3000"
+    },
+    {
+      "afterok": [
+        "38546382"
+      ],
+      "job": "38546387",
+      "stage": "generation",
+      "target": "aime24_incorrect_3000"
+    },
+    {
+      "afterok": [
+        "38546387"
+      ],
+      "job": "38546388",
+      "stage": "finalization",
+      "target": "aime24_incorrect_3000"
+    },
+    {
+      "afterok": [
+        "38546382"
+      ],
+      "job": "38546389",
+      "stage": "generation",
+      "target": "aime25_correct_3000"
+    },
+    {
+      "afterok": [
+        "38546389"
+      ],
+      "job": "38546390",
+      "stage": "finalization",
+      "target": "aime25_correct_3000"
+    },
+    {
+      "afterok": [
+        "38546382"
+      ],
+      "job": "38546391",
+      "stage": "generation",
+      "target": "aime25_incorrect_3000"
+    },
+    {
+      "afterok": [
+        "38546391"
+      ],
+      "job": "38546392",
+      "stage": "finalization",
+      "target": "aime25_incorrect_3000"
+    },
+    {
+      "afterok": [
+        "38546384",
+        "38546386",
+        "38546388",
+        "38546390",
+        "38546392"
+      ],
+      "job": "38546395",
+      "stage": "final_audit"
+    }
+  ],
+  "draws_per_prompt": 16,
+  "evaluator_git_commit": "62b616f598f9dcf48abe50e1f8030c8a8b9f24b3",
+  "finalizer_jobs": {
+    "aime24_correct_3000": "38546386",
+    "aime24_incorrect_3000": "38546388",
+    "aime25_correct_3000": "38546390",
+    "aime25_incorrect_3000": "38546392",
+    "base_qwen2_5_7b": "38546384"
+  },
+  "generation_count": 4800,
+  "log_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2d556f01dbd853a1/outputs/eval/aime_mixed_outcome_sampled_v1/_control/slurm_logs",
+  "output_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2d556f01dbd853a1/outputs/eval/aime_mixed_outcome_sampled_v1",
+  "preflight_job": "38546381",
+  "resources": {
+    "generation": {
+      "array": "0-15",
+      "cpus": 8,
+      "gpus": "h200:1",
+      "memory": "96G",
+      "time": "02:00:00"
+    },
+    "sampling": {
+      "n": 1,
+      "temperature": 0.7,
+      "top_k": -1,
+      "top_p": 0.8
+    }
+  },
+  "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+  "submitted_at": "2026-08-15T18:55:51.078116+00:00",
+  "targets": [
+    "base_qwen2_5_7b",
+    "aime24_correct_3000",
+    "aime24_incorrect_3000",
+    "aime25_correct_3000",
+    "aime25_incorrect_3000"
+  ]
+}
