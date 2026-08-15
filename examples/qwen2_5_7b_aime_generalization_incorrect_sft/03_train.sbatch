@@ -15,7 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="${SLURM_SUBMIT_DIR}/examples/qwen2_5_7b_aime_generalization_incorrect_sft"
 SHARED_RUNNER="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_opd_tillicum/04_run_sft_100k_8xh200.sbatch"
 HANDOFF_TOOL="${SLURM_SUBMIT_DIR}/examples/qwen3_8b_openr1_math220k_masked_sft_eval_handoff/checkpoint_manifest.py"
-source "${SCRIPT_DIR}/env.sh"
+source "${SFT_EXPERIMENT_ENV_FILE:-${SCRIPT_DIR}/env.sh}"
 source "${SLURM_SUBMIT_DIR}/examples/qwen3_8b_opd_tillicum/checkpoint_utils.sh"
 : "${AIME_EXPECTED_GIT_COMMIT:?Missing submit-time Git commit pin}"
 python3 -B "${SCRIPT_DIR}/runtime_repo_gate.py" \
@@ -34,7 +34,7 @@ export SFT_FINAL_HF_DIR="${SFT_HF_SNAPSHOT_DIR}/${final_tag}"
 export SFT_FINAL_FULL_CKPT_DIR="${SFT_SAVE_DIR}/${final_tag}"
 export SFT_DETAILS_DIR="${TRAINING_ROOT}/details"
 export CHECKPOINT_REPORT_DIR="${TRAINING_ROOT}/checkpoint_reports"
-export SFT_WANDB_GROUP="qwen2.5-7b-aime-generalization-${SFT_VARIANT}"
+export SFT_WANDB_GROUP="${SFT_WANDB_GROUP_PREFIX:-qwen2.5-7b-aime-generalization}-${SFT_VARIANT}"
 export TRAINED_MANIFEST="${HANDOFF_ROOT}/checkpoints/${SFT_VARIANT}.json"
 HF_GATE=(python3 "${SCRIPT_DIR}/hf_checkpoint_gate.py")
 manifest_already_present=0
@@ -227,7 +227,7 @@ recover_final_hf_from_full_state() {
 }
 test -f "${SFT_PARQUET}"
 test -f "${SCHEDULE_AUDIT_JSON}"
-if [[ "${SFT_VARIANT}" != "${STAGE1_VARIANT}" ]]; then
+if [[ -n "${SFT_INITIAL_HF_DIR:-}" ]]; then
   test -f "${STAGE1_FINAL_HF_DIR}/config.json"
   test -f "${STAGE1_MANIFEST}"
   test "${SFT_INITIAL_HF_DIR}" = "${STAGE1_FINAL_HF_DIR}"
@@ -236,7 +236,7 @@ if [[ "${SFT_VARIANT}" != "${STAGE1_VARIANT}" ]]; then
     --checkpoint "${STAGE1_FINAL_HF_DIR}" --contract-hash "${CONTRACT_HASH}" \
     --marker "${STAGE1_PARENT_GATE}"
 fi
-echo "TRAIN_AIME_GENERALIZATION variant=${SFT_VARIANT} updates=${SFT_NUM_ROLLOUT} initial_hf=${SFT_INITIAL_HF_DIR:-base_torch_dist}"
+echo "TRAIN_SFT_VARIANT variant=${SFT_VARIANT} updates=${SFT_NUM_ROLLOUT} initial_hf=${SFT_INITIAL_HF_DIR:-base_torch_dist}"
 if [[ "${resume_iteration:-}" == "${SFT_FINAL_ROLLOUT_ID}" ]] && \
    ! "${HF_GATE[@]}" --checkpoint "${SFT_FINAL_HF_DIR}" >/dev/null 2>&1; then
   recover_final_hf_from_full_state
@@ -256,14 +256,14 @@ test "$(cat "${SFT_SAVE_DIR}/latest_checkpointed_iteration.txt")" = "${SFT_FINAL
 prune_hf_snapshots 1
 manifest_args=(
   record --checkpoint "${SFT_FINAL_HF_DIR}" --output "${TRAINED_MANIFEST}"
-  --family aime_generalization --variant "${SFT_VARIANT}"
+  --family "${SFT_MANIFEST_FAMILY:-aime_generalization}" --variant "${SFT_VARIANT}"
   --final-iteration "${SFT_FINAL_ROLLOUT_ID}" --contract-hash "${CONTRACT_HASH}"
   --repo-root "${SLIME_REPO_ROOT}" --full-sft
 )
-if [[ "${SFT_VARIANT}" != "${STAGE1_VARIANT}" ]]; then
+if [[ -n "${SFT_INITIAL_HF_DIR:-}" ]]; then
   parent_identity="$(jq -r '.checkpoint_manifest_sha256' "${STAGE1_MANIFEST}")"
   [[ "${parent_identity}" =~ ^[0-9a-f]{64}$ ]]
   manifest_args+=(--parent-checkpoint-manifest-sha256 "${parent_identity}" --fresh-optimizer)
 fi
 python3 "${HANDOFF_TOOL}" "${manifest_args[@]}"
-echo "TRAIN_AIME_GENERALIZATION_COMPLETE variant=${SFT_VARIANT} at=$(date -Is)"
+echo "TRAIN_SFT_VARIANT_COMPLETE variant=${SFT_VARIANT} at=$(date -Is)"

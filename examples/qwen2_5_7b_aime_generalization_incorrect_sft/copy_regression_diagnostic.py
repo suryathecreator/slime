@@ -44,7 +44,10 @@ def main() -> None:
 
     rows = []
     for problem in problems:
-        prompt = str(problem["prompt"])
+        prompt_value = problem.get("prompt", problem.get("query"))
+        if not isinstance(prompt_value, str) or not prompt_value:
+            raise ValueError("copy diagnostic row has neither a nonempty prompt nor query")
+        prompt = prompt_value
         rendered = tokenizer.apply_chat_template(
             [{"role": "user", "content": prompt}],
             tokenize=True,

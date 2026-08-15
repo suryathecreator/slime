@@ -1,0 +1,113 @@
+{
+  "artifact_schema_version": 1,
+  "base_model": {
+    "checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+    "hf_repo": "Qwen/Qwen2.5-7B",
+    "revision": "d149729398750b98c0af14eb82c78cfe92750796",
+    "tokenizer_files": {
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "c91efca15ceff6e9ee9424db58a6f59cd41294e550a86cbd07e3c1fb500b34f9"
+    }
+  },
+  "evaluation_handoff": {
+    "aggregation": "Monte Carlo estimate of expected single-sample accuracy; every completion is scored independently, not pass@16 or majority vote",
+    "draws_per_prompt": 16,
+    "location": "Hyak_after_rsync",
+    "sampling": {
+      "n": 1,
+      "seed": "1234 + 60 * draw_index + global_eval_index",
+      "temperature": 0.7,
+      "top_k": -1,
+      "top_p": 0.8
+    },
+    "submits_evaluation_jobs": false
+  },
+  "family": "qwen2_5_7b_nous_aime_mixed_outcome_sft",
+  "formatting": {
+    "assistant": "exact messages[assistant].content bytes; no trimming or wrapper insertion",
+    "chat_template": "pinned Qwen2.5 tokenizer apply_chat_template over one exact user message with add_generation_prompt=true",
+    "source_system_omitted": "/think",
+    "suffix": "<|im_end|>\\n",
+    "suffix_weights": [1.0, 0.0],
+    "system": "You are a helpful assistant.",
+    "user": "exact query bytes, which must equal messages[user].content"
+  },
+  "selection": {
+    "cutoff_order": "render full Qwen2.5 training sequence, reject totals above 32768 without truncation, then rescore retained assistant generations",
+    "dataset": {
+      "aime24_path": "aime24/conversations.parquet",
+      "aime24_sha256": "1df735b01ae4b479a027d58dc53f79d7b4d38a8b6207c00cd9208779cba0cdb7",
+      "aime25_path": "aime25/conversations.parquet",
+      "aime25_sha256": "4d41cb204087ffa313d14fbdde9cfb40f937623ff250f1e5aed664810826f004",
+      "hf_repo": "NousResearch/eval-Qwen3-235B-A22B-reasoning",
+      "revision": "67bba1eb0642bc9a39d6971fd6c149e6bbbbb0c8",
+      "rows_per_problem": 64
+    },
+    "expected_post_rescore_diagnostic": {
+      "aime24": {
+        "incorrect_rows": 181,
+        "mixed_doc_ids": ["1", "2", "5", "10", "13", "14", "20", "25", "28", "29"]
+      },
+      "aime25": {
+        "incorrect_rows": 268,
+        "mixed_doc_ids": ["1", "6", "8", "9", "10", "11", "12", "18", "19", "20", "21", "22", "23", "26", "27", "28", "29"]
+      },
+      "policy": "diagnostic only; observed post-cutoff scorer outcomes define training"
+    },
+    "expansion": "for observed N traces, floor(3000/N) copies each plus one extra copy for 3000 mod N seeded traces; deterministic ordering also balances the eight 64-batch wrap exposures",
+    "rule": "per year, take every eligible scorer-incorrect generation from every mixed-outcome problem, then conditionally uniformly subsample the same number of eligible scorer-correct generations from that exact problem set with every problem represented",
+    "seed": 42,
+    "training_rows_per_variant": 3000
+  },
+  "submission": {
+    "maximum_concurrent_gpus": 4,
+    "policy": "strict linear afterok chain",
+    "runtime_repo_policy": "every job requires exact submit-time Git commit and an empty tracked/untracked worktree",
+    "submits_transfer_jobs": false
+  },
+  "supervision": {
+    "assistant_and_im_end": "weight 1",
+    "no_synthetic_endoftext": true,
+    "prompt": "context only, weight 0",
+    "template_newline_after_im_end": "weight 0"
+  },
+  "training": {
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.95,
+    "adam_epsilon": 1e-8,
+    "bf16": true,
+    "context_parallel_size": 1,
+    "data_parallel_size": 1,
+    "effective_presentations": 3008,
+    "epochs": 1,
+    "final_iteration": 46,
+    "full_parameter_sft": true,
+    "global_batch_size": 64,
+    "gradient_clip_norm": 1.0,
+    "learning_rate": 5e-6,
+    "log_probs_chunk_size": 2048,
+    "lr_decay_style": "cosine",
+    "max_sequence_length": 32768,
+    "max_tokens_per_gpu": 16384,
+    "min_learning_rate": 1e-6,
+    "optimizer": "AdamW",
+    "optimizer_checkpoint_interval_updates": 24,
+    "optimizer_cpu_offload": true,
+    "optimizer_updates": 47,
+    "pipeline_parallel_size": 1,
+    "recompute_loss_function": true,
+    "rollout_batch_size": 64,
+    "tensor_parallel_size": 4,
+    "train_entrypoint": "synchronous train.py",
+    "warmup_fraction": 0.03,
+    "warmup_init": 0.0,
+    "weight_decay": 0.0001,
+    "zero_stage": 0
+  },
+  "variants": [
+    "aime24_correct_3000",
+    "aime24_incorrect_3000",
+    "aime25_correct_3000",
+    "aime25_incorrect_3000"
+  ]
+}
