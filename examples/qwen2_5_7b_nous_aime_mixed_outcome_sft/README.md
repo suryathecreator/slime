@@ -182,3 +182,19 @@ The dependency graph is CPU preflight, one H200 runtime canary, five parallel
 final report contains the symmetric AIME 2024/AIME 2025 held-in, held-out,
 same-year, and cross-year tables; paired incorrect-minus-correct deltas; Monte
 Carlo standard errors; valid-box and cap-hit rates; and token-length summaries.
+
+## Final evaluation results
+
+The completed 4,800-completion evaluation is published under
+[`results/aime_mixed_outcome_sampled_v1`](results/aime_mixed_outcome_sampled_v1).
+It includes the human-readable report, immutable final audit, per-target
+summaries, and all 4,800 compact per-completion score records. The report also
+contains at-a-glance correct- and incorrect-trace generalization comparisons
+against the matching base slices.
+
+All five targets completed all 960 requested generations. The all-60 accuracy
+was 6.25% for base, 9.27% for AIME 2024 correct, 4.69% for AIME 2024 incorrect,
+11.98% for AIME 2025 correct, and 10.10% for AIME 2025 incorrect. Trained-model
+cap-hit rates were 98.65--99.90%, so the low 6.35--23.33% valid-box rates and
+the contracted policy of scoring every cap hit are material interpretation
+caveats.
