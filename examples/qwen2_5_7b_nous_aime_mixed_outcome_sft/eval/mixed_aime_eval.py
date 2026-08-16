@@ -107,6 +107,18 @@ def experiment_root(args: argparse.Namespace) -> Path:
     return args.experiment_root.resolve()
 
 
+def contract_id(args: argparse.Namespace) -> str:
+    return sha256_file(experiment_root(args) / "config" / "experiment_contract.json")[:16]
+
+
+def final_iteration(args: argparse.Namespace) -> int:
+    contract = load_json(experiment_root(args) / "config" / "experiment_contract.json")
+    value = int(contract["training"]["final_iteration"])
+    if value not in {46, 187}:
+        raise RuntimeError(f"unsupported training final iteration: {value}")
+    return value
+
+
 def eval_root(args: argparse.Namespace) -> Path:
     return experiment_root(args) / "outputs" / "eval" / EVAL_NAME
 
@@ -123,7 +135,7 @@ def comparison(args: argparse.Namespace) -> list[dict[str, Any]]:
     inventory = load_json(experiment_root(args) / "handoff" / "comparison_sources.json")
     targets = inventory.get("targets")
     if (
-        inventory.get("contract_hash") != CONTRACT_ID
+        inventory.get("contract_hash") != contract_id(args)
         or inventory.get("comparison_checkpoint_count") != len(TARGETS)
         or not isinstance(targets, list)
         or tuple(row.get("id") for row in targets) != TARGETS
@@ -192,7 +204,10 @@ def normalized_rows(args: argparse.Namespace) -> list[dict[str, Any]]:
     if [row["global_eval_index"] for row in result] != list(range(PROMPTS)):
         raise RuntimeError("global evaluation indices are not exactly 0..59")
     for year in (2024, 2025):
-        counts = {split: sum(row["year"] == year and row["split"] == split for row in result) for split in ("held_in", "held_out")}
+        counts = {
+            split: sum(row["year"] == year and row["split"] == split for row in result)
+            for split in ("held_in", "held_out")
+        }
         if counts != {"held_in": 10, "held_out": 20}:
             raise RuntimeError(f"split counts changed for {year}: {counts}")
     if len({row["problem_id"] for row in result}) != PROMPTS:
@@ -206,7 +221,7 @@ def validate_contract(args: argparse.Namespace) -> dict[str, Any]:
         if not (root / relative).is_file():
             raise FileNotFoundError(f"missing requested artifact: {relative}")
     experiment_contract = root / "config" / "experiment_contract.json"
-    if sha256_file(experiment_contract)[:16] != CONTRACT_ID:
+    if sha256_file(experiment_contract)[:16] != contract_id(args):
         raise RuntimeError("experiment contract hash/path mismatch")
     contract = load_json(root / "handoff" / "eval_contract.json")
     if sha256_file(root / "handoff" / "eval_contract.json") != EVAL_CONTRACT_SHA256:
@@ -253,11 +268,7 @@ def validate_checkpoint_files(model: Path, manifest_path: Path, identity: str, f
     if not isinstance(files, list) or not files:
         raise RuntimeError(f"empty checkpoint manifest: {manifest_path}")
     expected = {str(item["name"]): (int(item["bytes"]), str(item["sha256"])) for item in files}
-    actual = {
-        path.relative_to(model).as_posix(): path.stat().st_size
-        for path in model.rglob("*")
-        if path.is_file()
-    }
+    actual = {path.relative_to(model).as_posix(): path.stat().st_size for path in model.rglob("*") if path.is_file()}
     if actual != {name: size_hash[0] for name, size_hash in expected.items()}:
         raise RuntimeError(f"checkpoint size inventory mismatch: {model}")
     if full:
@@ -289,7 +300,7 @@ def preflight(args: argparse.Namespace) -> None:
     rows = normalized_rows(args)
     sources = load_json(experiment_root(args) / "handoff" / "checkpoint_sources.json")
     if (
-        sources.get("contract_hash") != CONTRACT_ID
+        sources.get("contract_hash") != contract_id(args)
         or sources.get("checkpoint_count") != 4
         or sources.get("training_datasets_transferred") is not False
         or tuple(row.get("id") for row in sources.get("checkpoints", [])) != TARGETS[1:]
@@ -309,9 +320,9 @@ def preflight(args: argparse.Namespace) -> None:
                 raise RuntimeError(f"checkpoint/comparison inventory mismatch: {row['id']}/{field}")
     status = load_json(experiment_root(args) / "TRAINING_STATUS.json")
     if (
-        status.get("contract_hash") != CONTRACT_ID
+        status.get("contract_hash") != contract_id(args)
         or status.get("trained_checkpoints") != 4
-        or status.get("final_iterations") != {target: 46 for target in TARGETS[1:]}
+        or status.get("final_iterations") != {target: final_iteration(args) for target in TARGETS[1:]}
     ):
         raise RuntimeError("training status is incomplete")
 
@@ -335,7 +346,9 @@ def preflight(args: argparse.Namespace) -> None:
                 [{"role": "user", "content": row["query"]}], tokenize=False, add_generation_prompt=True
             )
             expected_prefix = "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n"
-            if not rendered.startswith(expected_prefix) or not rendered.endswith("<|im_end|>\n<|im_start|>assistant\n"):
+            if not rendered.startswith(expected_prefix) or not rendered.endswith(
+                "<|im_end|>\n<|im_start|>assistant\n"
+            ):
                 raise RuntimeError(f"chat template rendering changed: {target}/{row['problem_id']}")
             ids = [int(value) for value in tokenizer.encode(rendered, add_special_tokens=False)]
             if not ids or len(ids) >= 32768:
@@ -349,15 +362,14 @@ def preflight(args: argparse.Namespace) -> None:
         checkpoint_status[target]["overlay_identity"] = overlay_metadata["overlay_identity"]
         checkpoint_status[target]["prompt_tokens"] = {"min": min(lengths), "max": max(lengths)}
         print(
-            f"MIXED_AIME_PREFLIGHT_TARGET_OK target={target} "
-            f"prompt_tokens={min(lengths)}-{max(lengths)}",
+            f"MIXED_AIME_PREFLIGHT_TARGET_OK target={target} " f"prompt_tokens={min(lengths)}-{max(lengths)}",
             flush=True,
         )
 
     artifact = {
         "artifact_schema_version": 1,
         "checkpoints": checkpoint_status,
-        "contract_id": CONTRACT_ID,
+        "contract_id": contract_id(args),
         "contract_sha256": sha256_file(experiment_root(args) / "handoff" / "eval_contract.json"),
         "datasets_sha256": DATASET_SHA256,
         "generation_count": contract["generation_count"],
@@ -417,17 +429,13 @@ def score_target(args: argparse.Namespace) -> None:
     score_response = scorer_function(args)
     target = args.target
     model, _, expected_identity = target_paths(args, target)
-    _, overlay_metadata = prepare_overlay(
-        control_root(args) / "tokenizer_overlays", target, model, expected_identity
-    )
+    _, overlay_metadata = prepare_overlay(control_root(args) / "tokenizer_overlays", target, model, expected_identity)
     expected_overlay_identity = str(overlay_metadata["overlay_identity"])
     canonical = {int(row["global_eval_index"]): row for row in normalized_rows(args)}
     scored: list[dict[str, Any]] = []
     seen: set[tuple[int, int]] = set()
     for draw in range(DRAWS):
-        policy_sha256 = validate_generation_policy(
-            args, target, draw, expected_identity, expected_overlay_identity
-        )
+        policy_sha256 = validate_generation_policy(args, target, draw, expected_identity, expected_overlay_identity)
         path = draw_output(args, target, draw) / "records.jsonl"
         rows = read_jsonl(path)
         if len(rows) != PROMPTS:
@@ -561,9 +569,7 @@ def paired_delta(left: list[dict[str, Any]], right: list[dict[str, Any]]) -> dic
     return {"delta": statistics.fmean(values), "delta_mc_se": sample_se(values), "n": len(values)}
 
 
-def primary_table(
-    records: dict[str, list[dict[str, Any]]], year: int
-) -> list[dict[str, Any]]:
+def primary_table(records: dict[str, list[dict[str, Any]]], year: int) -> list[dict[str, Any]]:
     other = 2025 if year == 2024 else 2024
     prefix = f"aime{str(year)[-2:]}"
     correct_target = f"{prefix}_correct_3000"
@@ -578,8 +584,7 @@ def primary_table(
     result: list[dict[str, Any]] = []
     for label, slice_name in rows:
         selected = {
-            target: [row for row in values if selectors[slice_name](row)]
-            for target, values in records.items()
+            target: [row for row in values if selectors[slice_name](row)] for target, values in records.items()
         }
         result.append(
             {
@@ -666,7 +671,7 @@ def audit(args: argparse.Namespace) -> None:
     report = {
         "aggregation": "mean of all independent correctness indicators; expected single-sample accuracy",
         "artifact_schema_version": 1,
-        "contract_id": CONTRACT_ID,
+        "contract_id": contract_id(args),
         "diagnostics": diagnostics,
         "draws_per_prompt": DRAWS,
         "generation_count": sum(len(rows) for rows in records.values()),
@@ -676,14 +681,17 @@ def audit(args: argparse.Namespace) -> None:
     }
     root = result_root(args)
     atomic_text(root / "FINAL_AUDIT.json", canonical_json(report))
-    markdown = "\n\n".join(
-        (
-            "# Nous AIME mixed-outcome evaluation\n\nEvery completion, including cap hits, is scored independently.",
-            markdown_table("AIME 2024-trained pair", tables["aime24_trained"]),
-            markdown_table("AIME 2025-trained pair", tables["aime25_trained"]),
-            markdown_diagnostics(diagnostics),
+    markdown = (
+        "\n\n".join(
+            (
+                "# Nous AIME mixed-outcome evaluation\n\nEvery completion, including cap hits, is scored independently.",
+                markdown_table("AIME 2024-trained pair", tables["aime24_trained"]),
+                markdown_table("AIME 2025-trained pair", tables["aime25_trained"]),
+                markdown_diagnostics(diagnostics),
+            )
         )
-    ) + "\n"
+        + "\n"
+    )
     atomic_text(root / "RESULTS.md", markdown)
     print(f"MIXED_AIME_AUDIT_COMPLETE generations={report['generation_count']}")
 
@@ -717,9 +725,7 @@ def record_submission(args: argparse.Namespace) -> None:
     finalizers = dict(value.split("=", 1) for value in args.finalizer_job)
     if tuple(arrays) != TARGETS or tuple(finalizers) != TARGETS:
         raise RuntimeError("submission job assignments are not in canonical target order")
-    edges: list[dict[str, Any]] = [
-        {"afterok": [args.preflight_job], "job": args.canary_job, "stage": "canary"}
-    ]
+    edges: list[dict[str, Any]] = [{"afterok": [args.preflight_job], "job": args.canary_job, "stage": "canary"}]
     for target in TARGETS:
         edges.extend(
             (
@@ -733,7 +739,7 @@ def record_submission(args: argparse.Namespace) -> None:
         "artifact_schema_version": 1,
         "audit_job": args.audit_job,
         "canary_job": args.canary_job,
-        "contract_id": CONTRACT_ID,
+        "contract_id": contract_id(args),
         "contract_sha256": sha256_file(experiment_root(args) / "handoff" / "eval_contract.json"),
         "dependency_edges": edges,
         "draws_per_prompt": DRAWS,
@@ -767,7 +773,11 @@ def parser() -> argparse.ArgumentParser:
     preflight_parser.add_argument("--full", action="store_true")
     preflight_parser.set_defaults(func=preflight)
     path_parser = commands.add_parser("path")
-    path_parser.add_argument("--field", required=True, choices=("control", "eval-root", "result-root", "model", "manifest", "identity", "tokenizer", "draw-output"))
+    path_parser.add_argument(
+        "--field",
+        required=True,
+        choices=("control", "eval-root", "result-root", "model", "manifest", "identity", "tokenizer", "draw-output"),
+    )
     path_parser.add_argument("--target", choices=TARGETS)
     path_parser.add_argument("--draw", type=int)
     path_parser.set_defaults(func=path_command)

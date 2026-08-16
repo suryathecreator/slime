@@ -12,7 +12,12 @@ export SLIME_REPO_ROOT
 SLIME_REPO_ROOT="$(cd -- "${NOUS_AIME_DIR}/../.." >/dev/null 2>&1 && pwd)"
 export PYTHONPATH="${SLIME_REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 
-export CONTRACT_FILE="${NOUS_AIME_DIR}/config/experiment_contract.json"
+export NOUS_AIME_RECIPE="${NOUS_AIME_RECIPE:-one_epoch}"
+case "${NOUS_AIME_RECIPE}" in
+  one_epoch) export CONTRACT_FILE="${NOUS_AIME_DIR}/config/experiment_contract.json" ;;
+  four_epoch) export CONTRACT_FILE="${NOUS_AIME_DIR}/config/experiment_contract_4epoch.json" ;;
+  *) echo "Unknown NOUS_AIME_RECIPE: ${NOUS_AIME_RECIPE}" >&2; return 2 ;;
+esac
 export CONTRACT_HASH
 CONTRACT_HASH="$(sha256sum "${CONTRACT_FILE}" | awk '{print substr($1,1,16)}')"
 export SCRATCH_ROOT="/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft"
@@ -67,7 +72,12 @@ export AIME24_EVAL_JSONL="${DATA_ROOT}/eval/aime24_30.jsonl"
 export AIME25_EVAL_JSONL="${DATA_ROOT}/eval/aime25_30.jsonl"
 export HELD_IN_EVAL_JSONL="${AIME24_EVAL_JSONL}"
 
-export SFT_NUM_EPOCH=1
+export SFT_NUM_EPOCH
+SFT_NUM_EPOCH="$(jq -er '.training.epochs' "${CONTRACT_FILE}")"
+export NOUS_AIME_OPTIMIZER_UPDATES
+NOUS_AIME_OPTIMIZER_UPDATES="$(jq -er '.training.optimizer_updates' "${CONTRACT_FILE}")"
+export NOUS_AIME_FINAL_ITERATION
+NOUS_AIME_FINAL_ITERATION="$(jq -er '.training.final_iteration' "${CONTRACT_FILE}")"
 export SFT_ROLLOUT_BATCH_SIZE=64
 export SFT_GLOBAL_BATCH_SIZE=64
 export SFT_ACTOR_GPUS=4
@@ -137,9 +147,9 @@ configure_sft_variant() {
   SFT_PARQUET="$(variant_data_path "${variant}")"
   unset SFT_INITIAL_HF_DIR
   export SFT_SIZE=3000
-  export SFT_NUM_ROLLOUT=47
-  export SFT_FINAL_ROLLOUT_ID=46
-  export SFT_MILESTONE_ROLLOUT_IDS=46
+  export SFT_NUM_ROLLOUT="${NOUS_AIME_OPTIMIZER_UPDATES}"
+  export SFT_FINAL_ROLLOUT_ID="${NOUS_AIME_FINAL_ITERATION}"
+  export SFT_MILESTONE_ROLLOUT_IDS="${NOUS_AIME_FINAL_ITERATION}"
   export SFT_SAVE_INTERVAL=24
-  export SFT_LR_DECAY_ITERS=47
+  export SFT_LR_DECAY_ITERS="${NOUS_AIME_OPTIMIZER_UPDATES}"
 }

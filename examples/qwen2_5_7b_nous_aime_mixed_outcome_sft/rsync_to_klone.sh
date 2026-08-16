@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE="${1:?Use --check, --transfer, or --verify}"
+MODE="${1:?Use --check, --transfer, or --verify, optionally followed by --four-epoch}"
 [[ "${MODE}" == "--check" || "${MODE}" == "--transfer" || "${MODE}" == "--verify" ]] || {
-  echo "Usage: $0 --check|--transfer|--verify" >&2
+  echo "Usage: $0 --check|--transfer|--verify [--four-epoch]" >&2
   exit 2
 }
-[[ $# -eq 1 ]] || { echo "Usage: $0 --check|--transfer|--verify" >&2; exit 2; }
+RECIPE_FLAG="${2:---one-epoch}"
+case "${RECIPE_FLAG}" in
+  --one-epoch) export NOUS_AIME_RECIPE=one_epoch ;;
+  --four-epoch) export NOUS_AIME_RECIPE=four_epoch ;;
+  *) echo "Usage: $0 --check|--transfer|--verify [--four-epoch]" >&2; exit 2 ;;
+esac
+[[ $# -le 2 ]] || { echo "Usage: $0 --check|--transfer|--verify [--four-epoch]" >&2; exit 2; }
 
 PACKAGE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 source "${PACKAGE}/env.sh"

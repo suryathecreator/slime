@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE="${1:?Use --dry-run or --submit}"
+MODE="${1:?Use --dry-run or --submit, optionally followed by --four-epoch}"
 [[ "${MODE}" == "--dry-run" || "${MODE}" == "--submit" ]] || {
-  echo "Usage: $0 --dry-run|--submit" >&2
+  echo "Usage: $0 --dry-run|--submit [--four-epoch]" >&2
   exit 2
 }
-[[ $# -eq 1 ]] || { echo "Usage: $0 --dry-run|--submit" >&2; exit 2; }
+RECIPE_FLAG="${2:---one-epoch}"
+case "${RECIPE_FLAG}" in
+  --one-epoch) export NOUS_AIME_RECIPE=one_epoch ;;
+  --four-epoch) export NOUS_AIME_RECIPE=four_epoch ;;
+  *) echo "Usage: $0 --dry-run|--submit [--four-epoch]" >&2; exit 2 ;;
+esac
+[[ $# -le 2 ]] || { echo "Usage: $0 --dry-run|--submit [--four-epoch]" >&2; exit 2; }
 
 PACKAGE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 source "${PACKAGE}/env.sh"
@@ -31,7 +37,7 @@ test_script() {
   local script="${1:?script required}"
   local export_tail="${2:-}"
   sbatch --test-only "${COMMON[@]}" \
-    --export="ALL,AIME_EXPECTED_GIT_COMMIT=${submit_commit}${export_tail}" \
+    --export="ALL,AIME_EXPECTED_GIT_COMMIT=${submit_commit},NOUS_AIME_RECIPE=${NOUS_AIME_RECIPE}${export_tail}" \
     "${PACKAGE}/${script}" >/dev/null
 }
 
@@ -114,7 +120,7 @@ submit_job() {
     --output="${SLURM_LOG_DIR}/%x_%j.bootstrap.out"
   )
   [[ -z "${dependency}" ]] || args+=(--dependency="${dependency}")
-  args+=(--export="ALL,AIME_EXPECTED_GIT_COMMIT=${submit_commit}${export_tail}")
+  args+=(--export="ALL,AIME_EXPECTED_GIT_COMMIT=${submit_commit},NOUS_AIME_RECIPE=${NOUS_AIME_RECIPE}${export_tail}")
   local raw job_id
   raw="$("${args[@]}" "${PACKAGE}/${script}")"
   job_id="${raw%%;*}"

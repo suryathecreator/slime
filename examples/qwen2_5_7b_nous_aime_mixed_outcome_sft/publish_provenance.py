@@ -46,22 +46,27 @@ def atomic_json(path: Path, value: Any) -> None:
 
 
 def validate_metrics(metrics: dict[str, Any]) -> None:
-    if metrics.get("optimizer_updates_per_variant") != 47:
-        raise ValueError("expected 47 optimizer updates per variant")
+    updates = metrics.get("optimizer_updates_per_variant")
+    if not isinstance(updates, int) or updates <= 0:
+        raise ValueError("optimizer update count must be positive")
     variants = metrics.get("variants")
     if not isinstance(variants, list) or [item.get("variant") for item in variants] != list(VARIANTS):
         raise ValueError("training metrics variant order drift")
     for item in variants:
         history = item.get("history")
-        if not isinstance(history, list) or len(history) != 47:
+        if not isinstance(history, list) or len(history) != updates:
             raise ValueError(f"incomplete loss history for {item['variant']}")
-        if [record.get("step") for record in history] != list(range(47)):
+        if [record.get("step") for record in history] != list(range(updates)):
             raise ValueError(f"non-contiguous loss history for {item['variant']}")
         if item.get("first") != history[0] or item.get("last") != history[-1]:
             raise ValueError(f"first/last loss summary drift for {item['variant']}")
 
 
 def render_training_summary(status: dict[str, Any], metrics: dict[str, Any]) -> str:
+    updates = int(metrics["optimizer_updates_per_variant"])
+    final_iterations = set(status["final_iterations"].values())
+    if final_iterations != {updates - 1}:
+        raise ValueError("status final iterations do not match metric history")
     rows = []
     for item in metrics["variants"]:
         history = item["history"]
@@ -87,8 +92,8 @@ def render_training_summary(status: dict[str, Any], metrics: dict[str, Any]) -> 
             f"- Contract: `{status['contract_hash']}`",
             f"- Training commit: `{status['repo_commit']}`",
             f"- Finalized: `{status['finalized_at']}`",
-            "- Four independent full-parameter Qwen2.5-7B SFT runs completed at iteration 46.",
-            "- The complete 47-update metric history for every variant is in `handoff/training_metrics.json`.",
+            f"- Four independent full-parameter Qwen2.5-7B SFT runs completed at iteration {updates - 1}.",
+            f"- The complete {updates}-update metric history for every variant is in `handoff/training_metrics.json`.",
             "",
             "| Variant | First loss | Last loss | Change | Minimum | Min step | First-5 avg | Last-5 avg | Final grad norm |",
             "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
@@ -137,7 +142,10 @@ def main() -> None:
         raise FileNotFoundError(f"missing final provenance artifacts: {missing}")
 
     status = json.loads(artifacts["TRAINING_STATUS.json"].read_text(encoding="utf-8"))
-    expected_iterations = {variant: 46 for variant in VARIANTS}
+    metrics = json.loads(artifacts["handoff/training_metrics.json"].read_text(encoding="utf-8"))
+    validate_metrics(metrics)
+    optimizer_updates = int(metrics["optimizer_updates_per_variant"])
+    expected_iterations = {variant: optimizer_updates - 1 for variant in VARIANTS}
     if (
         status.get("contract_hash") != args.contract_hash
         or status.get("trained_checkpoints") != 4
@@ -145,8 +153,6 @@ def main() -> None:
         or status.get("final_iterations") != expected_iterations
     ):
         raise ValueError("training completion status drift")
-    metrics = json.loads(artifacts["handoff/training_metrics.json"].read_text(encoding="utf-8"))
-    validate_metrics(metrics)
 
     output_root.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{output_root.name}.", dir=output_root.parent))

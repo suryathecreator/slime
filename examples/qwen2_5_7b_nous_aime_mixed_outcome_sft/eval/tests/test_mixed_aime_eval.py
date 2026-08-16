@@ -16,6 +16,8 @@ from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.eval.mixed_aime_eval import
     DATASET_SHA256,
     PROMPTS,
     TARGETS,
+    contract_id,
+    final_iteration,
     metrics,
     normalized_rows,
     paired_delta,
@@ -23,7 +25,6 @@ from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.eval.mixed_aime_eval import
     target_paths,
     validate_contract,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 EXPERIMENT_ROOT = REPO_ROOT / "checkpoints" / "qwen2_5_7b_nous_aime_mixed_outcome_sft" / "v1" / CONTRACT_ID
@@ -47,6 +48,18 @@ def test_dynamic_response_budget() -> None:
     assert response_budget(858) == 31910
     with pytest.raises(RuntimeError):
         response_budget(32768)
+
+
+def test_contract_identity_and_final_iteration_are_root_relative(tmp_path: Path) -> None:
+    root = tmp_path / "experiment"
+    config = root / "config"
+    config.mkdir(parents=True)
+    contract = config / "experiment_contract.json"
+    contract.write_text('{"training":{"final_iteration":187}}\n')
+    local_args = argparse.Namespace(experiment_root=root)
+    assert contract_id(local_args) != CONTRACT_ID
+    assert len(contract_id(local_args)) == 16
+    assert final_iteration(local_args) == 187
 
 
 def test_transferred_contract_and_rows_are_canonical() -> None:

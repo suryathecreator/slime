@@ -18,11 +18,16 @@ from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.publish_provenance import (
     render_training_summary,
     validate_metrics,
 )
+from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.finalize import (
+    checkpoint_path,
+    parse_metrics,
+)
 
 NUM_GPUS = 0
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "examples/qwen2_5_7b_nous_aime_mixed_outcome_sft"
 CONTRACT = json.loads((PACKAGE / "config/experiment_contract.json").read_text())
+FOUR_EPOCH_CONTRACT = json.loads((PACKAGE / "config/experiment_contract_4epoch.json").read_text())
 
 
 def source_record(index: int, doc_count: int, correct: bool) -> dict:
@@ -155,6 +160,27 @@ def test_contract_pins_recipe_selection_and_monte_carlo_semantics() -> None:
     assert CONTRACT["selection"]["expected_post_rescore_diagnostic"]["policy"].startswith("diagnostic only")
 
 
+def test_four_epoch_contract_changes_only_training_duration() -> None:
+    assert FOUR_EPOCH_CONTRACT["repeat_of"]["contract_hash"] == "2d556f01dbd853a1"
+    assert FOUR_EPOCH_CONTRACT["training"] == {
+        **CONTRACT["training"],
+        "effective_presentations": 12032,
+        "epochs": 4,
+        "final_iteration": 187,
+        "optimizer_updates": 188,
+    }
+    assert FOUR_EPOCH_CONTRACT["base_model"] == CONTRACT["base_model"]
+    assert FOUR_EPOCH_CONTRACT["formatting"] == CONTRACT["formatting"]
+    assert FOUR_EPOCH_CONTRACT["supervision"] == CONTRACT["supervision"]
+    assert FOUR_EPOCH_CONTRACT["evaluation_handoff"] == CONTRACT["evaluation_handoff"]
+    assert FOUR_EPOCH_CONTRACT["repeat_of"]["training_dataset_sha256"] == {
+        "aime24_correct_3000": "778b88f50088a89065cec47867d9d4f3b1610f4c8f537081f1caa5a0ea327104",
+        "aime24_incorrect_3000": "7670c8a82dd8da7c82e590e660bad6f2c9321c70b8939bec5002047d13ff5ade",
+        "aime25_correct_3000": "40b96ba2b1705f9e02192475385954010756f00f3a746b6ecea7e4730d242b2b",
+        "aime25_incorrect_3000": "6b16a27f738bf1d6bd4698cd045d425c0982005ce8b24f58454b8cde21b485ae",
+    }
+
+
 def test_documentation_contains_exact_prompt_and_selection_rule() -> None:
     readme = (PACKAGE / "README.md").read_text()
     exact_query = (
@@ -187,6 +213,8 @@ def test_submission_is_ten_serial_jobs_and_handoff_excludes_training_data() -> N
     assert 'echo "NOUS_AIME_SBATCH_TEST_ONLY_OK jobs=10"' in submitter
     assert '--dependency="${dependency}"' in submitter
     assert "AIME_EXPECTED_GIT_COMMIT=${submit_commit}" in submitter
+    assert "NOUS_AIME_RECIPE=${NOUS_AIME_RECIPE}" in submitter
+    assert "--four-epoch" in submitter
     rsync = (PACKAGE / "rsync_to_klone.sh").read_text()
     assert "training_jsonl=0 optimizer_state=0" in rsync
     assert "authenticated_sessions=1" in rsync
@@ -196,9 +224,9 @@ def test_submission_is_ten_serial_jobs_and_handoff_excludes_training_data() -> N
 def test_sbatch_resources_and_independent_base_initialization() -> None:
     env = (PACKAGE / "env.sh").read_text()
     assert "unset SFT_INITIAL_HF_DIR" in env
-    assert "SFT_NUM_EPOCH=1" in env
-    assert "SFT_NUM_ROLLOUT=47" in env
-    assert "SFT_FINAL_ROLLOUT_ID=46" in env
+    assert "experiment_contract_4epoch.json" in env
+    assert 'SFT_NUM_ROLLOUT="${NOUS_AIME_OPTIMIZER_UPDATES}"' in env
+    assert 'SFT_FINAL_ROLLOUT_ID="${NOUS_AIME_FINAL_ITERATION}"' in env
     train = (PACKAGE / "03_train.sbatch").read_text()
     canary = (PACKAGE / "02_canary.sbatch").read_text()
     assert "#SBATCH --gres=gpu:h200:4" in train
@@ -231,6 +259,7 @@ def test_training_provenance_requires_complete_losses_and_summarizes_them() -> N
     summary = render_training_summary(
         {
             "contract_hash": "0123456789abcdef",
+            "final_iterations": {variant: 46 for variant in VARIANTS},
             "finalized_at": "2026-08-15T00:00:00+00:00",
             "repo_commit": "a" * 40,
         },
@@ -249,6 +278,27 @@ def test_training_provenance_requires_complete_losses_and_summarizes_them() -> N
                 ],
             }
         )
+
+
+def test_four_epoch_finalizer_uses_iteration_187_and_all_metrics(tmp_path: Path) -> None:
+    assert checkpoint_path(tmp_path, "aime24_correct_3000", 187).name == "iter_0000187"
+    log = tmp_path / "train.log"
+    lines = []
+    for step in range(188):
+        point = {
+            "train/loss": 1.0 - step / 1000,
+            "train/global_batch_size": 64,
+            "train/grad_norm": 0.5,
+            "train/lr-pg_0": 1e-6,
+            "train/lr-pg_1": 1e-6,
+            "train/step": step,
+        }
+        lines.append(f"step {step}: {point}\n")
+    log.write_text("".join(lines))
+    history = parse_metrics(log, 187)
+    assert len(history) == 188
+    assert history[0]["step"] == 0
+    assert history[-1]["step"] == 187
 
 
 if __name__ == "__main__":

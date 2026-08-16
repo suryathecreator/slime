@@ -37,6 +37,11 @@ def validate_contract(contract: dict[str, Any]) -> None:
     )
     require(tuple(contract.get("variants", ())) == VARIANTS, "variant order drift")
     training = contract["training"]
+    duration = {
+        1: {"effective_presentations": 3008, "final_iteration": 46, "optimizer_updates": 47},
+        4: {"effective_presentations": 12032, "final_iteration": 187, "optimizer_updates": 188},
+    }.get(training.get("epochs"))
+    require(duration is not None, "training epochs must be the one- or four-epoch profile")
     expected = {
         "adam_beta1": 0.9,
         "adam_beta2": 0.95,
@@ -44,9 +49,7 @@ def validate_contract(contract: dict[str, Any]) -> None:
         "bf16": True,
         "context_parallel_size": 1,
         "data_parallel_size": 1,
-        "effective_presentations": 3008,
-        "epochs": 1,
-        "final_iteration": 46,
+        **duration,
         "global_batch_size": 64,
         "gradient_clip_norm": 1.0,
         "learning_rate": 5e-6,
@@ -57,7 +60,6 @@ def validate_contract(contract: dict[str, Any]) -> None:
         "min_learning_rate": 1e-6,
         "optimizer": "AdamW",
         "optimizer_checkpoint_interval_updates": 24,
-        "optimizer_updates": 47,
         "pipeline_parallel_size": 1,
         "rollout_batch_size": 64,
         "tensor_parallel_size": 4,
@@ -83,6 +85,17 @@ def validate_contract(contract: dict[str, Any]) -> None:
         require(len(diagnostic[year]["selected_mixed_doc_ids"]) == 10, f"{year} diagnostic coverage drift")
     supersedes = contract["supersedes"]
     require(supersedes["contract_hash"] == "432ab0c3e16a40d8", "superseded contract drift")
+    if training["epochs"] == 4:
+        repeat = contract.get("repeat_of")
+        require(isinstance(repeat, dict), "four-epoch repeat provenance missing")
+        require(repeat.get("contract_hash") == "2d556f01dbd853a1", "repeat source contract drift")
+        require(set(repeat.get("training_dataset_sha256", {})) == set(VARIANTS), "repeat dataset hashes missing")
+        require(
+            set(repeat.get("evaluation_jsonl_sha256", {})) == {"aime24", "aime25"},
+            "repeat eval hashes missing",
+        )
+    else:
+        require("repeat_of" not in contract, "one-epoch contract cannot declare a repeat source")
     require(contract["evaluation_handoff"]["draws_per_prompt"] == 16, "Monte Carlo draw drift")
 
 
@@ -90,6 +103,7 @@ def validate_static(package: Path, repo_root: Path) -> None:
     required = (
         "README.md",
         "env.sh",
+        "config/experiment_contract_4epoch.json",
         "prepare_data.py",
         "validate_data.py",
         "validate_config.py",
@@ -109,12 +123,13 @@ def validate_static(package: Path, repo_root: Path) -> None:
         "SFT_SEQ_LENGTH=32768",
         "SFT_TENSOR_MODEL_PARALLEL_SIZE=4",
         "SFT_GLOBAL_BATCH_SIZE=64",
-        "SFT_NUM_ROLLOUT=47",
-        "SFT_FINAL_ROLLOUT_ID=46",
+        'SFT_NUM_ROLLOUT="${NOUS_AIME_OPTIMIZER_UPDATES}"',
+        'SFT_FINAL_ROLLOUT_ID="${NOUS_AIME_FINAL_ITERATION}"',
         "SFT_LR=5e-6",
         "SFT_MIN_LR=1e-6",
         "SFT_SAVE_INTERVAL=24",
         'SFT_MANIFEST_FAMILY="nous_aime_mixed_outcome"',
+        "NOUS_AIME_RECIPE",
     ):
         require(needle in env, f"env contract missing: {needle}")
     for relative, walltime, gpu in (

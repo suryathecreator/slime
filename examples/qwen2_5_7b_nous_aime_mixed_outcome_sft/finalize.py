@@ -25,7 +25,6 @@ from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.data_utils import (
 )
 
 BASE_ID = "base_qwen2_5_7b"
-FINAL_ITERATION = 46
 REMOTE_FAMILY = "checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1"
 METRIC_PATTERN = re.compile(r"step\s+(\d+):\s+(\{'train/loss'.*?\})")
 
@@ -52,8 +51,8 @@ def atomic_text(path: Path, value: str) -> None:
             temporary.unlink()
 
 
-def checkpoint_path(root: Path, variant: str) -> Path:
-    return root / "outputs/training" / variant / "weights/iter_0000046"
+def checkpoint_path(root: Path, variant: str, final_iteration: int) -> Path:
+    return root / "outputs/training" / variant / f"weights/iter_{final_iteration:07d}"
 
 
 def verify_checkpoint(*, tool: Path, gate: Path, manifest: Path, checkpoint: Path) -> dict[str, Any]:
@@ -76,7 +75,7 @@ def verify_checkpoint(*, tool: Path, gate: Path, manifest: Path, checkpoint: Pat
     return value
 
 
-def parse_metrics(log_path: Path) -> list[dict[str, Any]]:
+def parse_metrics(log_path: Path, final_iteration: int) -> list[dict[str, Any]]:
     by_step: dict[int, dict[str, Any]] = {}
     with log_path.open(encoding="utf-8", errors="replace") as handle:
         for line in handle:
@@ -98,9 +97,9 @@ def parse_metrics(log_path: Path) -> list[dict[str, Any]]:
             if step in by_step and by_step[step] != point:
                 raise ValueError(f"conflicting duplicate metric: {log_path}/{step}")
             by_step[step] = point
-    if sorted(by_step) != list(range(FINAL_ITERATION + 1)):
+    if sorted(by_step) != list(range(final_iteration + 1)):
         raise ValueError(f"loss history is incomplete for {log_path}: observed={sorted(by_step)}")
-    history = [by_step[step] for step in range(FINAL_ITERATION + 1)]
+    history = [by_step[step] for step in range(final_iteration + 1)]
     if any(point["global_batch_size"] != 64 for point in history):
         raise ValueError(f"global batch size drift in {log_path}")
     return history
@@ -158,6 +157,10 @@ def main() -> None:
     contract = load_json(args.contract)
     if tuple(contract["variants"]) != VARIANTS:
         raise ValueError("contract variant order drift")
+    optimizer_updates = int(contract["training"]["optimizer_updates"])
+    final_iteration = int(contract["training"]["final_iteration"])
+    if final_iteration != optimizer_updates - 1:
+        raise ValueError("training update/final-iteration contract drift")
     handoff = root / "handoff"
     status_path = root / "TRAINING_STATUS.json"
     inventory_path = handoff / "checkpoint_sources.json"
@@ -210,13 +213,13 @@ def main() -> None:
     transfer_records = []
     remote_experiment = f"{REMOTE_FAMILY}/{args.contract_hash}"
     for variant in VARIANTS:
-        checkpoint = checkpoint_path(root, variant)
+        checkpoint = checkpoint_path(root, variant, final_iteration)
         manifest = handoff / "checkpoints" / f"{variant}.json"
         value = verify_checkpoint(tool=tool, gate=gate, manifest=manifest, checkpoint=checkpoint)
         expected = {
             "contract_hash": args.contract_hash,
             "family": "nous_aime_mixed_outcome",
-            "final_iteration": FINAL_ITERATION,
+            "final_iteration": final_iteration,
             "full_sft": True,
             "variant": variant,
         }
@@ -233,7 +236,7 @@ def main() -> None:
                 "id": variant,
                 "kind": "new_trained",
                 "model_key": "qwen2_5_7b",
-                "remote_checkpoint_relative": f"outputs/training/{variant}/weights/iter_0000046",
+                "remote_checkpoint_relative": (f"outputs/training/{variant}/weights/iter_{final_iteration:07d}"),
                 "remote_experiment_relative": remote_experiment,
                 "remote_manifest_relative": f"handoff/checkpoints/{variant}.json",
                 "source_checkpoint": str(checkpoint),
@@ -323,7 +326,7 @@ def main() -> None:
     for variant in VARIANTS:
         job_id = jobs_by_variant[variant]
         log_path = root / "slurm_logs" / f"q25nam-train_{job_id}.log"
-        history = parse_metrics(log_path)
+        history = parse_metrics(log_path, final_iteration)
         training_metrics.append(
             {
                 "first": history[0],
@@ -340,7 +343,7 @@ def main() -> None:
         metrics_path,
         {
             "artifact_schema_version": 1,
-            "optimizer_updates_per_variant": 47,
+            "optimizer_updates_per_variant": optimizer_updates,
             "variants": training_metrics,
         },
     )
@@ -389,7 +392,7 @@ def main() -> None:
             "checkpoint_identities": {BASE_ID: base_identity, **identities},
             "comparison_checkpoint_count": 5,
             "contract_hash": args.contract_hash,
-            "final_iterations": {variant: FINAL_ITERATION for variant in VARIANTS},
+            "final_iterations": {variant: final_iteration for variant in VARIANTS},
             "finalized_at": datetime.now(timezone.utc).isoformat(),
             "full_parameter_sft": True,
             "repo_commit": commit,

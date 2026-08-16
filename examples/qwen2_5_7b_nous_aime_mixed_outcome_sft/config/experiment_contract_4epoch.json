@@ -1,0 +1,146 @@
+{
+  "artifact_schema_version": 1,
+  "base_model": {
+    "checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+    "hf_repo": "Qwen/Qwen2.5-7B",
+    "revision": "d149729398750b98c0af14eb82c78cfe92750796",
+    "tokenizer_files": {
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "c91efca15ceff6e9ee9424db58a6f59cd41294e550a86cbd07e3c1fb500b34f9"
+    }
+  },
+  "evaluation_handoff": {
+    "aggregation": "Monte Carlo estimate of expected single-sample accuracy; every completion is scored independently, not pass@16 or majority vote",
+    "draws_per_prompt": 16,
+    "location": "Hyak_after_rsync",
+    "sampling": {
+      "n": 1,
+      "seed": "1234 + 60 * draw_index + global_eval_index",
+      "temperature": 0.7,
+      "top_k": -1,
+      "top_p": 0.8
+    },
+    "submits_evaluation_jobs": false
+  },
+  "family": "qwen2_5_7b_nous_aime_mixed_outcome_sft",
+  "formatting": {
+    "assistant": "exact messages[assistant].content bytes; no trimming or wrapper insertion",
+    "chat_template": "pinned Qwen2.5 tokenizer apply_chat_template over one exact user message with add_generation_prompt=true",
+    "source_system_omitted": "/think",
+    "suffix": "<|im_end|>\\n",
+    "suffix_weights": [1.0, 0.0],
+    "system": "You are a helpful assistant.",
+    "user": "exact query bytes, which must equal messages[user].content"
+  },
+  "repeat_of": {
+    "contract_hash": "2d556f01dbd853a1",
+    "evaluation_jsonl_sha256": {
+      "aime24": "0c838ee6351d9636a7fdb62dbf9a1123c3fbf1cd13e61325aa892ac4343f6538",
+      "aime25": "195dd659d4c20a3900875cfe7e83acc9a69c16a7c73ad6d6eb5f61c9fd30f70e"
+    },
+    "training_dataset_sha256": {
+      "aime24_correct_3000": "778b88f50088a89065cec47867d9d4f3b1610f4c8f537081f1caa5a0ea327104",
+      "aime24_incorrect_3000": "7670c8a82dd8da7c82e590e660bad6f2c9321c70b8939bec5002047d13ff5ade",
+      "aime25_correct_3000": "40b96ba2b1705f9e02192475385954010756f00f3a746b6ecea7e4730d242b2b",
+      "aime25_incorrect_3000": "6b16a27f738bf1d6bd4698cd045d425c0982005ce8b24f58454b8cde21b485ae"
+    }
+  },
+  "selection": {
+    "cutoff_order": "render full Qwen2.5 training sequence, reject totals above 32768 without truncation, then rescore retained assistant generations",
+    "conditioned_problem_subset": {
+      "aime24_policy": "use every post-cutoff post-rescore mixed-outcome problem and require exactly 10",
+      "aime25_policy": "assign every unique 10-problem combination a seeded SHA-256 random priority and accept the first whose incorrect count differs from the AIME 2024 target by at most epsilon",
+      "algorithm": "sha256_random_priority_over_all_unique_combinations_v1",
+      "incorrect_trace_epsilon": 0,
+      "problem_count": 10,
+      "seed": 42,
+      "target": "realized AIME 2024 selected incorrect-trace count"
+    },
+    "dataset": {
+      "aime24_path": "aime24/conversations.parquet",
+      "aime24_sha256": "1df735b01ae4b479a027d58dc53f79d7b4d38a8b6207c00cd9208779cba0cdb7",
+      "aime25_path": "aime25/conversations.parquet",
+      "aime25_sha256": "4d41cb204087ffa313d14fbdde9cfb40f937623ff250f1e5aed664810826f004",
+      "hf_repo": "NousResearch/eval-Qwen3-235B-A22B-reasoning",
+      "revision": "67bba1eb0642bc9a39d6971fd6c149e6bbbbb0c8",
+      "rows_per_problem": 64
+    },
+    "expected_post_rescore_diagnostic": {
+      "aime24": {
+        "full_mixed_doc_ids": ["1", "2", "5", "10", "13", "14", "20", "25", "28", "29"],
+        "incorrect_rows": 181,
+        "selected_mixed_doc_ids": ["1", "2", "5", "10", "13", "14", "20", "25", "28", "29"]
+      },
+      "aime25": {
+        "accepted_candidate_rank_zero_based": 358,
+        "candidates_evaluated": 359,
+        "full_mixed_doc_ids": ["1", "6", "8", "9", "10", "11", "12", "18", "19", "20", "21", "22", "23", "26", "27", "28", "29"],
+        "incorrect_rows": 181,
+        "qualifying_candidate_count": 212,
+        "selected_mixed_doc_ids": ["6", "8", "10", "19", "20", "21", "22", "26", "27", "29"]
+      },
+      "policy": "diagnostic only; the pinned algorithm derives selection from observed post-cutoff scorer outcomes and validation fails if the realized diagnostic drifts"
+    },
+    "expansion": "reuse the exact one-epoch 3000-row physical datasets byte-for-byte; the four-epoch schedule deterministically consumes 12032 presentations",
+    "rule": "use all 10 AIME 2024 mixed problems; select 10 AIME 2025 mixed problems uniformly conditional on an exact incorrect-trace-count match; per year take every eligible scorer-incorrect generation from the selected problem set, then conditionally uniformly subsample the same number of eligible scorer-correct generations from that exact set with every problem represented",
+    "seed": 42,
+    "training_rows_per_variant": 3000
+  },
+  "submission": {
+    "maximum_concurrent_gpus": 4,
+    "policy": "strict linear afterok chain",
+    "runtime_repo_policy": "every job requires exact submit-time Git commit and an empty tracked/untracked worktree",
+    "submits_transfer_jobs": false
+  },
+  "supersedes": {
+    "contract_hash": "432ab0c3e16a40d8",
+    "repo_commit": "c6f9d6f3e7f8d785d209f99f8a038b38ca70b41d",
+    "submitted_jobs": [231874, 231875, 231876, 231877, 231878, 231879, 231880, 231881, 231882, 231883],
+    "reason": "preserve the selection history inherited byte-for-byte from the completed one-epoch contract"
+  },
+  "supervision": {
+    "assistant_and_im_end": "weight 1",
+    "no_synthetic_endoftext": true,
+    "prompt": "context only, weight 0",
+    "template_newline_after_im_end": "weight 0"
+  },
+  "training": {
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.95,
+    "adam_epsilon": 1e-8,
+    "bf16": true,
+    "context_parallel_size": 1,
+    "data_parallel_size": 1,
+    "effective_presentations": 12032,
+    "epochs": 4,
+    "final_iteration": 187,
+    "full_parameter_sft": true,
+    "global_batch_size": 64,
+    "gradient_clip_norm": 1.0,
+    "learning_rate": 5e-6,
+    "log_probs_chunk_size": 2048,
+    "lr_decay_style": "cosine",
+    "max_sequence_length": 32768,
+    "max_tokens_per_gpu": 16384,
+    "min_learning_rate": 1e-6,
+    "optimizer": "AdamW",
+    "optimizer_checkpoint_interval_updates": 24,
+    "optimizer_cpu_offload": true,
+    "optimizer_updates": 188,
+    "pipeline_parallel_size": 1,
+    "recompute_loss_function": true,
+    "rollout_batch_size": 64,
+    "tensor_parallel_size": 4,
+    "train_entrypoint": "synchronous train.py",
+    "warmup_fraction": 0.03,
+    "warmup_init": 0.0,
+    "weight_decay": 0.0001,
+    "zero_stage": 0
+  },
+  "variants": [
+    "aime24_correct_3000",
+    "aime24_incorrect_3000",
+    "aime25_correct_3000",
+    "aime25_incorrect_3000"
+  ]
+}

@@ -126,6 +126,38 @@ human-readable first/last-loss summary. It deliberately excludes model
 weights, optimizer state, training datasets, raw source generations, and large
 canary token dumps.
 
+### Four-epoch repeat
+
+The `four_epoch` profile (contract `2f2b580a2f52b1b7`) repeats this experiment from the same Qwen2.5-7B
+base with the same four byte-identical 3,000-row datasets, prompts, loss
+weights, 32K context, TP4 runtime, and evaluation contract. Only the training
+horizon changes: every variant receives four epochs, 12,032 presentations,
+188 optimizer updates, and a final snapshot at iteration 187. Each run starts
+independently from base with a fresh optimizer and cosine schedule; it does not
+continue the one-epoch checkpoint. The original one-epoch contract and results
+remain immutable.
+
+```bash
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/submit_training_only.sh --dry-run --four-epoch
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/submit_training_only.sh --submit --four-epoch
+```
+
+After finalization, transfer this profile with the same single-session handoff:
+
+```bash
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/rsync_to_klone.sh --check --four-epoch
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/rsync_to_klone.sh --transfer --four-epoch
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/rsync_to_klone.sh --verify --four-epoch
+```
+
+On Hyak, the existing evaluator is reused against the new transferred root:
+
+```bash
+export EVAL_EXPERIMENT_ROOT=/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --test-only-shapes
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --submit
+```
+
 ```bash
 bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/submit_training_only.sh --dry-run
 bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/submit_training_only.sh --submit

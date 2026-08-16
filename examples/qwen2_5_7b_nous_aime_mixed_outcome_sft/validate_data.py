@@ -14,8 +14,6 @@ from typing import Any
 from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.data_utils import (
     DATASET_ROWS,
     GLOBAL_BATCH_SIZE,
-    RUNTIME_PRESENTATIONS,
-    UPDATES,
     VARIANTS,
     assert_record,
     atomic_json,
@@ -49,7 +47,13 @@ def shuffled_order(size: int, seed: int, epoch: int) -> list[int]:
     return order
 
 
-def validate_schedule(rows: list[dict[str, Any]], *, seed: int, max_tokens_per_gpu: int) -> dict[str, Any]:
+def validate_schedule(
+    rows: list[dict[str, Any]],
+    *,
+    seed: int,
+    max_tokens_per_gpu: int,
+    updates: int,
+) -> dict[str, Any]:
     lengths = [len(row["input_ids"]) for row in rows]
     order = shuffled_order(len(rows), seed, 0)
     offset = 0
@@ -72,7 +76,7 @@ def validate_schedule(rows: list[dict[str, Any]], *, seed: int, max_tokens_per_g
         "microbatch_group_size_per_vp_stage": 1,
         "vpp_size": 1,
     }
-    for update in range(UPDATES):
+    for update in range(updates):
         if offset + GLOBAL_BATCH_SIZE <= len(rows):
             batch_indices = order[offset : offset + GLOBAL_BATCH_SIZE]
             offset += GLOBAL_BATCH_SIZE
@@ -111,15 +115,20 @@ def validate_schedule(rows: list[dict[str, Any]], *, seed: int, max_tokens_per_g
         if sorted(placed) != list(range(GLOBAL_BATCH_SIZE)):
             raise ValueError(f"dynamic schedule lost or duplicated a row at update {update}")
         over_cap_exposures += sum(length > max_tokens_per_gpu for length in batch_lengths)
-    if Counter(row_exposures) != Counter({1: DATASET_ROWS - 8, 2: 8}):
-        raise ValueError(f"47-update row exposure drift: {Counter(row_exposures)}")
+    effective_presentations = updates * GLOBAL_BATCH_SIZE
+    complete_passes, wrap_rows = divmod(effective_presentations, DATASET_ROWS)
+    expected_row_exposures = Counter({complete_passes: DATASET_ROWS - wrap_rows})
+    if wrap_rows:
+        expected_row_exposures[complete_passes + 1] = wrap_rows
+    if Counter(row_exposures) != expected_row_exposures:
+        raise ValueError(f"{updates}-update row exposure drift: {Counter(row_exposures)}")
     if over_cap_singletons != over_cap_exposures:
         raise ValueError("samples over the soft 16K bin cap were not scheduled alone")
     source_exposures: Counter[str] = Counter()
     for row, count in zip(rows, row_exposures):
         source_exposures[str(row["metadata"]["base_trace_id"])] += count
-    if max(source_exposures.values()) - min(source_exposures.values()) != 1:
-        raise ValueError("realized source-trace exposure differs by more than one")
+    if len(source_exposures) != 181 or min(source_exposures.values()) <= 0:
+        raise ValueError("realized schedule did not cover all 181 source traces")
     return {
         "dataset_rows": len(rows),
         "dataset_rows_over_16384": sum(length > max_tokens_per_gpu for length in lengths),
@@ -136,7 +145,7 @@ def validate_schedule(rows: list[dict[str, Any]], *, seed: int, max_tokens_per_g
         "source_exposure_histogram": {
             str(key): value for key, value in sorted(Counter(source_exposures.values()).items())
         },
-        "updates": UPDATES,
+        "updates": updates,
     }
 
 
@@ -148,13 +157,15 @@ def main() -> None:
     if args.schedule_output.exists():
         raise FileExistsError(f"refusing to overwrite {args.schedule_output}")
     training = contract["training"]
+    updates = int(training["optimizer_updates"])
+    effective_presentations = updates * GLOBAL_BATCH_SIZE
     expected_training = {
-        "effective_presentations": RUNTIME_PRESENTATIONS,
-        "final_iteration": 46,
+        "effective_presentations": effective_presentations,
+        "final_iteration": updates - 1,
         "global_batch_size": GLOBAL_BATCH_SIZE,
         "max_sequence_length": 32768,
         "max_tokens_per_gpu": 16384,
-        "optimizer_updates": UPDATES,
+        "optimizer_updates": updates,
     }
     for key, expected in expected_training.items():
         if training.get(key) != expected:
@@ -271,6 +282,20 @@ def main() -> None:
             raise ValueError(f"source artifact dataset hash drift: {variant}")
         if stats["expansion"][variant]["dataset_sha256"] != sha256_file(path):
             raise ValueError(f"selection stats dataset hash drift: {variant}")
+    repeat = contract.get("repeat_of")
+    if repeat is not None:
+        if repeat.get("contract_hash") != "2d556f01dbd853a1":
+            raise ValueError("four-epoch repeat source contract drift")
+        expected_datasets = repeat.get("training_dataset_sha256")
+        for variant in VARIANTS:
+            path = args.data_root / "datasets" / f"{variant}.jsonl"
+            if not isinstance(expected_datasets, dict) or sha256_file(path) != expected_datasets.get(variant):
+                raise ValueError(f"four-epoch dataset is not byte-identical: {variant}")
+        expected_eval = repeat.get("evaluation_jsonl_sha256")
+        for year in ("aime24", "aime25"):
+            path = args.data_root / "eval" / f"{year}_30.jsonl"
+            if not isinstance(expected_eval, dict) or sha256_file(path) != expected_eval.get(year):
+                raise ValueError(f"four-epoch eval JSONL is not byte-identical: {year}")
     schedule = {
         "artifact_schema_version": 1,
         "global_batch_size": GLOBAL_BATCH_SIZE,
@@ -286,13 +311,14 @@ def main() -> None:
                 rows,
                 seed=int(contract["selection"]["seed"]),
                 max_tokens_per_gpu=int(training["max_tokens_per_gpu"]),
+                updates=updates,
             )
             for variant, rows in rows_by_variant.items()
         },
     }
     atomic_json(args.schedule_output, schedule)
     print(
-        "NOUS_AIME_DATA_VALIDATED " f"variants={len(VARIANTS)} rows_each={DATASET_ROWS} updates={UPDATES}",
+        "NOUS_AIME_DATA_VALIDATED " f"variants={len(VARIANTS)} rows_each={DATASET_ROWS} updates={updates}",
         flush=True,
     )
 
