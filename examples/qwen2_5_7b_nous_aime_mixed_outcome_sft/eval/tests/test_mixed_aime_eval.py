@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import math
 from pathlib import Path
 
 import pytest
+
+from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.eval import mixed_aime_eval
 
 from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.eval.generate_mixed_aime import (
     recover_records,
@@ -16,6 +19,7 @@ from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.eval.mixed_aime_eval import
     DATASET_SHA256,
     PROMPTS,
     TARGETS,
+    base_reuse_manifest,
     contract_id,
     final_iteration,
     metrics,
@@ -28,10 +32,20 @@ from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.eval.mixed_aime_eval import
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 EXPERIMENT_ROOT = REPO_ROOT / "checkpoints" / "qwen2_5_7b_nous_aime_mixed_outcome_sft" / "v1" / CONTRACT_ID
+FOUR_EPOCH_ROOT = (
+    REPO_ROOT / "checkpoints" / "qwen2_5_7b_nous_aime_mixed_outcome_sft" / "v1" / "2f2b580a2f52b1b7"
+)
+PUBLISHED_RESULTS = (
+    REPO_ROOT / "examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/results/aime_mixed_outcome_sampled_v1"
+)
 
 
 def args() -> argparse.Namespace:
     return argparse.Namespace(repo_root=REPO_ROOT, experiment_root=EXPERIMENT_ROOT)
+
+
+def four_epoch_args() -> argparse.Namespace:
+    return argparse.Namespace(repo_root=REPO_ROOT, experiment_root=FOUR_EPOCH_ROOT)
 
 
 def test_seed_contract_endpoints() -> None:
@@ -81,6 +95,68 @@ def test_all_checkpoint_paths_resolve() -> None:
         assert model.is_dir()
         assert manifest.is_file()
         assert len(identity) == 64
+
+
+def test_four_epoch_base_reuse_is_exact_and_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = base_reuse_manifest(four_epoch_args(), EXPERIMENT_ROOT, PUBLISHED_RESULTS)
+    assert manifest["destination_contract_id"] == "2f2b580a2f52b1b7"
+    assert manifest["record_count"] == 960
+    assert manifest["source_artifacts"] == {
+        "final_audit_sha256": "4a1e5eef6979e3e84f9eb8ba84ccef5f83052414db6004a56770857078b02989",
+        "scores_sha256": "4e5574ff922a898fd980347aed6eba2479c95f010cb0137c6ba91dd686bfb350",
+        "summary_sha256": "c3045004010bbbbcaeb850c246c82075c687eb3ef45310f466f32e839d424495",
+    }
+
+    destination = tmp_path / "results"
+    local_args = four_epoch_args()
+    local_args.source_experiment_root = EXPERIMENT_ROOT
+    local_args.source_result_root = PUBLISHED_RESULTS
+    monkeypatch.setattr(mixed_aime_eval, "result_root", lambda _: destination)
+    mixed_aime_eval.reuse_base(local_args)
+    mixed_aime_eval.reuse_base(local_args)
+
+    target = destination / "targets/base_qwen2_5_7b"
+    assert mixed_aime_eval.sha256_file(target / "scores.jsonl") == manifest["source_artifacts"]["scores_sha256"]
+    assert mixed_aime_eval.sha256_file(target / "summary.json") == manifest["source_artifacts"]["summary_sha256"]
+    assert json.loads((target / "REUSE_PROVENANCE.json").read_text()) == manifest
+
+
+def test_four_epoch_submitter_never_generates_or_finalizes_base() -> None:
+    submitter = (REPO_ROOT / "examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh").read_text()
+    assert 'GENERATED_TARGETS=("${TARGETS[@]:1}")' in submitter
+    assert 'for target in "${GENERATED_TARGETS[@]}"' in submitter
+    assert "--reuse-target base_qwen2_5_7b" in submitter
+    assert "reuse_base_cpu.sbatch" in submitter
+
+
+def test_four_epoch_submission_metadata_separates_generated_and_reused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    local_args = four_epoch_args()
+    local_args.array_job = [f"{target}=array-{index}" for index, target in enumerate(TARGETS[1:])]
+    local_args.finalizer_job = [f"{target}=final-{index}" for index, target in enumerate(TARGETS[1:])]
+    local_args.preflight_job = "preflight"
+    local_args.canary_job = "canary"
+    local_args.audit_job = "audit"
+    local_args.git_commit = "a" * 40
+    local_args.reuse_job = "reuse"
+    local_args.reuse_target = TARGETS[0]
+    local_args.reuse_source_experiment_root = EXPERIMENT_ROOT
+    local_args.reuse_source_result_root = PUBLISHED_RESULTS
+    monkeypatch.setattr(mixed_aime_eval, "control_root", lambda _: tmp_path)
+
+    mixed_aime_eval.record_submission(local_args)
+    metadata = json.loads((tmp_path / "submission.json").read_text())
+    assert metadata["generation_count"] == 4800
+    assert metadata["generated_completion_count"] == 3840
+    assert metadata["reused_completion_count"] == 960
+    assert metadata["generated_targets"] == list(TARGETS[1:])
+    assert metadata["reused_targets"] == [TARGETS[0]]
+    assert TARGETS[0] not in metadata["array_jobs"]
+    assert TARGETS[0] not in metadata["finalizer_jobs"]
+    assert metadata["reuse"]["job"] == "reuse"
+    audit_edge = next(edge for edge in metadata["dependency_edges"] if edge["stage"] == "final_audit")
+    assert audit_edge["afterok"] == ["final-0", "final-1", "final-2", "final-3", "reuse"]
 
 
 def test_contracted_scorer_uses_last_complete_nonempty_box() -> None:

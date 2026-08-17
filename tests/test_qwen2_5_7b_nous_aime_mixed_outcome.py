@@ -196,6 +196,8 @@ def test_documentation_contains_exact_prompt_and_selection_rule() -> None:
     assert "10 held-in" in readme
     assert "16 independent" in readme
     assert "not pass@16" in readme
+    assert "Only the four trained checkpoints run new" in readme
+    assert "--submit --four-epoch" in readme
 
 
 def test_shared_runner_interfaces_preserve_old_default() -> None:

@@ -28,6 +28,7 @@ TARGETS = (
     "aime25_correct_3000",
     "aime25_incorrect_3000",
 )
+TRAINED_TARGETS = TARGETS[1:]
 DRAWS = 16
 PROMPTS = 60
 EVAL_CONTRACT_SHA256 = "f49e6b6337ed2b2186b0412cd874583e79d96d89c8b80a91b13d37f0a6ac8b92"
@@ -101,6 +102,13 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
                 raise RuntimeError(f"non-object JSONL row at {path}:{line_number}")
             rows.append(value)
     return rows
+
+
+def repo_relative(repo_root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError as error:
+        raise RuntimeError(f"path is outside repository: {path}") from error
 
 
 def experiment_root(args: argparse.Namespace) -> Path:
@@ -505,6 +513,138 @@ def score_target(args: argparse.Namespace) -> None:
     print(f"MIXED_AIME_TARGET_FINALIZED target={target} scores={len(scored)}")
 
 
+def validate_scored_records(args: argparse.Namespace, target: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if target not in TARGETS or len(rows) != PROMPTS * DRAWS:
+        raise RuntimeError(f"invalid scored target bundle: {target}/{len(rows)}")
+    canonical = {int(row["global_eval_index"]): row for row in normalized_rows(args)}
+    expected_coordinates = [(draw, index) for draw in range(DRAWS) for index in range(PROMPTS)]
+    coordinates: list[tuple[int, int]] = []
+    for row in rows:
+        draw = row.get("draw_index")
+        index = row.get("global_eval_index")
+        if (
+            isinstance(draw, bool)
+            or not isinstance(draw, int)
+            or isinstance(index, bool)
+            or not isinstance(index, int)
+        ):
+            raise RuntimeError(f"invalid scored coordinate types: {target}/{draw}/{index}")
+        source = canonical.get(index, {})
+        if (
+            row.get("target") != target
+            or row.get("seed") != 1234 + PROMPTS * draw + index
+            or row.get("answer") != source.get("answer")
+            or row.get("problem_id") != source.get("problem_id")
+            or row.get("split") != source.get("split")
+            or row.get("year") != source.get("year")
+            or row.get("scorer_version") != "aime_last_boxed_integer_scorer_v1"
+            or row.get("trace_schema_version") != "aime_last_boxed_integer_trace_v1"
+            or not isinstance(row.get("cap_hit"), bool)
+            or not isinstance(row.get("is_correct"), bool)
+            or not isinstance(row.get("is_scorable"), bool)
+            or (row.get("is_correct") is True and row.get("is_scorable") is not True)
+            or isinstance(row.get("generated_token_count"), bool)
+            or not isinstance(row.get("generated_token_count"), int)
+            or int(row.get("generated_token_count", -1)) < 0
+            or isinstance(row.get("rendered_prompt_tokens"), bool)
+            or not isinstance(row.get("rendered_prompt_tokens"), int)
+            or int(row.get("rendered_prompt_tokens", -1)) <= 0
+            or len(str(row.get("response_sha256", ""))) != 64
+        ):
+            raise RuntimeError(f"invalid scored record: {target}/{draw}/{index}")
+        coordinates.append((draw, index))
+    if coordinates != expected_coordinates:
+        raise RuntimeError(f"scored coordinates are not canonical: {target}")
+    return rows
+
+
+def base_reuse_manifest(
+    args: argparse.Namespace, source_experiment_root: Path, source_result_root: Path
+) -> dict[str, Any]:
+    if final_iteration(args) != 187:
+        raise RuntimeError("base reuse is only valid for the four-epoch repeat")
+    source_args = argparse.Namespace(repo_root=args.repo_root, experiment_root=source_experiment_root.resolve())
+    if contract_id(source_args) != CONTRACT_ID or final_iteration(source_args) != 46:
+        raise RuntimeError("base reuse source is not the completed one-epoch contract")
+    validate_contract(args)
+    validate_contract(source_args)
+    if normalized_rows(args) != normalized_rows(source_args):
+        raise RuntimeError("base reuse evaluation rows differ")
+    _, _, destination_identity = target_paths(args, TARGETS[0])
+    _, _, source_identity = target_paths(source_args, TARGETS[0])
+    if destination_identity != source_identity:
+        raise RuntimeError("base checkpoint identity differs")
+
+    source_result_root = source_result_root.resolve()
+    scores_path = source_result_root / "targets" / TARGETS[0] / "scores.jsonl"
+    summary_path = source_result_root / "targets" / TARGETS[0] / "summary.json"
+    audit_path = source_result_root / "FINAL_AUDIT.json"
+    for path in (scores_path, summary_path, audit_path):
+        if not path.is_file():
+            raise FileNotFoundError(f"missing published base reuse artifact: {path}")
+    rows = validate_scored_records(args, TARGETS[0], read_jsonl(scores_path))
+    computed_summary = {
+        "slices": {
+            name: metrics([row for row in rows if selector(row)]) for name, selector in slice_selectors().items()
+        },
+        "target": TARGETS[0],
+    }
+    if load_json(summary_path) != computed_summary:
+        raise RuntimeError("published base summary does not reproduce from score records")
+    source_audit = load_json(audit_path)
+    if (
+        source_audit.get("contract_id") != CONTRACT_ID
+        or source_audit.get("generation_count") != len(TARGETS) * PROMPTS * DRAWS
+        or source_audit.get("scorer_sha256") != SCORER_SHA256
+        or source_audit.get("diagnostics", {}).get(TARGETS[0]) != computed_summary["slices"]
+    ):
+        raise RuntimeError("published base audit does not match reusable records")
+    return {
+        "artifact_schema_version": 1,
+        "base_checkpoint_identity": source_identity,
+        "destination_contract_id": contract_id(args),
+        "evaluation_contract_sha256": EVAL_CONTRACT_SHA256,
+        "record_count": len(rows),
+        "scorer_sha256": SCORER_SHA256,
+        "source": {
+            "contract_id": CONTRACT_ID,
+            "experiment_root": repo_relative(args.repo_root, source_experiment_root),
+            "result_root": repo_relative(args.repo_root, source_result_root),
+        },
+        "source_artifacts": {
+            "final_audit_sha256": sha256_file(audit_path),
+            "scores_sha256": sha256_file(scores_path),
+            "summary_sha256": sha256_file(summary_path),
+        },
+        "target": TARGETS[0],
+    }
+
+
+def reuse_base(args: argparse.Namespace) -> None:
+    manifest = base_reuse_manifest(args, args.source_experiment_root, args.source_result_root)
+    source_target = args.source_result_root.resolve() / "targets" / TARGETS[0]
+    destination_target = result_root(args) / "targets" / TARGETS[0]
+    sources = {
+        destination_target / "scores.jsonl": source_target / "scores.jsonl",
+        destination_target / "summary.json": source_target / "summary.json",
+    }
+    for destination, source in sources.items():
+        expected_sha256 = sha256_file(source)
+        if destination.exists() and sha256_file(destination) != expected_sha256:
+            raise RuntimeError(f"refusing to replace different reused artifact: {destination}")
+        if not destination.exists():
+            atomic_text(destination, source.read_text(encoding="utf-8"))
+        if sha256_file(destination) != expected_sha256:
+            raise RuntimeError(f"reused artifact copy failed: {destination}")
+    provenance = destination_target / "REUSE_PROVENANCE.json"
+    rendered = canonical_json(manifest)
+    if provenance.exists() and provenance.read_text(encoding="utf-8") != rendered:
+        raise RuntimeError(f"refusing to replace different reuse provenance: {provenance}")
+    if not provenance.exists():
+        atomic_text(provenance, rendered)
+    print(f"MIXED_AIME_BASE_REUSED scores={manifest['record_count']}")
+
+
 def slice_selectors() -> dict[str, Callable[[dict[str, Any]], bool]]:
     return {
         "aime24_held_in": lambda row: row["year"] == 2024 and row["split"] == "held_in",
@@ -659,10 +799,20 @@ def audit(args: argparse.Namespace) -> None:
     records: dict[str, list[dict[str, Any]]] = {}
     for target in TARGETS:
         path = result_root(args) / "targets" / target / "scores.jsonl"
-        rows = read_jsonl(path)
-        if len(rows) != PROMPTS * DRAWS:
-            raise RuntimeError(f"target score count changed: {target}/{len(rows)}")
+        rows = validate_scored_records(args, target, read_jsonl(path))
         records[target] = rows
+    reuse_path = result_root(args) / "targets" / TARGETS[0] / "REUSE_PROVENANCE.json"
+    reuse = load_json(reuse_path) if reuse_path.is_file() else None
+    if reuse is not None:
+        base_target = result_root(args) / "targets" / TARGETS[0]
+        if (
+            reuse.get("destination_contract_id") != contract_id(args)
+            or reuse.get("target") != TARGETS[0]
+            or reuse.get("record_count") != PROMPTS * DRAWS
+            or reuse.get("source_artifacts", {}).get("scores_sha256") != sha256_file(base_target / "scores.jsonl")
+            or reuse.get("source_artifacts", {}).get("summary_sha256") != sha256_file(base_target / "summary.json")
+        ):
+            raise RuntimeError("base reuse provenance does not match final artifacts")
     tables = {"aime24_trained": primary_table(records, 2024), "aime25_trained": primary_table(records, 2025)}
     diagnostics = {
         target: {name: metrics([row for row in rows if selector(row)]) for name, selector in slice_selectors().items()}
@@ -674,8 +824,11 @@ def audit(args: argparse.Namespace) -> None:
         "contract_id": contract_id(args),
         "diagnostics": diagnostics,
         "draws_per_prompt": DRAWS,
+        "generated_completion_count": (len(TARGETS) - int(reuse is not None)) * PROMPTS * DRAWS,
         "generation_count": sum(len(rows) for rows in records.values()),
         "monte_carlo_se": "sample standard deviation divided by sqrt(n); paired differences for deltas",
+        "reuse": reuse,
+        "reused_completion_count": int(reuse is not None) * PROMPTS * DRAWS,
         "scorer_sha256": SCORER_SHA256,
         "tables": tables,
     }
@@ -723,17 +876,47 @@ def path_command(args: argparse.Namespace) -> None:
 def record_submission(args: argparse.Namespace) -> None:
     arrays = dict(value.split("=", 1) for value in args.array_job)
     finalizers = dict(value.split("=", 1) for value in args.finalizer_job)
-    if tuple(arrays) != TARGETS or tuple(finalizers) != TARGETS:
+    reuse_values = (
+        args.reuse_job,
+        args.reuse_target,
+        args.reuse_source_experiment_root,
+        args.reuse_source_result_root,
+    )
+    if any(value is not None for value in reuse_values) and not all(value is not None for value in reuse_values):
+        raise RuntimeError("base reuse submission arguments must be provided together")
+    reused_targets = (args.reuse_target,) if args.reuse_target is not None else ()
+    if reused_targets not in {(), (TARGETS[0],)}:
+        raise RuntimeError("only the base target may be reused")
+    generated_targets = TRAINED_TARGETS if reused_targets else TARGETS
+    if tuple(arrays) != generated_targets or tuple(finalizers) != generated_targets:
         raise RuntimeError("submission job assignments are not in canonical target order")
     edges: list[dict[str, Any]] = [{"afterok": [args.preflight_job], "job": args.canary_job, "stage": "canary"}]
-    for target in TARGETS:
+    reuse: dict[str, Any] | None = None
+    if reused_targets:
+        reuse = {
+            "job": args.reuse_job,
+            "provenance": base_reuse_manifest(
+                args, args.reuse_source_experiment_root, args.reuse_source_result_root
+            ),
+        }
+        edges.append(
+            {"afterok": [args.preflight_job], "job": args.reuse_job, "stage": "reuse", "target": TARGETS[0]}
+        )
+    for target in generated_targets:
         edges.extend(
             (
                 {"afterok": [args.canary_job], "job": arrays[target], "stage": "generation", "target": target},
                 {"afterok": [arrays[target]], "job": finalizers[target], "stage": "finalization", "target": target},
             )
         )
-    edges.append({"afterok": list(finalizers.values()), "job": args.audit_job, "stage": "final_audit"})
+    audit_dependencies = list(finalizers.values()) + ([args.reuse_job] if args.reuse_job is not None else [])
+    edges.append({"afterok": audit_dependencies, "job": args.audit_job, "stage": "final_audit"})
+    resources: dict[str, Any] = {
+        "generation": {"array": "0-15", "cpus": 8, "gpus": "h200:1", "memory": "96G", "time": "02:00:00"},
+        "sampling": {"temperature": 0.7, "top_p": 0.8, "top_k": -1, "n": 1},
+    }
+    if reused_targets:
+        resources["reuse"] = {"cpus": 8, "gpus": 0, "memory": "32G", "time": "00:30:00"}
     metadata = {
         "array_jobs": arrays,
         "artifact_schema_version": 1,
@@ -746,13 +929,15 @@ def record_submission(args: argparse.Namespace) -> None:
         "evaluator_git_commit": args.git_commit,
         "finalizer_jobs": finalizers,
         "generation_count": len(TARGETS) * PROMPTS * DRAWS,
+        "generated_completion_count": len(generated_targets) * PROMPTS * DRAWS,
+        "generated_targets": list(generated_targets),
         "log_root": str(control_root(args) / "slurm_logs"),
         "output_root": str(eval_root(args)),
         "preflight_job": args.preflight_job,
-        "resources": {
-            "generation": {"array": "0-15", "cpus": 8, "gpus": "h200:1", "memory": "96G", "time": "02:00:00"},
-            "sampling": {"temperature": 0.7, "top_p": 0.8, "top_k": -1, "n": 1},
-        },
+        "resources": resources,
+        "reuse": reuse,
+        "reused_completion_count": len(reused_targets) * PROMPTS * DRAWS,
+        "reused_targets": list(reused_targets),
         "scorer_sha256": SCORER_SHA256,
         "submitted_at": datetime.now(timezone.utc).isoformat(),
         "targets": list(TARGETS),
@@ -786,6 +971,10 @@ def parser() -> argparse.ArgumentParser:
     finalize_parser.set_defaults(func=score_target)
     audit_parser = commands.add_parser("audit")
     audit_parser.set_defaults(func=audit)
+    reuse_parser = commands.add_parser("reuse-base")
+    reuse_parser.add_argument("--source-experiment-root", type=Path, required=True)
+    reuse_parser.add_argument("--source-result-root", type=Path, required=True)
+    reuse_parser.set_defaults(func=reuse_base)
     record = commands.add_parser("record-submission")
     record.add_argument("--preflight-job", required=True)
     record.add_argument("--canary-job", required=True)
@@ -793,6 +982,10 @@ def parser() -> argparse.ArgumentParser:
     record.add_argument("--finalizer-job", action="append", required=True)
     record.add_argument("--audit-job", required=True)
     record.add_argument("--git-commit", required=True)
+    record.add_argument("--reuse-job")
+    record.add_argument("--reuse-target", choices=(TARGETS[0],))
+    record.add_argument("--reuse-source-experiment-root", type=Path)
+    record.add_argument("--reuse-source-result-root", type=Path)
     record.set_defaults(func=record_submission)
     return result
 

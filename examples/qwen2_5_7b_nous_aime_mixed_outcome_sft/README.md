@@ -157,12 +157,15 @@ bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/rsync_to_klone.sh --transfe
 bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/rsync_to_klone.sh --verify --four-epoch
 ```
 
-On Hyak, the existing evaluator is reused against the new transferred root:
+On Hyak, the existing evaluator is reused against the new transferred root.
+The published 960-completion one-epoch base bundle is reused only after its
+checkpoint identity, prompts, datasets, scorer, coordinates, summary, and
+artifact hashes match exactly. Only the four trained checkpoints run new
+inference, producing 3,840 new completions and a 4,800-score final audit:
 
 ```bash
-export EVAL_EXPERIMENT_ROOT=/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7
-bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --test-only-shapes
-bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --submit
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --test-only-shapes --four-epoch
+bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --submit --four-epoch
 ```
 
 ```bash
