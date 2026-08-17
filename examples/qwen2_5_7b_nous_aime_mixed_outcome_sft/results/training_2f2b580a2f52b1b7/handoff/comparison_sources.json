@@ -1,0 +1,67 @@
+{
+  "artifact_schema_version": 1,
+  "comparison_checkpoint_count": 5,
+  "contract_hash": "2f2b580a2f52b1b7",
+  "targets": [
+    {
+      "checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+      "id": "base_qwen2_5_7b",
+      "kind": "existing_base",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "models/Qwen2.5-7B",
+      "remote_experiment_relative": "checkpoints/shared",
+      "remote_manifest_relative": "manifests/base_qwen2_5_7b.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/models/Qwen2.5-7B",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/handoff/checkpoints/base_qwen2_5_7b.json",
+      "variant": "base"
+    },
+    {
+      "checkpoint_identity": "36d4afb603a5b3da1ec2de9f4ec926fba27fe0d74094c6c993496562371ea678",
+      "id": "aime24_correct_3000",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/aime24_correct_3000/weights/iter_0000187",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7",
+      "remote_manifest_relative": "handoff/checkpoints/aime24_correct_3000.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2f2b580a2f52b1b7/outputs/training/aime24_correct_3000/weights/iter_0000187",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2f2b580a2f52b1b7/handoff/checkpoints/aime24_correct_3000.json",
+      "variant": "aime24_correct_3000"
+    },
+    {
+      "checkpoint_identity": "8f489fe77a21bc52e7798b57b7ee678cda54e46f574926c0680e8196d960b94a",
+      "id": "aime24_incorrect_3000",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/aime24_incorrect_3000/weights/iter_0000187",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7",
+      "remote_manifest_relative": "handoff/checkpoints/aime24_incorrect_3000.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2f2b580a2f52b1b7/outputs/training/aime24_incorrect_3000/weights/iter_0000187",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2f2b580a2f52b1b7/handoff/checkpoints/aime24_incorrect_3000.json",
+      "variant": "aime24_incorrect_3000"
+    },
+    {
+      "checkpoint_identity": "dbe603ac6ceeab03aa2a8313316341b97609750143054ce4e4cbe8c463a2c045",
+      "id": "aime25_correct_3000",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/aime25_correct_3000/weights/iter_0000187",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7",
+      "remote_manifest_relative": "handoff/checkpoints/aime25_correct_3000.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2f2b580a2f52b1b7/outputs/training/aime25_correct_3000/weights/iter_0000187",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2f2b580a2f52b1b7/handoff/checkpoints/aime25_correct_3000.json",
+      "variant": "aime25_correct_3000"
+    },
+    {
+      "checkpoint_identity": "1fed53852d7f582b76e78c921a05d748194e71f92e4cc0d2d532a4e58ae892ae",
+      "id": "aime25_incorrect_3000",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/aime25_incorrect_3000/weights/iter_0000187",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7",
+      "remote_manifest_relative": "handoff/checkpoints/aime25_incorrect_3000.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2f2b580a2f52b1b7/outputs/training/aime25_incorrect_3000/weights/iter_0000187",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-nous-aime-mixed-outcome-sft/v1/2f2b580a2f52b1b7/handoff/checkpoints/aime25_incorrect_3000.json",
+      "variant": "aime25_incorrect_3000"
+    }
+  ]
+}

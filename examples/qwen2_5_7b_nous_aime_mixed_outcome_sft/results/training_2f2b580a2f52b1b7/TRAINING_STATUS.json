@@ -1,0 +1,40 @@
+{
+  "artifact_schema_version": 1,
+  "base_checkpoint_reused": 1,
+  "checkpoint_identities": {
+    "aime24_correct_3000": "36d4afb603a5b3da1ec2de9f4ec926fba27fe0d74094c6c993496562371ea678",
+    "aime24_incorrect_3000": "8f489fe77a21bc52e7798b57b7ee678cda54e46f574926c0680e8196d960b94a",
+    "aime25_correct_3000": "dbe603ac6ceeab03aa2a8313316341b97609750143054ce4e4cbe8c463a2c045",
+    "aime25_incorrect_3000": "1fed53852d7f582b76e78c921a05d748194e71f92e4cc0d2d532a4e58ae892ae",
+    "base_qwen2_5_7b": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f"
+  },
+  "comparison_checkpoint_count": 5,
+  "contract_hash": "2f2b580a2f52b1b7",
+  "final_iterations": {
+    "aime24_correct_3000": 187,
+    "aime24_incorrect_3000": 187,
+    "aime25_correct_3000": 187,
+    "aime25_incorrect_3000": 187
+  },
+  "finalized_at": "2026-08-16T20:34:07.767375+00:00",
+  "full_parameter_sft": true,
+  "repo_commit": "9121068e1e3fe28e9cfe4bc7ec5bd1f5b5380f08",
+  "required_evidence_sha256": {
+    "data/schedule_audit.json": "c9f5bf90cc32b2c7e2b1b4a0c24b6914d111ad9d222c2ec5b745743235d2d742",
+    "data/selection_and_tokenization_stats.json": "e7d2a08f301bb4651785b1424632d33437e3960c9d3fab5885e52358d765755b",
+    "data/source_artifacts.json": "053624596b6eb7b334c7fd680d27f10277659728f269aa489614775dc84a8a5b",
+    "data/tokenizer_control_inventory.json": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85",
+    "manifests/training_chain.json": "1048a1c01567632fc5987451e5af2194fd55b77e1c9ecc6b3cdf2d34c8fa6693",
+    "outputs/canaries/aime24_correct_3000/evidence/after_runtime_token_audit.json": "af778c43e14cc09253efa5801bf62aefbb1fbeaede6b933eff52392fd8ebb06b",
+    "outputs/canaries/aime24_correct_3000/evidence/before_runtime_token_audit.json": "f1b848327a624f52351976c2b3c9729d431abe64e611f98562ecd20d0311a249",
+    "outputs/canaries/aime24_incorrect_3000/evidence/after_runtime_token_audit.json": "7c1a18acf810ca63f79451369d5d6e6465ffcf5b580a5b49991fb7a30351c429",
+    "outputs/canaries/aime24_incorrect_3000/evidence/before_runtime_token_audit.json": "b415bd312ea19c3bac5f974bd710f27671343de0297fc90a1b9f95f4e0cdf395",
+    "outputs/canaries/aime25_correct_3000/evidence/after_runtime_token_audit.json": "a73b6ebfe89be575815aee534c9cad5a04f8838e7e9f6e2aef3aa0761418974e",
+    "outputs/canaries/aime25_correct_3000/evidence/before_runtime_token_audit.json": "705525d1f58224b83c46308ebeb284f6d51c48de856169ebe4bebdd059329d8f",
+    "outputs/canaries/aime25_incorrect_3000/evidence/after_runtime_token_audit.json": "850cd48fb22afc8fd08e743df64d03c1f7044c53effe8ac6003134643abd981a",
+    "outputs/canaries/aime25_incorrect_3000/evidence/before_runtime_token_audit.json": "cbf6a4d03495a75b472de36b2a4cb4104453d3544393fcedce58afe523a913e2"
+  },
+  "trained_checkpoints": 4,
+  "training_datasets_transferred": false,
+  "transfer_checkpoint_count": 4
+}

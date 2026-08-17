@@ -1,0 +1,79 @@
+{
+  "artifact_schema_version": 1,
+  "contract_hash": "2f2b580a2f52b1b7",
+  "expected_git_commit": "9121068e1e3fe28e9cfe4bc7ec5bd1f5b5380f08",
+  "jobs_in_dependency_order": [
+    {
+      "dependency": "",
+      "job_id": "233116",
+      "name": "prepare_data",
+      "script": "01_prepare_data.sbatch",
+      "variant": ""
+    },
+    {
+      "dependency": "afterok:233116",
+      "job_id": "233117",
+      "name": "canary_aime24_correct_3000",
+      "script": "02_canary.sbatch",
+      "variant": "aime24_correct_3000"
+    },
+    {
+      "dependency": "afterok:233117",
+      "job_id": "233118",
+      "name": "canary_aime24_incorrect_3000",
+      "script": "02_canary.sbatch",
+      "variant": "aime24_incorrect_3000"
+    },
+    {
+      "dependency": "afterok:233118",
+      "job_id": "233119",
+      "name": "canary_aime25_correct_3000",
+      "script": "02_canary.sbatch",
+      "variant": "aime25_correct_3000"
+    },
+    {
+      "dependency": "afterok:233119",
+      "job_id": "233120",
+      "name": "canary_aime25_incorrect_3000",
+      "script": "02_canary.sbatch",
+      "variant": "aime25_incorrect_3000"
+    },
+    {
+      "dependency": "afterok:233120",
+      "job_id": "233121",
+      "name": "train_aime24_correct_3000",
+      "script": "03_train.sbatch",
+      "variant": "aime24_correct_3000"
+    },
+    {
+      "dependency": "afterok:233121",
+      "job_id": "233122",
+      "name": "train_aime24_incorrect_3000",
+      "script": "03_train.sbatch",
+      "variant": "aime24_incorrect_3000"
+    },
+    {
+      "dependency": "afterok:233122",
+      "job_id": "233123",
+      "name": "train_aime25_correct_3000",
+      "script": "03_train.sbatch",
+      "variant": "aime25_correct_3000"
+    },
+    {
+      "dependency": "afterok:233123",
+      "job_id": "233124",
+      "name": "train_aime25_incorrect_3000",
+      "script": "03_train.sbatch",
+      "variant": "aime25_incorrect_3000"
+    },
+    {
+      "dependency": "afterok:233124",
+      "job_id": "233125",
+      "name": "finalize_handoff",
+      "script": "05_finalize.sbatch",
+      "variant": ""
+    }
+  ],
+  "mode": "submitted",
+  "recorded_at": "2026-08-16T07:02:20.977219+00:00"
+}

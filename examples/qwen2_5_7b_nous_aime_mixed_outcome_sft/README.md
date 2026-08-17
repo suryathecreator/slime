@@ -137,6 +137,13 @@ independently from base with a fresh optimizer and cosine schedule; it does not
 continue the one-epoch checkpoint. The original one-epoch contract and results
 remain immutable.
 
+The completed four-epoch training record is published under
+[`results/training_2f2b580a2f52b1b7`](results/training_2f2b580a2f52b1b7). It
+contains all 188 loss and gradient-norm observations for every variant,
+checkpoint identities, selection and schedule audits, and the finalized handoff
+metadata. Large model, optimizer, dataset, and canary payloads remain excluded
+from Git.
+
 ```bash
 bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/submit_training_only.sh --dry-run --four-epoch
 bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/submit_training_only.sh --submit --four-epoch
