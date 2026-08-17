@@ -1,0 +1,180 @@
+{
+  "array_jobs": {
+    "aime24_correct_3000": "38591794",
+    "aime24_incorrect_3000": "38591796",
+    "aime25_correct_3000": "38591798",
+    "aime25_incorrect_3000": "38591800"
+  },
+  "artifact_schema_version": 1,
+  "audit_job": "38591802",
+  "canary_job": "38591792",
+  "contract_id": "2f2b580a2f52b1b7",
+  "contract_sha256": "f49e6b6337ed2b2186b0412cd874583e79d96d89c8b80a91b13d37f0a6ac8b92",
+  "dependency_edges": [
+    {
+      "afterok": [
+        "38591791"
+      ],
+      "job": "38591792",
+      "stage": "canary"
+    },
+    {
+      "afterok": [
+        "38591791"
+      ],
+      "job": "38591793",
+      "stage": "reuse",
+      "target": "base_qwen2_5_7b"
+    },
+    {
+      "afterok": [
+        "38591792"
+      ],
+      "job": "38591794",
+      "stage": "generation",
+      "target": "aime24_correct_3000"
+    },
+    {
+      "afterok": [
+        "38591794"
+      ],
+      "job": "38591795",
+      "stage": "finalization",
+      "target": "aime24_correct_3000"
+    },
+    {
+      "afterok": [
+        "38591792"
+      ],
+      "job": "38591796",
+      "stage": "generation",
+      "target": "aime24_incorrect_3000"
+    },
+    {
+      "afterok": [
+        "38591796"
+      ],
+      "job": "38591797",
+      "stage": "finalization",
+      "target": "aime24_incorrect_3000"
+    },
+    {
+      "afterok": [
+        "38591792"
+      ],
+      "job": "38591798",
+      "stage": "generation",
+      "target": "aime25_correct_3000"
+    },
+    {
+      "afterok": [
+        "38591798"
+      ],
+      "job": "38591799",
+      "stage": "finalization",
+      "target": "aime25_correct_3000"
+    },
+    {
+      "afterok": [
+        "38591792"
+      ],
+      "job": "38591800",
+      "stage": "generation",
+      "target": "aime25_incorrect_3000"
+    },
+    {
+      "afterok": [
+        "38591800"
+      ],
+      "job": "38591801",
+      "stage": "finalization",
+      "target": "aime25_incorrect_3000"
+    },
+    {
+      "afterok": [
+        "38591795",
+        "38591797",
+        "38591799",
+        "38591801",
+        "38591793"
+      ],
+      "job": "38591802",
+      "stage": "final_audit"
+    }
+  ],
+  "draws_per_prompt": 16,
+  "evaluator_git_commit": "c149c3bcfdf5e0d2ad57e5c2f76efd96b1b0f872",
+  "finalizer_jobs": {
+    "aime24_correct_3000": "38591795",
+    "aime24_incorrect_3000": "38591797",
+    "aime25_correct_3000": "38591799",
+    "aime25_incorrect_3000": "38591801"
+  },
+  "generated_completion_count": 3840,
+  "generated_targets": [
+    "aime24_correct_3000",
+    "aime24_incorrect_3000",
+    "aime25_correct_3000",
+    "aime25_incorrect_3000"
+  ],
+  "generation_count": 4800,
+  "log_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7/outputs/eval/aime_mixed_outcome_sampled_v1/_control/slurm_logs",
+  "output_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7/outputs/eval/aime_mixed_outcome_sampled_v1",
+  "preflight_job": "38591791",
+  "resources": {
+    "generation": {
+      "array": "0-15",
+      "cpus": 8,
+      "gpus": "h200:1",
+      "memory": "96G",
+      "time": "02:00:00"
+    },
+    "reuse": {
+      "cpus": 8,
+      "gpus": 0,
+      "memory": "32G",
+      "time": "00:30:00"
+    },
+    "sampling": {
+      "n": 1,
+      "temperature": 0.7,
+      "top_k": -1,
+      "top_p": 0.8
+    }
+  },
+  "reuse": {
+    "job": "38591793",
+    "provenance": {
+      "artifact_schema_version": 1,
+      "base_checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+      "destination_contract_id": "2f2b580a2f52b1b7",
+      "evaluation_contract_sha256": "f49e6b6337ed2b2186b0412cd874583e79d96d89c8b80a91b13d37f0a6ac8b92",
+      "record_count": 960,
+      "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+      "source": {
+        "contract_id": "2d556f01dbd853a1",
+        "experiment_root": "checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2d556f01dbd853a1",
+        "result_root": "examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/results/aime_mixed_outcome_sampled_v1"
+      },
+      "source_artifacts": {
+        "final_audit_sha256": "4a1e5eef6979e3e84f9eb8ba84ccef5f83052414db6004a56770857078b02989",
+        "scores_sha256": "4e5574ff922a898fd980347aed6eba2479c95f010cb0137c6ba91dd686bfb350",
+        "summary_sha256": "c3045004010bbbbcaeb850c246c82075c687eb3ef45310f466f32e839d424495"
+      },
+      "target": "base_qwen2_5_7b"
+    }
+  },
+  "reused_completion_count": 960,
+  "reused_targets": [
+    "base_qwen2_5_7b"
+  ],
+  "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+  "submitted_at": "2026-08-17T08:15:34.028511+00:00",
+  "targets": [
+    "base_qwen2_5_7b",
+    "aime24_correct_3000",
+    "aime24_incorrect_3000",
+    "aime25_correct_3000",
+    "aime25_incorrect_3000"
+  ]
+}
