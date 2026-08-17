@@ -24,18 +24,20 @@ if [[ "${PROFILE}" == "--four-epoch" ]]; then
   EVAL_EXPERIMENT_ROOT="${EVAL_EXPERIMENT_ROOT:-${REPO_ROOT}/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7}"
   BASE_SOURCE_EXPERIMENT_ROOT="${REPO_ROOT}/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2d556f01dbd853a1"
   BASE_SOURCE_RESULT_ROOT="${PACKAGE}/results/aime_mixed_outcome_sampled_v1"
+  GATE_EXPORT=",AIME_RUNTIME_ALLOWED_DESCENDANT_PATH=examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submission_metadata_4epoch.json"
   GENERATED_TARGETS=("${TARGETS[@]:1}")
   JOB_PREFIX=q25n4
 else
   EVAL_EXPERIMENT_ROOT="${EVAL_EXPERIMENT_ROOT:-${REPO_ROOT}/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2d556f01dbd853a1}"
   GENERATED_TARGETS=("${TARGETS[@]}")
   JOB_PREFIX=q25n
+  GATE_EXPORT=""
 fi
 COMMON=(
   --account=raivn-ckpt --partition=ckpt-all --qos=ckpt --requeue --chdir="${REPO_ROOT}"
   --mail-user=suryadv@cs.washington.edu --mail-type=END,FAIL
 )
-EXPORT_COMMON="ALL,REPO_ROOT=${REPO_ROOT},EVAL_EXPERIMENT_ROOT=${EVAL_EXPERIMENT_ROOT},HF_HOME=/gscratch/scrubbed/suryadv/hf_cache,HF_DATASETS_CACHE=/gscratch/scrubbed/suryadv/hf_cache/datasets,TRANSFORMERS_CACHE=/gscratch/scrubbed/suryadv/hf_cache/transformers,SCRUBBED_CACHE_ROOT=/gscratch/scrubbed/suryadv/cache/q25-nous-aime-eval,AIME_EXPECTED_GIT_COMMIT=${SUBMIT_COMMIT},PYTHONDONTWRITEBYTECODE=1"
+EXPORT_COMMON="ALL,REPO_ROOT=${REPO_ROOT},EVAL_EXPERIMENT_ROOT=${EVAL_EXPERIMENT_ROOT},HF_HOME=/gscratch/scrubbed/suryadv/hf_cache,HF_DATASETS_CACHE=/gscratch/scrubbed/suryadv/hf_cache/datasets,TRANSFORMERS_CACHE=/gscratch/scrubbed/suryadv/hf_cache/transformers,SCRUBBED_CACHE_ROOT=/gscratch/scrubbed/suryadv/cache/q25-nous-aime-eval,AIME_EXPECTED_GIT_COMMIT=${SUBMIT_COMMIT},PYTHONDONTWRITEBYTECODE=1${GATE_EXPORT}"
 LOG_DIR="${EVAL_EXPERIMENT_ROOT}/outputs/eval/aime_mixed_outcome_sampled_v1/_control/slurm_logs"
 mkdir -p "${LOG_DIR}"
 

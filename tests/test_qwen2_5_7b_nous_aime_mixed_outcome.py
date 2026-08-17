@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import random
+import subprocess
 from collections import Counter
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from examples.qwen2_5_7b_nous_aime_mixed_outcome_sft.finalize import (
     checkpoint_path,
     parse_metrics,
 )
+from examples.qwen2_5_7b_aime_generalization_incorrect_sft.runtime_repo_gate import validate_revision
 
 NUM_GPUS = 0
 ROOT = Path(__file__).resolve().parents[1]
@@ -208,6 +210,31 @@ def test_shared_runner_interfaces_preserve_old_default() -> None:
     assert "SFT_MANIFEST_FAMILY:-aime_generalization" in train
     assert "SFT_CANARY_VARIANT" in canary
     assert "nous_aime_mixed_outcome" in manifest
+
+
+def test_runtime_gate_allows_only_the_published_submission_metadata(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "test"], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "config", "user.email", "test@example.com"], check=True)
+    (tmp_path / "evaluator.py").write_text("version = 1\n")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "evaluator.py"], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "commit", "-qm", "evaluator"], check=True)
+    expected = subprocess.check_output(["git", "-C", str(tmp_path), "rev-parse", "HEAD"], text=True).strip()
+
+    metadata = "eval/submission_metadata_4epoch.json"
+    (tmp_path / "eval").mkdir()
+    (tmp_path / metadata).write_text("{}\n")
+    subprocess.run(["git", "-C", str(tmp_path), "add", metadata], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "commit", "-qm", "metadata"], check=True)
+    assert validate_revision(tmp_path, expected, metadata) != expected
+    with pytest.raises(RuntimeError, match="revision changed after submission"):
+        validate_revision(tmp_path, expected)
+
+    (tmp_path / "evaluator.py").write_text("version = 2\n")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "evaluator.py"], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "commit", "-qm", "forbidden"], check=True)
+    with pytest.raises(RuntimeError, match="outside the allowed"):
+        validate_revision(tmp_path, expected, metadata)
 
 
 def test_submission_is_ten_serial_jobs_and_handoff_excludes_training_data() -> None:

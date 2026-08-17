@@ -163,6 +163,11 @@ checkpoint identity, prompts, datasets, scorer, coordinates, summary, and
 artifact hashes match exactly. Only the four trained checkpoints run new
 inference, producing 3,840 new completions and a 4,800-score final audit:
 
+The runtime revision gate remains exact for evaluator code. After submission,
+it permits only a clean descendant commit whose sole changed path is
+`eval/submission_metadata_4epoch.json`, allowing job IDs to be published
+without invalidating delayed shards.
+
 ```bash
 bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --test-only-shapes --four-epoch
 bash examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/eval/submit_hyak.sh --submit --four-epoch
