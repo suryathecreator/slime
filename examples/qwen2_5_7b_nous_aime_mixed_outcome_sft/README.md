@@ -245,3 +245,20 @@ was 6.25% for base, 9.27% for AIME 2024 correct, 4.69% for AIME 2024 incorrect,
 cap-hit rates were 98.65--99.90%, so the low 6.35--23.33% valid-box rates and
 the contracted policy of scoring every cap hit are material interpretation
 caveats.
+
+### Four-epoch evaluation results
+
+The completed four-epoch evaluation is published separately under
+[`results/aime_mixed_outcome_sampled_4epoch_v1`](results/aime_mixed_outcome_sampled_4epoch_v1).
+It contains the immutable 4,800-score final audit, all per-target summaries,
+all compact per-completion score records, and explicit provenance for the 960
+reused base scores. The four trained targets produced 3,840 new completions;
+every completion, including every cap hit, was scored.
+
+All-60 accuracy was 27.19% for AIME 2024 correct, 17.92% for AIME 2024
+incorrect, 26.56% for AIME 2025 correct, and 16.98% for AIME 2025 incorrect,
+compared with the exactly reused 6.25% base result. Same-year held-out accuracy
+was 22.81%, 24.06%, 23.75%, and 25.62%, respectively. The correct-trained
+models reached 71.88% and 60.62% on their held-in sets, while the corresponding
+incorrect-trained models reached 8.75% and 2.50%. Trained-model cap-hit rates
+were 5.42--22.81% and valid-box rates were 77.60--88.75% over all 60 prompts.

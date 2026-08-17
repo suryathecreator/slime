@@ -1,0 +1,19 @@
+{
+  "artifact_schema_version": 1,
+  "base_checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+  "destination_contract_id": "2f2b580a2f52b1b7",
+  "evaluation_contract_sha256": "f49e6b6337ed2b2186b0412cd874583e79d96d89c8b80a91b13d37f0a6ac8b92",
+  "record_count": 960,
+  "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+  "source": {
+    "contract_id": "2d556f01dbd853a1",
+    "experiment_root": "checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2d556f01dbd853a1",
+    "result_root": "examples/qwen2_5_7b_nous_aime_mixed_outcome_sft/results/aime_mixed_outcome_sampled_v1"
+  },
+  "source_artifacts": {
+    "final_audit_sha256": "4a1e5eef6979e3e84f9eb8ba84ccef5f83052414db6004a56770857078b02989",
+    "scores_sha256": "4e5574ff922a898fd980347aed6eba2479c95f010cb0137c6ba91dd686bfb350",
+    "summary_sha256": "c3045004010bbbbcaeb850c246c82075c687eb3ef45310f466f32e839d424495"
+  },
+  "target": "base_qwen2_5_7b"
+}
