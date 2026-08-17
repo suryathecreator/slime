@@ -1,114 +1,114 @@
 {
   "array_jobs": {
-    "aime24_correct_3000": "38591794",
-    "aime24_incorrect_3000": "38591796",
-    "aime25_correct_3000": "38591798",
-    "aime25_incorrect_3000": "38591800"
+    "aime24_correct_3000": "38591832",
+    "aime24_incorrect_3000": "38591834",
+    "aime25_correct_3000": "38591836",
+    "aime25_incorrect_3000": "38591838"
   },
   "artifact_schema_version": 1,
-  "audit_job": "38591802",
-  "canary_job": "38591792",
+  "audit_job": "38591840",
+  "canary_job": "38591830",
   "contract_id": "2f2b580a2f52b1b7",
   "contract_sha256": "f49e6b6337ed2b2186b0412cd874583e79d96d89c8b80a91b13d37f0a6ac8b92",
   "dependency_edges": [
     {
       "afterok": [
-        "38591791"
+        "38591829"
       ],
-      "job": "38591792",
+      "job": "38591830",
       "stage": "canary"
     },
     {
       "afterok": [
-        "38591791"
+        "38591829"
       ],
-      "job": "38591793",
+      "job": "38591831",
       "stage": "reuse",
       "target": "base_qwen2_5_7b"
     },
     {
       "afterok": [
-        "38591792"
+        "38591830"
       ],
-      "job": "38591794",
+      "job": "38591832",
       "stage": "generation",
       "target": "aime24_correct_3000"
     },
     {
       "afterok": [
-        "38591794"
+        "38591832"
       ],
-      "job": "38591795",
+      "job": "38591833",
       "stage": "finalization",
       "target": "aime24_correct_3000"
     },
     {
       "afterok": [
-        "38591792"
+        "38591830"
       ],
-      "job": "38591796",
+      "job": "38591834",
       "stage": "generation",
       "target": "aime24_incorrect_3000"
     },
     {
       "afterok": [
-        "38591796"
+        "38591834"
       ],
-      "job": "38591797",
+      "job": "38591835",
       "stage": "finalization",
       "target": "aime24_incorrect_3000"
     },
     {
       "afterok": [
-        "38591792"
+        "38591830"
       ],
-      "job": "38591798",
+      "job": "38591836",
       "stage": "generation",
       "target": "aime25_correct_3000"
     },
     {
       "afterok": [
-        "38591798"
+        "38591836"
       ],
-      "job": "38591799",
+      "job": "38591837",
       "stage": "finalization",
       "target": "aime25_correct_3000"
     },
     {
       "afterok": [
-        "38591792"
+        "38591830"
       ],
-      "job": "38591800",
+      "job": "38591838",
       "stage": "generation",
       "target": "aime25_incorrect_3000"
     },
     {
       "afterok": [
-        "38591800"
+        "38591838"
       ],
-      "job": "38591801",
+      "job": "38591839",
       "stage": "finalization",
       "target": "aime25_incorrect_3000"
     },
     {
       "afterok": [
-        "38591795",
-        "38591797",
-        "38591799",
-        "38591801",
-        "38591793"
+        "38591833",
+        "38591835",
+        "38591837",
+        "38591839",
+        "38591831"
       ],
-      "job": "38591802",
+      "job": "38591840",
       "stage": "final_audit"
     }
   ],
   "draws_per_prompt": 16,
-  "evaluator_git_commit": "c149c3bcfdf5e0d2ad57e5c2f76efd96b1b0f872",
+  "evaluator_git_commit": "8781279cfb15be73f2cde6e53404df924a91fe4e",
   "finalizer_jobs": {
-    "aime24_correct_3000": "38591795",
-    "aime24_incorrect_3000": "38591797",
-    "aime25_correct_3000": "38591799",
-    "aime25_incorrect_3000": "38591801"
+    "aime24_correct_3000": "38591833",
+    "aime24_incorrect_3000": "38591835",
+    "aime25_correct_3000": "38591837",
+    "aime25_incorrect_3000": "38591839"
   },
   "generated_completion_count": 3840,
   "generated_targets": [
@@ -120,7 +120,7 @@
   "generation_count": 4800,
   "log_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7/outputs/eval/aime_mixed_outcome_sampled_v1/_control/slurm_logs",
   "output_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_nous_aime_mixed_outcome_sft/v1/2f2b580a2f52b1b7/outputs/eval/aime_mixed_outcome_sampled_v1",
-  "preflight_job": "38591791",
+  "preflight_job": "38591829",
   "resources": {
     "generation": {
       "array": "0-15",
@@ -143,7 +143,7 @@
     }
   },
   "reuse": {
-    "job": "38591793",
+    "job": "38591831",
     "provenance": {
       "artifact_schema_version": 1,
       "base_checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
@@ -169,7 +169,7 @@
     "base_qwen2_5_7b"
   ],
   "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
-  "submitted_at": "2026-08-17T08:15:34.028511+00:00",
+  "submitted_at": "2026-08-17T08:20:27.660277+00:00",
   "targets": [
     "base_qwen2_5_7b",
     "aime24_correct_3000",
