@@ -1,0 +1,54 @@
+{
+  "primary": {
+    "dataset": "gneubig/aime-1983-2024",
+    "file": "aime_1983_2024.csv",
+    "revision": "5d610df981dec508dd93d0a16333a029ac1739d8",
+    "sha256": "959358884aa93b30b8d85ecb80fd8b577014498c08f7569faf88f675cc3fb9f4",
+    "url": "https://huggingface.co/datasets/gneubig/aime-1983-2024/resolve/5d610df981dec508dd93d0a16333a029ac1739d8/aime_1983_2024.csv"
+  },
+  "supplement": {
+    "description": "Exact English MAA problem text exposed by LIVE by Po-Shen Loh, which states that it uses the problems with official legal permission.",
+    "pages": {
+      "2010II": {
+        "file": "live_2010II.html",
+        "sha256": "73b17de38c74b13aab4f03f40277a90293dca2d92f48ab5216c494e5f61ef189",
+        "url": "https://live.poshenloh.com/past-contests/aime/2010II"
+      },
+      "2011I": {
+        "file": "live_2011I.html",
+        "sha256": "287cc2eeb5626c8bf49ee6373f10285c684f59874a05aae8da76ab151518b1a9",
+        "url": "https://live.poshenloh.com/past-contests/aime/2011I"
+      },
+      "2012I": {
+        "file": "live_2012I.html",
+        "sha256": "bce9f21b43ca6f117788b7f97d6e3c70b5c6c7e114e5f7473b53eb3d6e6854b1",
+        "url": "https://live.poshenloh.com/past-contests/aime/2012I"
+      },
+      "2012II": {
+        "file": "live_2012II.html",
+        "sha256": "1f1088ab5404c3b7bec3d7025b0a3765cc872bf9781384eaa735569d4d28bb2b",
+        "url": "https://live.poshenloh.com/past-contests/aime/2012II"
+      },
+      "2013I": {
+        "file": "live_2013I.html",
+        "sha256": "f29503f53a27b2c49832cff99739c19bc473a812a1e5b934d5827c50742e58fd",
+        "url": "https://live.poshenloh.com/past-contests/aime/2013I"
+      },
+      "2023I": {
+        "file": "live_2023I.html",
+        "sha256": "d7396c727091aa4c3dd9bb0987280b7594ff963df95179cc724e27c03340d407",
+        "url": "https://live.poshenloh.com/past-contests/aime/2023I"
+      },
+      "2024I": {
+        "file": "live_2024I.html",
+        "sha256": "7bfb27b4263a1938764f3645b2640aa91374e88aee38b4a3fabc7642c28e0950",
+        "url": "https://live.poshenloh.com/past-contests/aime/2024I"
+      },
+      "2024II": {
+        "file": "live_2024II.html",
+        "sha256": "5f46e522764024a755572a9d8cd328d33821c8ad5d5dcb3ba204622c76dbf0d8",
+        "url": "https://live.poshenloh.com/past-contests/aime/2024II"
+      }
+    }
+  }
+}

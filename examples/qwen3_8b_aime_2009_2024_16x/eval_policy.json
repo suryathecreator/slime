@@ -1,0 +1,99 @@
+{
+  "artifact_schema_version": "qwen3_aime_completion_v1",
+  "context": {
+    "budget_rule": "32768 - rendered_prompt_token_count",
+    "max_model_len": 32768,
+    "max_new_tokens": 32768,
+    "safety_margin_tokens": 0
+  },
+  "corpus": {
+    "file": "examples/qwen3_8b_aime_2009_2024_16x/aime_2009_2024.jsonl",
+    "problem_count": 480,
+    "sha256": "44bed75d19619c4f847173ebe4814b8610b713de3b5a452ab0e6f28a90011749",
+    "years": [
+      2024,
+      2023,
+      2022,
+      2021,
+      2020,
+      2019,
+      2018,
+      2017,
+      2016,
+      2015,
+      2014,
+      2013,
+      2012,
+      2011,
+      2010,
+      2009
+    ]
+  },
+  "generation": {
+    "completions_per_problem": 16,
+    "enable_thinking": true,
+    "ignore_eos": false,
+    "min_p": 0.0,
+    "response_excludes_stop_control_tokens": true,
+    "seed_base": 1234,
+    "seed_formula": "1234 + 480 * draw_index + eval_index",
+    "temperature": 0.6,
+    "top_k": 20,
+    "top_p": 0.95
+  },
+  "huggingface_publication": {
+    "license": "other",
+    "private": false,
+    "repo_id": "suryadv/qwen3-8b-aime-2009-2024-16x",
+    "rows": 7680,
+    "shards": 16
+  },
+  "model": {
+    "config_sha256": "f7c4eadfbbf522470667b797a3c89be2524832d2d599797248dc304fff447c30",
+    "id": "Qwen/Qwen3-8B",
+    "local_dir": "checkpoints/models/Qwen3-8B/b968826d9c46dd6066d109eabc6255188de91218",
+    "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+    "variant": "post-trained",
+    "weight_dtype": "bfloat16"
+  },
+  "prompt": {
+    "add_generation_prompt": true,
+    "messages": "one user message; no system message",
+    "template": "Please reason step by step, and put your final answer within \\boxed{}.\n\nProblem:\n{problem}"
+  },
+  "runtime": {
+    "python": "3.11.5",
+    "transformers": "4.57.6",
+    "venv": "checkpoints/runtime/qwen-math500-v1/venv",
+    "vllm": "0.10.2"
+  },
+  "scorer": {
+    "accepted_answer_policy": "correct iff the unchanged scorer matches any officially accepted integer",
+    "file": "examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/aime_scorer.py",
+    "sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+    "special_case": {
+      "2022-II-8": [80, 81]
+    },
+    "version": "aime_last_boxed_integer_scorer_v1"
+  },
+  "sharding": {
+    "draw_count": 16,
+    "gpu": "h200:1",
+    "layout": "draw-major; four contiguous 120-problem shards per draw",
+    "problem_shards": 4,
+    "task_count": 64
+  },
+  "stop": {
+    "accepted_token_ids": [151643, 151645],
+    "accepted_tokens": ["<|endoftext|>", "<|im_end|>"],
+    "include_stop_token_in_response": false
+  },
+  "vllm_engine": {
+    "enable_chunked_prefill": true,
+    "enable_prefix_caching": true,
+    "gpu_memory_utilization": 0.92,
+    "max_num_batched_tokens": 32768,
+    "max_num_seqs": 8,
+    "tensor_parallel_size": 1
+  }
+}
