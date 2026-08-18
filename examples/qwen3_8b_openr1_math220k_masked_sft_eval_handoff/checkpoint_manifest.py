@@ -182,7 +182,14 @@ def parse_args() -> argparse.Namespace:
     record.add_argument("--output", required=True)
     record.add_argument(
         "--family",
-        choices=["shared", "40k", "2k", "aime_generalization", "nous_aime_mixed_outcome"],
+        choices=[
+            "shared",
+            "40k",
+            "2k",
+            "aime_generalization",
+            "nous_aime_mixed_outcome",
+            "aime_2009_2024_split",
+        ],
         required=True,
     )
     record.add_argument("--variant", required=True)

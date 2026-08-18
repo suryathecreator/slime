@@ -1,0 +1,153 @@
+{
+  "artifact_schema_version": 1,
+  "base_model": {
+    "checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+    "hf_repo": "Qwen/Qwen2.5-7B",
+    "revision": "d149729398750b98c0af14eb82c78cfe92750796",
+    "tokenizer_files": {
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "c91efca15ceff6e9ee9424db58a6f59cd41294e550a86cbd07e3c1fb500b34f9"
+    }
+  },
+  "evaluation_handoff": {
+    "comparisons": [
+      "every trained checkpoint and the base on held_in_240",
+      "every trained checkpoint and the base on held_out_240"
+    ],
+    "evaluation_code_location": "Hyak_later",
+    "prompt_policy": "exact transferred prompt as one user message with no system message",
+    "submits_evaluation_jobs": false
+  },
+  "family": "qwen2_5_7b_aime_2009_2024_split_sft_6k",
+  "formatting": {
+    "assistant": "exact response bytes from the pinned source row; no trimming or wrapper insertion",
+    "rendered_training_sequence": "<|im_start|>user\n{source_prompt_verbatim}<|im_end|>\n<|im_start|>assistant\n{source_response_verbatim}<|im_end|>\n",
+    "source_rendered_prompt": "must equal <|im_start|>user\\n + prompt + <|im_end|>\\n<|im_start|>assistant\\n byte-for-byte",
+    "system": null,
+    "training_query": "Please reason step by step, and put your final answer within \\boxed{}.\n\nProblem:\n{problem}",
+    "uses_apply_chat_template": false
+  },
+  "selection": {
+    "balanced_expansion": "For observed N source traces, give each floor(6000/N) physical copies, choose exactly 6000 mod N distinct traces by seeded SHA-256 priority for one extra copy, then deterministically shuffle.",
+    "correct_control": "Within each 240-problem split, let N be all scorer-incorrect traces and K their unique-problem count. Seeded rejection-sample K correct-capable problems with capacity for N distinct correct traces, select one seeded anchor trace per problem, then seed-rank the remaining correct traces and fill to N. This matches N and K but deliberately does not require the same problem-ID set.",
+    "epochs": "The fixed 6000-row expanded dataset is shuffled and presented for exactly three epochs; the 64-wide update schedule consumes 18048 presentations, including 48 deterministic wrap presentations.",
+    "held_in": "Seed-rank all 480 problem IDs by SHA-256 and take the first 240.",
+    "held_out": "The complementary 240 problem IDs.",
+    "length_policy": "No source trace is filtered or truncated by length. The 32896 hard training ceiling is capacity only and is validated to contain every fully rendered pinned source trace.",
+    "realized_source_audit": {
+      "dataset_sha256": {
+        "held_in_correct_6000": "ed863762bba51f31ad914f36ffa7990c25165a0a3cef32785c02c61000b05f49",
+        "held_in_incorrect_6000": "d1ac7379fad85d0e708364a7811c1ae24aa1b353f24aa9da542d38b49c73f981",
+        "held_out_correct_6000": "d7b64d02034b8d1e37dbc10312614295dbfe6c94bbbfb8e87bb158c9c3c9a865",
+        "held_out_incorrect_6000": "1a470f753f9052b8de4fc55eb00d6bc7bbb40368ef583f38e8aa5b114d0fd391"
+      },
+      "eval_sha256": {
+        "held_in": "578110d56c57b8c6d383cca07b1942d89156c2e506bebdca636a6479aec35173",
+        "held_out": "6bafeb3a9592926b84466734f0264d19aef30d9f331e955573e21baf9ad0f89d"
+      },
+      "held_in": {
+        "correct_problem_count": 123,
+        "correct_problem_ids_sha256": "dd7ab210bcf9b80e6944444da2d6489840d9ccdb3323b28af197f244e748cdbf",
+        "correct_rows": 717,
+        "correct_trace_ids_sha256": "0d10be8c2de72c65f6b910de37461c2949303a918adad78310a5d8f5513af13c",
+        "held_problem_ids_sha256": "ca98f07570c90dfb6edf814ba3438cedf14a4053551266c6d4a04730da5a55ed",
+        "incorrect_problem_count": 123,
+        "incorrect_problem_ids_sha256": "926a108427ae459111b3e155d88fcba8f63e5fab16c1be9d7b381adfd8bb3030",
+        "incorrect_rows": 717,
+        "incorrect_trace_ids_sha256": "2740a16ea046cc00a4e948420c671d7a056ca52cc611b2a4a28091c08a10a7b6"
+      },
+      "held_out": {
+        "correct_problem_count": 116,
+        "correct_problem_ids_sha256": "b22e93c1e1e5cde4c2a64117ef47debff8e3673919ebb57f082e92a3e726c689",
+        "correct_rows": 814,
+        "correct_trace_ids_sha256": "a68d4d0ca25a7e4b401f837e022485249ee066a6fb2fb7fcae95137b8f3e4db3",
+        "held_problem_ids_sha256": "248c4f785239e5de9726f3d227815407f8835769f53c0d5d33a7b6564d585bde",
+        "incorrect_problem_count": 116,
+        "incorrect_problem_ids_sha256": "e8b90596814dcdc1bdc4d94aa4c7277e7f96403842bc8b10746dbdceb0742509",
+        "incorrect_rows": 814,
+        "incorrect_trace_ids_sha256": "8003b87ffdff201e6fdb4d6f9609c0894d0bb778d61a3720f345adfc1b3d0567"
+      },
+      "maximum_fully_rendered_tokens": 32774
+    },
+    "seed": 42,
+    "training_rows_per_variant": 6000
+  },
+  "source_dataset": {
+    "files": {
+      "draw-00.parquet": "5da6ef58914d22c60659e7e21266f4530021993014d8af6cebe1a640d137c787",
+      "draw-01.parquet": "f9d42707698f8bbfac4f83d73625c997eb9dbdca7cebec6e76e0ea8f263e3033",
+      "draw-02.parquet": "2772d6ad2797086750aaa0cf4568c61451b6a7b5b37b87645c661a7381686c11",
+      "draw-03.parquet": "92df8920678ce9f0557cd657fd2645bb19ad525d50eb4ecaa6ed1c675ca65330",
+      "draw-04.parquet": "5313e32b22364e2c45f173316e7ad57dee08c78cd690f3ca22e0971e941f2578",
+      "draw-05.parquet": "6890476dbb83b59586d182d0bbd1ea57f4c691d9ce4dcef68e9d1a9ec613246c",
+      "draw-06.parquet": "846dc518e717cb6f6ab79502d6b0aa3ed9a9ec13428a3bf24692bb1e4c031bec",
+      "draw-07.parquet": "8dcbd7c485f1c1b39828a54f0ac04feed117fcf73e51b629bd4cc271c87f4983",
+      "draw-08.parquet": "1f23749f81f0c09490428325e9e0fc3176eadbeec74ce72b8a58edccef74bd7d",
+      "draw-09.parquet": "ff5d5449104e7a1230bb0684ea19d3bffa6504483256c37d369cf4586eb53e91",
+      "draw-10.parquet": "9e69226d9807d6e8de5605168cd85d2d266a0864873170f6f818fabd9204b219",
+      "draw-11.parquet": "0ac9ea21959040e7325611f82de3d725a1e0676eb28ca89389c16989f863ff14",
+      "draw-12.parquet": "9f3d1f3058ad173ff545f580a2dd4bf2756d9e199f210d138d17ed7652b4db93",
+      "draw-13.parquet": "b0cb320d904478541d04a07d808b8f93063ac868b5de444fed596ab03598721f",
+      "draw-14.parquet": "ef47f1ae570b428ffd007f19f539a8a2b4b69f53c1bda135bcf29db7737200e8",
+      "draw-15.parquet": "7f86ffefed8b661a02503ab54fe89cbb9fc1a6a7cf2c0f488a95d225c399ed67"
+    },
+    "hf_repo": "suryadv/qwen3-8b-aime-2009-2024-16x",
+    "problem_count": 480,
+    "revision": "c34143c92856d9b90fdb9c808c7e66070dcab9a1",
+    "rows": 7680,
+    "rows_per_problem": 16,
+    "stored_correctness": "aime_last_boxed_integer_scorer_v1 from the source publication"
+  },
+  "submission": {
+    "job_count": 10,
+    "maximum_concurrent_gpus": 4,
+    "policy": "strict linear afterok chain: prepare, four canaries, four trainings, finalizer",
+    "runtime_repo_policy": "jobs execute from a detached worktree at the clean pushed code commit; every job validates that exact commit and clean tree",
+    "submits_transfer_jobs": false
+  },
+  "supervision": {
+    "assistant_and_im_end": "weight 1",
+    "no_synthetic_endoftext": true,
+    "prompt": "context only, weight 0",
+    "template_newline_after_im_end": "weight 0"
+  },
+  "training": {
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.95,
+    "adam_epsilon": 1e-8,
+    "bf16": true,
+    "context_parallel_size": 1,
+    "data_parallel_size": 1,
+    "effective_presentations": 18048,
+    "epochs": 3,
+    "final_iteration": 281,
+    "full_parameter_sft": true,
+    "global_batch_size": 64,
+    "gradient_clip_norm": 1.0,
+    "learning_rate": 5e-6,
+    "log_probs_chunk_size": 2048,
+    "lr_decay_style": "cosine",
+    "max_sequence_length": 32896,
+    "max_tokens_per_gpu": 16384,
+    "min_learning_rate": 1e-6,
+    "optimizer": "AdamW",
+    "optimizer_checkpoint_interval_updates": 24,
+    "optimizer_cpu_offload": true,
+    "optimizer_updates": 282,
+    "pipeline_parallel_size": 1,
+    "recompute_loss_function": true,
+    "rollout_batch_size": 64,
+    "tensor_parallel_size": 4,
+    "train_entrypoint": "synchronous train.py",
+    "warmup_fraction": 0.03,
+    "warmup_init": 0.0,
+    "weight_decay": 0.0001,
+    "zero_stage": 0
+  },
+  "variants": [
+    "held_in_correct_6000",
+    "held_in_incorrect_6000",
+    "held_out_correct_6000",
+    "held_out_incorrect_6000"
+  ]
+}
