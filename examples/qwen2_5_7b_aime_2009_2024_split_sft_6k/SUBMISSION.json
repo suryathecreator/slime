@@ -1,0 +1,80 @@
+{
+  "artifact_schema_version": 1,
+  "contract_hash": "22f45a52140b85bc",
+  "execution_worktree": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/22f45a52140b85bc/execution_repo",
+  "expected_git_commit": "a0d22e6c2b114d5caac91e1664041167685c7970",
+  "jobs_in_dependency_order": [
+    {
+      "dependency": "",
+      "job_id": "241799",
+      "name": "prepare_data",
+      "script": "01_prepare_data.sbatch",
+      "variant": ""
+    },
+    {
+      "dependency": "afterok:241799",
+      "job_id": "241800",
+      "name": "canary_held_in_correct_6000",
+      "script": "02_canary.sbatch",
+      "variant": "held_in_correct_6000"
+    },
+    {
+      "dependency": "afterok:241800",
+      "job_id": "241801",
+      "name": "canary_held_in_incorrect_6000",
+      "script": "02_canary.sbatch",
+      "variant": "held_in_incorrect_6000"
+    },
+    {
+      "dependency": "afterok:241801",
+      "job_id": "241802",
+      "name": "canary_held_out_correct_6000",
+      "script": "02_canary.sbatch",
+      "variant": "held_out_correct_6000"
+    },
+    {
+      "dependency": "afterok:241802",
+      "job_id": "241803",
+      "name": "canary_held_out_incorrect_6000",
+      "script": "02_canary.sbatch",
+      "variant": "held_out_incorrect_6000"
+    },
+    {
+      "dependency": "afterok:241803",
+      "job_id": "241804",
+      "name": "train_held_in_correct_6000",
+      "script": "03_train.sbatch",
+      "variant": "held_in_correct_6000"
+    },
+    {
+      "dependency": "afterok:241804",
+      "job_id": "241805",
+      "name": "train_held_in_incorrect_6000",
+      "script": "03_train.sbatch",
+      "variant": "held_in_incorrect_6000"
+    },
+    {
+      "dependency": "afterok:241805",
+      "job_id": "241806",
+      "name": "train_held_out_correct_6000",
+      "script": "03_train.sbatch",
+      "variant": "held_out_correct_6000"
+    },
+    {
+      "dependency": "afterok:241806",
+      "job_id": "241807",
+      "name": "train_held_out_incorrect_6000",
+      "script": "03_train.sbatch",
+      "variant": "held_out_incorrect_6000"
+    },
+    {
+      "dependency": "afterok:241807",
+      "job_id": "241808",
+      "name": "finalize_handoff",
+      "script": "05_finalize.sbatch",
+      "variant": ""
+    }
+  ],
+  "mode": "submitted",
+  "recorded_at": "2026-08-18T07:59:16.037188+00:00"
+}
