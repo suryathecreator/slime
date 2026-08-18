@@ -1,0 +1,17 @@
+{
+  "contract_sha256": "185daff44fc19ac2102b42bf480de11a7651bae7eb6253fff8ea9d030ac58e61",
+  "dependency_chain": {
+    "audit_afterok_generation": "38614118",
+    "canary_afterok_preflight": "38614116",
+    "generation_array_afterok_canary": "38614117",
+    "huggingface_publish_afterok_audit": "38614119",
+    "preflight": "38614115"
+  },
+  "expected_completions": 7680,
+  "expected_h200_tasks": 65,
+  "generation_array": "0-63",
+  "git_branch": "qwen2.5-7b-aime-distribution-generalization",
+  "scripts_git_commit": "cd7228896daf86f8bb2425f694f81afb9c652615",
+  "submitted_at": "2026-08-18T00:20:31.847753+00:00",
+  "target_huggingface_dataset": "suryadv/qwen3-8b-aime-2009-2024-16x"
+}

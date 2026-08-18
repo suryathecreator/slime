@@ -9,9 +9,21 @@
   },
   "expected_completions": 7680,
   "expected_h200_tasks": 65,
+  "failure": {
+    "canary_job": "38613587",
+    "reason": "TorchInductor found a non-executable nvcc on PATH during engine warmup",
+    "state": "FAILED"
+  },
   "generation_array": "0-63",
   "git_branch": "qwen2.5-7b-aime-distribution-generalization",
   "scripts_git_commit": "60954c8d8ca7af41fa95ae67a9c305ba94bbb5b1",
   "submitted_at": "2026-08-17T23:54:24.262034+00:00",
+  "status": "superseded",
+  "superseded_by": "SUBMISSION_ATTEMPT_02.json",
+  "superseded_jobs_canceled": [
+    "38613588",
+    "38613589",
+    "38613590"
+  ],
   "target_huggingface_dataset": "suryadv/qwen3-8b-aime-2009-2024-16x"
 }
