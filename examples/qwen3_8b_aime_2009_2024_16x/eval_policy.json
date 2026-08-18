@@ -62,6 +62,8 @@
     "template": "Please reason step by step, and put your final answer within \\boxed{}.\n\nProblem:\n{problem}"
   },
   "runtime": {
+    "cuda_home": "/sw/cuda/12.8.1",
+    "cuda_toolkit": "12.8.1",
     "python": "3.11.5",
     "transformers": "4.57.6",
     "venv": "checkpoints/runtime/qwen-math500-v1/venv",

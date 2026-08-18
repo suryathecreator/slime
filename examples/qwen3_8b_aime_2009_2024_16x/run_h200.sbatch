@@ -14,6 +14,11 @@ fi
 
 OUTPUT_ROOT="$("$PYTHON_BIN" "$HANDOFF/pipeline.py" path --field output_root)"
 CACHE_ROOT="${QWEN3_AIME_CACHE_ROOT:-/gscratch/scrubbed/suryadv/cache/qwen3-aime-2009-2024-16x}"
+export CUDA_HOME="/sw/cuda/12.8.1"
+export CUDACXX="$CUDA_HOME/bin/nvcc"
+export PATH="$CUDA_HOME/bin:$PATH"
+export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
+export CUDA_CACHE_PATH="$CACHE_ROOT/cuda"
 export XDG_CACHE_HOME="$CACHE_ROOT/xdg"
 export VLLM_CACHE_ROOT="$CACHE_ROOT/vllm"
 export TORCHINDUCTOR_CACHE_DIR="$CACHE_ROOT/torchinductor"
@@ -27,7 +32,12 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
 export PYTHONPATH="$HANDOFF:${PYTHONPATH:-}"
 
 mkdir -p "$OUTPUT_ROOT" "$XDG_CACHE_HOME" "$VLLM_CACHE_ROOT"
-mkdir -p "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR" "$TMPDIR"
+mkdir -p "$CUDA_CACHE_PATH" "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR" "$TMPDIR"
+[[ -x "$CUDACXX" ]] || {
+  echo "Pinned CUDA compiler is missing or not executable: $CUDACXX" >&2
+  exit 2
+}
+"$CUDACXX" --version
 cd "$REPO_ROOT"
 
 child_pid=""

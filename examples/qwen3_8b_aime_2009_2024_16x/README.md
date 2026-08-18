@@ -23,6 +23,9 @@ This handoff produces a training-ready dataset from the official post-trained
   generation tasks, preceded by a one-sample H200 canary. Each completion is
   atomically persisted, so a requeued task resumes without replacing completed
   samples.
+- Runtime: Torch 2.8.0+cu128/vLLM 0.10.2 with the executable CUDA 12.8.1
+  toolchain explicitly pinned at `/sw/cuda/12.8.1`; compilation caches are kept
+  in scrubbed storage rather than relying on home-directory caches.
 
 The exact user message is:
 

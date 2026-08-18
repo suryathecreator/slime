@@ -12,6 +12,7 @@ REPO_ROOT="$(cd "$HANDOFF/../.." && pwd)"
 PYTHON_BIN="$REPO_ROOT/checkpoints/runtime/qwen-math500-v1/venv/bin/python"
 OUTPUT_ROOT="$("$PYTHON_BIN" "$HANDOFF/pipeline.py" path --field output_root)"
 LOG_ROOT="$("$PYTHON_BIN" "$HANDOFF/pipeline.py" path --field log_root)"
+SUBMISSION_OUTPUT="${SUBMISSION_OUTPUT:-$HANDOFF/SUBMISSION.json}"
 mkdir -p "$LOG_ROOT"
 
 "$PYTHON_BIN" "$HANDOFF/pipeline.py" verify >/dev/null
@@ -61,8 +62,8 @@ fi
   git -C "$REPO_ROOT" status --short >&2
   exit 2
 }
-[[ ! -e "$HANDOFF/SUBMISSION.json" ]] || {
-  echo "Submission metadata already exists: $HANDOFF/SUBMISSION.json" >&2
+[[ ! -e "$SUBMISSION_OUTPUT" ]] || {
+  echo "Submission metadata already exists: $SUBMISSION_OUTPUT" >&2
   exit 2
 }
 
@@ -99,6 +100,7 @@ publish_job="$(
   --canary-job "$canary_job" \
   --generation-job "$generation_job" \
   --audit-job "$audit_job" \
-  --publish-job "$publish_job"
+  --publish-job "$publish_job" \
+  --output "$SUBMISSION_OUTPUT"
 
 echo "QWEN3_AIME_SUBMITTED preflight=$preflight_job canary=$canary_job generation=$generation_job audit=$audit_job publish=$publish_job"
