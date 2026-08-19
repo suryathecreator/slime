@@ -1,0 +1,150 @@
+{
+  "array_jobs": {
+    "base_qwen2_5_7b": "38674332",
+    "held_in_correct_6000": "38674334",
+    "held_in_incorrect_6000": "38674336",
+    "held_out_correct_6000": "38674338",
+    "held_out_incorrect_6000": "38674340"
+  },
+  "artifact_schema_version": 1,
+  "audit_job": "38674342",
+  "canary_job": "38674331",
+  "contract_id": "0b22cc069c941ec5",
+  "decoding": {
+    "min_p": 0.0,
+    "n": 1,
+    "temperature": 0.6,
+    "top_k": 20,
+    "top_p": 0.95
+  },
+  "dependency_edges": [
+    {
+      "afterok": [
+        "38674330"
+      ],
+      "job": "38674331",
+      "stage": "canary"
+    },
+    {
+      "afterok": [
+        "38674331"
+      ],
+      "job": "38674332",
+      "stage": "generation",
+      "target": "base_qwen2_5_7b"
+    },
+    {
+      "afterok": [
+        "38674332"
+      ],
+      "job": "38674333",
+      "stage": "finalize",
+      "target": "base_qwen2_5_7b"
+    },
+    {
+      "afterok": [
+        "38674331"
+      ],
+      "job": "38674334",
+      "stage": "generation",
+      "target": "held_in_correct_6000"
+    },
+    {
+      "afterok": [
+        "38674334"
+      ],
+      "job": "38674335",
+      "stage": "finalize",
+      "target": "held_in_correct_6000"
+    },
+    {
+      "afterok": [
+        "38674331"
+      ],
+      "job": "38674336",
+      "stage": "generation",
+      "target": "held_in_incorrect_6000"
+    },
+    {
+      "afterok": [
+        "38674336"
+      ],
+      "job": "38674337",
+      "stage": "finalize",
+      "target": "held_in_incorrect_6000"
+    },
+    {
+      "afterok": [
+        "38674331"
+      ],
+      "job": "38674338",
+      "stage": "generation",
+      "target": "held_out_correct_6000"
+    },
+    {
+      "afterok": [
+        "38674338"
+      ],
+      "job": "38674339",
+      "stage": "finalize",
+      "target": "held_out_correct_6000"
+    },
+    {
+      "afterok": [
+        "38674331"
+      ],
+      "job": "38674340",
+      "stage": "generation",
+      "target": "held_out_incorrect_6000"
+    },
+    {
+      "afterok": [
+        "38674340"
+      ],
+      "job": "38674341",
+      "stage": "finalize",
+      "target": "held_out_incorrect_6000"
+    },
+    {
+      "afterok": [
+        "38674333",
+        "38674335",
+        "38674337",
+        "38674339",
+        "38674341"
+      ],
+      "job": "38674342",
+      "stage": "audit"
+    }
+  ],
+  "draws": 4,
+  "eval_contract_sha256": "e7b4d14ab32512d5d23a0820e032fd5418a8c2d9cbd391af0e3016acab0e01f7",
+  "eval_name": "aime_split_control_sampled_v1",
+  "finalizer_jobs": {
+    "base_qwen2_5_7b": "38674333",
+    "held_in_correct_6000": "38674335",
+    "held_in_incorrect_6000": "38674337",
+    "held_out_correct_6000": "38674339",
+    "held_out_incorrect_6000": "38674341"
+  },
+  "generation_count": 4240,
+  "git_commit": "88dd9ceaf60968c07fa8d365e7aac3c7158fdd49",
+  "log_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_aime_2009_2024_split_sft_6k/v1/0b22cc069c941ec5/outputs/eval/aime_split_control_sampled_v1/_control/slurm_logs",
+  "output_root": "/mmfs1/gscratch/scrubbed/suryadv/repos/SLIME/checkpoints/qwen2_5_7b_aime_2009_2024_split_sft_6k/v1/0b22cc069c941ec5/outputs/eval/aime_split_control_sampled_v1",
+  "preflight_job": "38674330",
+  "prompts": 212,
+  "scorer_sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+  "splits": [
+    "held_in",
+    "held_out"
+  ],
+  "submitted_at": "2026-08-19T21:27:04.526016+00:00",
+  "targets": [
+    "base_qwen2_5_7b",
+    "held_in_correct_6000",
+    "held_in_incorrect_6000",
+    "held_out_correct_6000",
+    "held_out_incorrect_6000"
+  ],
+  "tasks_per_target": 8
+}
