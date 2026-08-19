@@ -1,0 +1,59 @@
+{
+  "artifact_schema_version": 1,
+  "dataset": {
+    "hf_repo": "suryadv/qwen3-8b-aime-2009-2024-16x",
+    "revision": "c34143c92856d9b90fdb9c808c7e66070dcab9a1",
+    "source_dir": "/gpfs/scrubbed/suryadv/datasets/suryadv_qwen3-8b-aime-2009-2024-16x/c34143c92856d9b90fdb9c808c7e66070dcab9a1/data",
+    "source_file_sha256": {
+      "draw-00.parquet": "5da6ef58914d22c60659e7e21266f4530021993014d8af6cebe1a640d137c787",
+      "draw-01.parquet": "f9d42707698f8bbfac4f83d73625c997eb9dbdca7cebec6e76e0ea8f263e3033",
+      "draw-02.parquet": "2772d6ad2797086750aaa0cf4568c61451b6a7b5b37b87645c661a7381686c11",
+      "draw-03.parquet": "92df8920678ce9f0557cd657fd2645bb19ad525d50eb4ecaa6ed1c675ca65330",
+      "draw-04.parquet": "5313e32b22364e2c45f173316e7ad57dee08c78cd690f3ca22e0971e941f2578",
+      "draw-05.parquet": "6890476dbb83b59586d182d0bbd1ea57f4c691d9ce4dcef68e9d1a9ec613246c",
+      "draw-06.parquet": "846dc518e717cb6f6ab79502d6b0aa3ed9a9ec13428a3bf24692bb1e4c031bec",
+      "draw-07.parquet": "8dcbd7c485f1c1b39828a54f0ac04feed117fcf73e51b629bd4cc271c87f4983",
+      "draw-08.parquet": "1f23749f81f0c09490428325e9e0fc3176eadbeec74ce72b8a58edccef74bd7d",
+      "draw-09.parquet": "ff5d5449104e7a1230bb0684ea19d3bffa6504483256c37d369cf4586eb53e91",
+      "draw-10.parquet": "9e69226d9807d6e8de5605168cd85d2d266a0864873170f6f818fabd9204b219",
+      "draw-11.parquet": "0ac9ea21959040e7325611f82de3d725a1e0676eb28ca89389c16989f863ff14",
+      "draw-12.parquet": "9f3d1f3058ad173ff545f580a2dd4bf2756d9e199f210d138d17ed7652b4db93",
+      "draw-13.parquet": "b0cb320d904478541d04a07d808b8f93063ac868b5de444fed596ab03598721f",
+      "draw-14.parquet": "ef47f1ae570b428ffd007f19f539a8a2b4b69f53c1bda135bcf29db7737200e8",
+      "draw-15.parquet": "7f86ffefed8b661a02503ab54fe89cbb9fc1a6a7cf2c0f488a95d225c399ed67"
+    }
+  },
+  "eval": {
+    "held_in": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/data/eval/held_in_106.jsonl",
+      "rows": 106,
+      "sha256": "44f0ed73482564e0f59343c913fad6b6e526bef5287f6216a495cba00b013333"
+    },
+    "held_out": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/data/eval/held_out_106.jsonl",
+      "rows": 106,
+      "sha256": "4e1b724926f7a50b4ee6e05710c18dd750e9d196dd4596e2aad2c36521e6fefa"
+    }
+  },
+  "outputs": {
+    "held_in_correct_6000": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/data/datasets/held_in_correct_6000.jsonl",
+      "sha256": "1897083e942bcd21ae6d778645af3504b37e38fc9f98b6f49da061f61d04ab9c"
+    },
+    "held_in_incorrect_6000": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/data/datasets/held_in_incorrect_6000.jsonl",
+      "sha256": "e0c41270b9342f30a7eae37e1be8aeee2b815878353fb8caccdbcbdbc5ddeb89"
+    },
+    "held_out_correct_6000": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/data/datasets/held_out_correct_6000.jsonl",
+      "sha256": "8269a41ccbdec1e4cbe99ed155a4341ed88fdb9cef9d9a3522f586022c6790ad"
+    },
+    "held_out_incorrect_6000": {
+      "path": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/data/datasets/held_out_incorrect_6000.jsonl",
+      "sha256": "74c60b0b639a2b633e4806b3eceeb79d82697ad88e5389a9a502250615ea16c1"
+    }
+  },
+  "selection_stats_sha256": "2697cd20d89c2459804742320404c0e66e7f50abc37b818cc08dcc38b3695631",
+  "tokenizer_inventory_sha256": "8413031275892990bc57a1f2cefd4b35951fbfad122fcbeb2383efae830eae85",
+  "training_datasets_transferred": false
+}

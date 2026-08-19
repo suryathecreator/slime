@@ -1,0 +1,59 @@
+{
+  "aggregation": "to be pinned by the Hyak evaluation implementation",
+  "artifact_schema_version": 1,
+  "cap_hits_scored": true,
+  "checkpoints": [
+    "base_qwen2_5_7b",
+    "held_in_correct_6000",
+    "held_in_incorrect_6000",
+    "held_out_correct_6000",
+    "held_out_incorrect_6000"
+  ],
+  "evaluation_sources": [
+    {
+      "path": "data/eval/held_in_106.jsonl",
+      "rows": 106,
+      "sha256": "44f0ed73482564e0f59343c913fad6b6e526bef5287f6216a495cba00b013333",
+      "split": "held_in"
+    },
+    {
+      "path": "data/eval/held_out_106.jsonl",
+      "rows": 106,
+      "sha256": "4e1b724926f7a50b4ee6e05710c18dd750e9d196dd4596e2aad2c36521e6fefa",
+      "split": "held_out"
+    }
+  ],
+  "prompt": {
+    "messages": [
+      {
+        "content": "{prompt verbatim}",
+        "role": "user"
+      }
+    ],
+    "rendered_prompt_field_used_directly": true,
+    "system": null,
+    "uses_qwen2_5_default_chat_template": false
+  },
+  "reporting": {
+    "base_on_both_splits": true,
+    "correct_vs_incorrect_columns": true,
+    "held_in_trained_rows": [
+      "held_in_eval_in_distribution",
+      "held_out_eval_unseen"
+    ],
+    "held_out_trained_rows": [
+      "held_out_eval_in_distribution",
+      "held_in_eval_unseen"
+    ]
+  },
+  "sampling": "deferred_to_Hyak_and_must_be_recorded",
+  "scorer": {
+    "path_in_repo": "examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/aime_scorer.py",
+    "sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+    "version": "aime_last_boxed_integer_scorer_v1"
+  },
+  "split_counts": {
+    "held_in": 106,
+    "held_out": 106
+  }
+}

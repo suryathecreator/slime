@@ -125,6 +125,34 @@ statistics, incorrect-minus-correct deltas, and trained-minus-base deltas.
 Sampling and decoding settings will be pinned by the later Hyak evaluation
 implementation and are intentionally not invented by this training package.
 
+## Completed training
+
+Contract `0b22cc069c941ec5` completed on 2026-08-19. All four variants reached
+iteration 187 of 188 optimizer updates, and the finalizer verified five
+comparison checkpoints. The immutable record is published under
+[`results/training_0b22cc069c941ec5`](results/training_0b22cc069c941ec5). It
+contains all 188 loss and gradient-norm observations for every variant,
+checkpoint identities, selection and schedule audits, the submitted job chain,
+and the evaluation handoff. Weights, optimizer state, training data, raw source
+generations, and canary payloads remain excluded from Git.
+
+| Variant | Job | First loss | Last loss | Minimum |
+|---|---:|---:|---:|---:|
+| `held_in_correct_6000` | 246946 | 0.546738 | 0.110675 | 0.104116 |
+| `held_in_incorrect_6000` | 246947 | 0.519833 | 0.141047 | 0.131431 |
+| `held_out_correct_6000` | 246948 | 0.562428 | 0.111164 | 0.105361 |
+| `held_out_incorrect_6000` | 246949 | 0.509741 | 0.134787 | 0.134787 |
+
+Both correct conditions converge lower than both incorrect conditions. These are
+fit statistics on different target distributions and say nothing on their own
+about generalization; the held-in versus held-out comparison is decided by the
+Hyak evaluation.
+
+An earlier attempt under contract `22f45a52140b85bc` is preserved in
+[`SUBMISSION_ATTEMPT_01.json`](SUBMISSION_ATTEMPT_01.json). Its canary failed
+when CUDA initialization failed on node `g018`, and the experiment was
+simultaneously redesigned to the mixed-only `N=508`, two-epoch contract above.
+
 ## Commands
 
 After staging the pinned source files and pushing a clean implementation:
@@ -132,6 +160,17 @@ After staging the pinned source files and pushing a clean implementation:
 ```bash
 bash examples/qwen2_5_7b_aime_2009_2024_split_sft_6k/submit_training_only.sh --dry-run
 bash examples/qwen2_5_7b_aime_2009_2024_split_sft_6k/submit_training_only.sh --submit
+```
+
+Publish the immutable training record once, from the completed logs:
+
+```bash
+PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 python3 \
+  examples/qwen2_5_7b_aime_2009_2024_split_sft_6k/publish_provenance.py \
+  --experiment-root /gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5 \
+  --contract examples/qwen2_5_7b_aime_2009_2024_split_sft_6k/config/experiment_contract.json \
+  --contract-hash 0b22cc069c941ec5 \
+  --output-root examples/qwen2_5_7b_aime_2009_2024_split_sft_6k/results/training_0b22cc069c941ec5
 ```
 
 After finalization:

@@ -1,0 +1,67 @@
+{
+  "artifact_schema_version": 1,
+  "comparison_checkpoint_count": 5,
+  "contract_hash": "0b22cc069c941ec5",
+  "targets": [
+    {
+      "checkpoint_identity": "b62a56261fb3642627086c1a083e453e298ba683d3cefd4196245e11c857de8f",
+      "id": "base_qwen2_5_7b",
+      "kind": "existing_base",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "models/Qwen2.5-7B",
+      "remote_experiment_relative": "checkpoints/shared",
+      "remote_manifest_relative": "manifests/base_qwen2_5_7b.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/models/Qwen2.5-7B",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen-correct-only-openr1-sft-2k/v1/3568736a3743c319/handoff/checkpoints/base_qwen2_5_7b.json",
+      "variant": "base"
+    },
+    {
+      "checkpoint_identity": "cdcfb878594c3dfa5bb39383592364f5b8afae17af098ec3afa8516f734bc286",
+      "id": "held_in_correct_6000",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/held_in_correct_6000/weights/iter_0000187",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_aime_2009_2024_split_sft_6k/v1/0b22cc069c941ec5",
+      "remote_manifest_relative": "handoff/checkpoints/held_in_correct_6000.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/outputs/training/held_in_correct_6000/weights/iter_0000187",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/handoff/checkpoints/held_in_correct_6000.json",
+      "variant": "held_in_correct_6000"
+    },
+    {
+      "checkpoint_identity": "bf9be435630202b10a0abddd0c2dfadc3174a234afa0e13369f3f33611fb753f",
+      "id": "held_in_incorrect_6000",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/held_in_incorrect_6000/weights/iter_0000187",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_aime_2009_2024_split_sft_6k/v1/0b22cc069c941ec5",
+      "remote_manifest_relative": "handoff/checkpoints/held_in_incorrect_6000.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/outputs/training/held_in_incorrect_6000/weights/iter_0000187",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/handoff/checkpoints/held_in_incorrect_6000.json",
+      "variant": "held_in_incorrect_6000"
+    },
+    {
+      "checkpoint_identity": "4166bc1cf70e6961561c8f814841d8cd9ebfdaaa2f613b62d294ab9497ae0c57",
+      "id": "held_out_correct_6000",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/held_out_correct_6000/weights/iter_0000187",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_aime_2009_2024_split_sft_6k/v1/0b22cc069c941ec5",
+      "remote_manifest_relative": "handoff/checkpoints/held_out_correct_6000.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/outputs/training/held_out_correct_6000/weights/iter_0000187",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/handoff/checkpoints/held_out_correct_6000.json",
+      "variant": "held_out_correct_6000"
+    },
+    {
+      "checkpoint_identity": "08f0f6096fd5c98d9a2e62f103cb8360a067f8082ebb45b360fc4bb17f19aaac",
+      "id": "held_out_incorrect_6000",
+      "kind": "new_trained",
+      "model_key": "qwen2_5_7b",
+      "remote_checkpoint_relative": "outputs/training/held_out_incorrect_6000/weights/iter_0000187",
+      "remote_experiment_relative": "checkpoints/qwen2_5_7b_aime_2009_2024_split_sft_6k/v1/0b22cc069c941ec5",
+      "remote_manifest_relative": "handoff/checkpoints/held_out_incorrect_6000.json",
+      "source_checkpoint": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/outputs/training/held_out_incorrect_6000/weights/iter_0000187",
+      "source_manifest": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/0b22cc069c941ec5/handoff/checkpoints/held_out_incorrect_6000.json",
+      "variant": "held_out_incorrect_6000"
+    }
+  ]
+}
