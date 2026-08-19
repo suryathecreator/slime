@@ -18,6 +18,13 @@ from examples.qwen2_5_7b_aime_2009_2024_split_sft_6k.data_utils import (
     rendered_user_prefix,
     select_covered_traces,
 )
+from examples.qwen2_5_7b_aime_2009_2024_split_sft_6k.eval.split_aime_eval import (
+    DECODING,
+    DRAWS,
+    PROMPTS,
+    SPLIT_SHA256,
+    TARGETS,
+)
 from examples.qwen2_5_7b_aime_2009_2024_split_sft_6k.finalize import parse_metrics
 
 NUM_GPUS = 0
@@ -216,6 +223,42 @@ def test_loss_parser_uses_surviving_last_occurrence_after_requeue(tmp_path: Path
     log.write_text(line(0, 2.0) + line(0, 1.5) + line(1, 1.0))
     history = parse_metrics(log, final_iteration=1)
     assert [point["loss"] for point in history] == [1.5, 1.0]
+
+
+def test_eval_reuses_16x_sampling_at_four_draws() -> None:
+    source = json.loads((ROOT / "examples/qwen3_8b_aime_2009_2024_16x/eval_policy.json").read_text())
+    policy = json.loads((PACKAGE / "eval/eval_policy.json").read_text())
+    for field in ("temperature", "top_p", "top_k", "min_p"):
+        assert DECODING[field] == source["generation"][field], field
+    assert source["generation"]["completions_per_problem"] == 16
+    assert policy["generation"]["completions_per_problem"] == DRAWS == 4
+    assert policy["sharding"]["total_completions"] == len(TARGETS) * PROMPTS * DRAWS == 4240
+    assert policy["sharding"]["total_tasks"] == len(TARGETS) * DRAWS * 2 == 40
+
+
+def test_eval_pins_the_handoff_contract_sources() -> None:
+    contract = json.loads(
+        (PACKAGE / "results/training_0b22cc069c941ec5/handoff/eval_contract.json").read_text()
+    )
+    assert tuple(contract["checkpoints"]) == TARGETS
+    assert contract["cap_hits_scored"] is True
+    assert contract["prompt"]["uses_qwen2_5_default_chat_template"] is False
+    assert contract["prompt"]["rendered_prompt_field_used_directly"] is True
+    pinned = {item["split"]: item["sha256"] for item in contract["evaluation_sources"]}
+    assert pinned == SPLIT_SHA256
+
+
+def test_eval_generation_never_applies_the_chat_template() -> None:
+    source = (PACKAGE / "eval/generate_split_aime.py").read_text()
+    assert "apply_chat_template" not in source
+    assert 'tokenizer.encode(row["rendered_prompt"]' in source
+
+
+def test_eval_submitter_opens_the_gate_for_exactly_the_metadata_path() -> None:
+    submitter = (PACKAGE / "eval/submit_hyak.sh").read_text()
+    allowed = "examples/qwen2_5_7b_aime_2009_2024_split_sft_6k/eval/submission_metadata.json"
+    assert f"AIME_RUNTIME_ALLOWED_DESCENDANT_PATH={allowed}" in submitter
+    assert "--array=0-7" in submitter
 
 
 if __name__ == "__main__":

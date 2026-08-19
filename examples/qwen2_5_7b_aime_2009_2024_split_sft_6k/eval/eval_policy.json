@@ -1,0 +1,86 @@
+{
+  "aggregation": {
+    "accuracy": "mean over all completions in the slice",
+    "draw_se": "standard error across the 4 per-draw slice accuracies",
+    "rule": "every completion is scored, including cap hits; none are discarded"
+  },
+  "artifact_schema_version": 1,
+  "contract_id": "0b22cc069c941ec5",
+  "derived_from": {
+    "changed": "completions_per_problem 16 -> 4",
+    "note": "sampling is reused verbatim from the Qwen3-8B 16x source-generation run so these numbers sit on the same decoding distribution as the traces the checkpoints were trained on; prior Qwen2.5 AIME bundles used temperature 0.7 / top_p 0.8 / top_k -1 and are NOT directly comparable",
+    "policy": "examples/qwen3_8b_aime_2009_2024_16x/eval_policy.json"
+  },
+  "eval_name": "aime_split_control_sampled_v1",
+  "evaluation_sources": [
+    {
+      "path": "data/eval/held_in_106.jsonl",
+      "rows": 106,
+      "sha256": "44f0ed73482564e0f59343c913fad6b6e526bef5287f6216a495cba00b013333",
+      "split": "held_in"
+    },
+    {
+      "path": "data/eval/held_out_106.jsonl",
+      "rows": 106,
+      "sha256": "4e1b724926f7a50b4ee6e05710c18dd750e9d196dd4596e2aad2c36521e6fefa",
+      "split": "held_out"
+    }
+  ],
+  "generation": {
+    "completions_per_problem": 4,
+    "ignore_eos": false,
+    "min_p": 0.0,
+    "n": 1,
+    "response_excludes_stop_control_tokens": true,
+    "seed_base": 1234,
+    "seed_formula": "1234 + 480 * draw_index + eval_index",
+    "seed_span": 480,
+    "temperature": 0.6,
+    "top_k": 20,
+    "top_p": 0.95
+  },
+  "context": {
+    "budget_rule": "32768 - rendered_prompt_token_count",
+    "max_model_len": 32768,
+    "safety_margin_tokens": 0
+  },
+  "prompt": {
+    "note": "the eval rows carry the exact bytes the source generation and training used; the Qwen2.5 default chat template is deliberately NOT applied because it would insert a 'You are a helpful assistant.' system turn",
+    "source_field": "rendered_prompt",
+    "uses_qwen2_5_default_chat_template": false,
+    "verified_against": "rendered_prompt_sha256"
+  },
+  "scorer": {
+    "accepted_answer_policy": "correct iff the unchanged scorer matches any officially accepted integer for the problem",
+    "path_in_repo": "examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/aime_scorer.py",
+    "sha256": "c6b10ee5a5667a21df095f9ef87a04c2499cf8dbe56cff11f3bf9836d8262256",
+    "version": "aime_last_boxed_integer_scorer_v1"
+  },
+  "sharding": {
+    "array_tasks_per_target": 8,
+    "gpu": "h200:1",
+    "layout": "task_id = 2 * draw_index + split_index; one 106-problem split per task",
+    "prompts_per_task": 106,
+    "targets": 5,
+    "total_completions": 4240,
+    "total_tasks": 40
+  },
+  "stop": {
+    "accepted_token_ids": [151643, 151645],
+    "accepted_tokens": ["<|endoftext|>", "<|im_end|>"],
+    "include_stop_token_in_response": false
+  },
+  "targets": [
+    "base_qwen2_5_7b",
+    "held_in_correct_6000",
+    "held_in_incorrect_6000",
+    "held_out_correct_6000",
+    "held_out_incorrect_6000"
+  ],
+  "vllm_engine": {
+    "enable_prefix_caching": true,
+    "gpu_memory_utilization": 0.92,
+    "max_num_seqs": 8,
+    "tensor_parallel_size": 1
+  }
+}
