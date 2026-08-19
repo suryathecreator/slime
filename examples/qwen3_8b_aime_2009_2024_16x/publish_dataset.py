@@ -85,6 +85,11 @@ tags:
 pretty_name: Qwen3-8B AIME 2009-2024 16x
 size_categories:
 - 1K<n<10K
+configs:
+- config_name: default
+  data_files:
+  - split: train
+    path: data/draw-*.parquet
 ---
 
 # Qwen3-8B AIME 2009–2024, 16 sampled completions per problem
@@ -156,6 +161,21 @@ Overall audit snapshot:
 - Mean completion length: {overall['mean_output_tokens']:.1f} tokens
 
 `summary.json` contains per-draw, per-year, and per-contest aggregates.
+
+## Dataset viewer and reproducibility metadata
+
+The Hugging Face dataset viewer is explicitly pinned to the 16
+`data/draw-*.parquet` completion shards as the `default/train` split. Auxiliary
+JSON/JSONL files remain downloadable from the repository, but are deliberately
+excluded from the viewer so that `eval_policy.json` or `data/problems.jsonl`
+cannot be mistaken for the generated-completion dataset.
+
+- Completion artifact schema: `qwen3_aime_completion_v1`
+- Canonical corpus schema: `qwen3_aime_2009_2024_corpus_v1`
+- Scorer trace schema: `aime_last_boxed_integer_trace_v1`
+- Exact Parquet schema: `SCHEMA.txt`
+- Full generation contract: `eval_policy.json`
+- Corpus/source metadata: `corpus_manifest.json` and `source_inputs.json`
 
 ## Files and row schema
 
