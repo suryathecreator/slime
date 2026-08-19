@@ -33,11 +33,14 @@ VARIANTS = (
 )
 SPLITS = ("held_in", "held_out")
 DATASET_ROWS = 6000
-EPOCHS = 3
+EPOCHS = 2
 GLOBAL_BATCH_SIZE = 64
 UPDATES = math.ceil(DATASET_ROWS * EPOCHS / GLOBAL_BATCH_SIZE)
 RUNTIME_PRESENTATIONS = UPDATES * GLOBAL_BATCH_SIZE
 WRAP_PRESENTATIONS = RUNTIME_PRESENTATIONS - DATASET_ROWS * EPOCHS
+MIXED_PROBLEM_COUNT = 212
+SPLIT_PROBLEM_COUNT = MIXED_PROBLEM_COUNT // 2
+SOURCE_TRACE_COUNT = 508
 PROMPT_TEMPLATE = "Please reason step by step, and put your final answer within \\boxed{}.\n\nProblem:\n{problem}"
 
 
@@ -129,100 +132,104 @@ def build_record(
     return record
 
 
-def partition_problem_ids(problem_ids: Iterable[str], *, held_in_count: int, seed: int) -> tuple[set[str], set[str]]:
+def partition_mixed_problem_ids(problem_ids: Iterable[str], *, seed: int) -> tuple[set[str], set[str]]:
     unique = sorted(set(problem_ids))
-    if len(unique) != 480 or held_in_count != 240:
-        raise ValueError("partition requires exactly 480 problems and a 240-problem held-in split")
+    if len(unique) != MIXED_PROBLEM_COUNT:
+        raise ValueError(f"partition requires exactly {MIXED_PROBLEM_COUNT} mixed-outcome problems")
     ordered = sorted(
         unique,
         key=lambda problem_id: (
-            stable_hex("qwen3-aime-held-in-partition-v1", seed, problem_id),
+            stable_hex("mixed-problem-split-v1", seed, problem_id),
             problem_id,
         ),
     )
-    held_in = set(ordered[:held_in_count])
-    held_out = set(ordered[held_in_count:])
+    held_in = set(ordered[:SPLIT_PROBLEM_COUNT])
+    held_out = set(ordered[SPLIT_PROBLEM_COUNT:])
     if held_in & held_out or held_in | held_out != set(unique):
-        raise AssertionError("problem partition is not disjoint and exhaustive")
+        raise AssertionError("mixed-problem partition is not disjoint and exhaustive")
     return held_in, held_out
 
 
-def select_correct_control(
-    correct_pool: list[dict[str, Any]],
+def select_covered_traces(
+    pool: list[dict[str, Any]],
     *,
+    problem_ids: set[str],
     target_rows: int,
-    target_problem_count: int,
     seed: int,
     split: str,
+    outcome: str,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Seeded rejection sample of a covered correct control with matched K and N."""
+    """Select distinct traces while anchoring every explicitly chosen problem."""
+    if split not in SPLITS:
+        raise ValueError(f"unknown split: {split}")
+    if outcome not in ("correct", "incorrect"):
+        raise ValueError(f"unknown outcome: {outcome}")
+    if len(problem_ids) != SPLIT_PROBLEM_COUNT:
+        raise ValueError(f"{split}/{outcome} must cover exactly {SPLIT_PROBLEM_COUNT} problems")
+    if target_rows < len(problem_ids):
+        raise ValueError("cannot cover more problems than selected rows")
     by_problem: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in correct_pool:
-        by_problem[str(row["metadata"]["problem_id"])].append(row)
-    if target_rows < target_problem_count:
-        raise ValueError("cannot cover more problems than selected correct rows")
-    if len(by_problem) < target_problem_count:
-        raise ValueError("too few correct-capable problems for the matched-coverage control")
-    for attempt in range(10000):
-        problem_order = sorted(
-            by_problem,
-            key=lambda problem_id: (
-                stable_hex("correct-control-problems-v1", seed, split, attempt, problem_id),
-                problem_id,
-            ),
-        )
-        selected_problem_ids = set(problem_order[:target_problem_count])
-        eligible = [row for problem_id in selected_problem_ids for row in by_problem[problem_id]]
-        if len(eligible) < target_rows:
-            continue
-        anchors = [
-            min(
-                by_problem[problem_id],
-                key=lambda row: (
-                    stable_hex(
-                        "correct-control-anchor-v1",
-                        seed,
-                        split,
-                        attempt,
-                        row["metadata"]["base_trace_id"],
-                    ),
-                    row["metadata"]["base_trace_id"],
-                ),
-            )
-            for problem_id in sorted(selected_problem_ids)
-        ]
-        anchor_ids = {row["metadata"]["base_trace_id"] for row in anchors}
-        remaining = sorted(
-            [row for row in eligible if row["metadata"]["base_trace_id"] not in anchor_ids],
+    seen_trace_ids: set[str] = set()
+    for row in pool:
+        problem_id = str(row["metadata"]["problem_id"])
+        trace_id = str(row["metadata"]["base_trace_id"])
+        if problem_id not in problem_ids:
+            raise ValueError(f"{split}/{outcome} pool contains an unselected problem: {problem_id}")
+        if trace_id in seen_trace_ids:
+            raise ValueError(f"{split}/{outcome} pool contains a duplicate trace: {trace_id}")
+        seen_trace_ids.add(trace_id)
+        by_problem[problem_id].append(row)
+    if set(by_problem) != problem_ids:
+        raise ValueError(f"{split}/{outcome} pool does not cover the exact selected problem set")
+    if len(pool) < target_rows:
+        raise ValueError(f"{split}/{outcome} has only {len(pool)} traces for target {target_rows}")
+    anchors = [
+        min(
+            by_problem[problem_id],
             key=lambda row: (
                 stable_hex(
-                    "correct-control-fill-v1",
+                    "mixed-control-anchor-v1",
                     seed,
                     split,
-                    attempt,
+                    outcome,
                     row["metadata"]["base_trace_id"],
                 ),
                 row["metadata"]["base_trace_id"],
             ),
         )
-        selected = anchors + remaining[: target_rows - len(anchors)]
-        observed_problems = {str(row["metadata"]["problem_id"]) for row in selected}
-        if len(selected) != target_rows or observed_problems != selected_problem_ids:
-            raise AssertionError("correct-control selection invariant failed")
-        selected.sort(key=lambda row: str(row["metadata"]["base_trace_id"]))
-        return selected, {
-            "algorithm": "seeded_problem_subset_rejection_then_one_anchor_each_and_seeded_fill_v1",
-            "attempt": attempt,
-            "correct_capable_problem_count": len(by_problem),
-            "correct_pool_rows": len(correct_pool),
-            "selected_problem_count": len(selected_problem_ids),
-            "selected_problem_ids_sha256": ordered_values_sha256(sorted(selected_problem_ids)),
-            "selected_rows": len(selected),
-            "selected_trace_ids_sha256": ordered_values_sha256(
-                str(row["metadata"]["base_trace_id"]) for row in selected
+        for problem_id in sorted(problem_ids)
+    ]
+    anchor_ids = {str(row["metadata"]["base_trace_id"]) for row in anchors}
+    remaining = sorted(
+        [row for row in pool if str(row["metadata"]["base_trace_id"]) not in anchor_ids],
+        key=lambda row: (
+            stable_hex(
+                "mixed-control-fill-v1",
+                seed,
+                split,
+                outcome,
+                row["metadata"]["base_trace_id"],
             ),
-        }
-    raise RuntimeError("failed to find a capacity-feasible matched correct-control problem subset")
+            row["metadata"]["base_trace_id"],
+        ),
+    )
+    selected = anchors + remaining[: target_rows - len(anchors)]
+    observed_problems = {str(row["metadata"]["problem_id"]) for row in selected}
+    if len(selected) != target_rows or observed_problems != problem_ids:
+        raise AssertionError(f"{split}/{outcome} covered selection invariant failed")
+    selected.sort(key=lambda row: str(row["metadata"]["base_trace_id"]))
+    return selected, {
+        "algorithm": "one_seeded_anchor_per_fixed_mixed_problem_then_seeded_fill_v1",
+        "anchor_rows": len(anchors),
+        "fill_rows": target_rows - len(anchors),
+        "pool_rows": len(pool),
+        "selected_problem_count": len(problem_ids),
+        "selected_problem_ids_sha256": ordered_values_sha256(sorted(problem_ids)),
+        "selected_rows": len(selected),
+        "selected_trace_ids_sha256": ordered_values_sha256(
+            str(row["metadata"]["base_trace_id"]) for row in selected
+        ),
+    }
 
 
 def expand_balanced(
@@ -276,7 +283,7 @@ def expand_balanced(
         "physical_exposure_histogram": {
             str(count): frequency for count, frequency in sorted(Counter(exposure.values()).items())
         },
-        "three_full_epochs_presentations": DATASET_ROWS * EPOCHS,
+        "full_epochs_presentations": DATASET_ROWS * EPOCHS,
         "wrap_presentations": WRAP_PRESENTATIONS,
     }
 
@@ -285,9 +292,12 @@ __all__ = [
     "DATASET_ROWS",
     "EPOCHS",
     "GLOBAL_BATCH_SIZE",
+    "MIXED_PROBLEM_COUNT",
     "PROMPT_TEMPLATE",
     "RUNTIME_PRESENTATIONS",
+    "SOURCE_TRACE_COUNT",
     "SPLITS",
+    "SPLIT_PROBLEM_COUNT",
     "UPDATES",
     "VARIANTS",
     "WRAP_PRESENTATIONS",
@@ -298,10 +308,10 @@ __all__ = [
     "expand_balanced",
     "length_summary",
     "ordered_values_sha256",
-    "partition_problem_ids",
+    "partition_mixed_problem_ids",
     "read_jsonl",
     "rendered_user_prefix",
-    "select_correct_control",
+    "select_covered_traces",
     "sha256_file",
     "sha256_text",
     "stable_hex",

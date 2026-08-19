@@ -1,8 +1,26 @@
 {
   "artifact_schema_version": 1,
+  "canceled_dependency_blocked_jobs": [
+    "241801",
+    "241802",
+    "241803",
+    "241804",
+    "241805",
+    "241806",
+    "241807",
+    "241808"
+  ],
   "contract_hash": "22f45a52140b85bc",
   "execution_worktree": "/gpfs/scrubbed/suryadv/slime-qwen2-5-7b-aime-2009-2024-split-sft-6k/v1/22f45a52140b85bc/execution_repo",
   "expected_git_commit": "a0d22e6c2b114d5caac91e1664041167685c7970",
+  "failure": {
+    "failed_job": "241800",
+    "failed_stage": "canary_held_in_correct_6000",
+    "node": "g018",
+    "reason": "CUDA initialization failed on an unresponsive node; g018 was subsequently marked down",
+    "upstream_preparation_job": "241799",
+    "upstream_preparation_state": "COMPLETED"
+  },
   "jobs_in_dependency_order": [
     {
       "dependency": "",
@@ -76,5 +94,8 @@
     }
   ],
   "mode": "submitted",
-  "recorded_at": "2026-08-18T07:59:16.037188+00:00"
+  "recorded_at": "2026-08-18T07:59:16.037188+00:00",
+  "status": "superseded",
+  "superseded_at": "2026-08-18T19:08:52-07:00",
+  "superseded_reason": "mixed-only N=508 K=106 two-epoch redesign and failed CUDA canary"
 }

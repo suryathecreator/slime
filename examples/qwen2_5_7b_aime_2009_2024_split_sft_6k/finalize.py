@@ -110,9 +110,9 @@ def render_eval_handoff() -> str:
     return """# Hyak evaluation handoff
 
 Evaluate the verified Qwen2.5-7B base and all four trained checkpoints on both
-transferred 240-problem sets. The files are `held_in_240.jsonl` and
-`held_out_240.jsonl`; together they are a disjoint, exhaustive partition of the
-480 AIME 2009–2024 problems.
+transferred 106-problem mixed-outcome sets. The files are `held_in_106.jsonl`
+and `held_out_106.jsonl`; together they are a disjoint, exhaustive partition of
+the 212 AIME 2009–2024 problems with both correct and incorrect source traces.
 
 Use each row's exact `rendered_prompt` bytes directly. It has exactly one user
 turn and no system turn:
@@ -145,7 +145,7 @@ Produce two correct-versus-incorrect tables:
    problem distribution) and held-in (unseen problems).
 
 For every cell report accuracy, valid-box rate, cap-hit rate, and response-length
-diagnostics. Include the base on both 240-problem sets and report
+diagnostics. Include the base on both 106-problem sets and report
 incorrect-minus-correct plus trained-minus-base deltas. Training datasets and
 optimizer states are not part of this handoff.
 """
@@ -279,17 +279,17 @@ def main() -> None:
     eval_sources = []
     eval_problem_ids: dict[str, set[str]] = {}
     for split in ("held_in", "held_out"):
-        path = root / f"data/eval/{split}_240.jsonl"
+        path = root / f"data/eval/{split}_106.jsonl"
         rows = read_jsonl(path)
         problem_ids = {str(row["problem_id"]) for row in rows}
-        if len(rows) != 240 or len(problem_ids) != 240:
-            raise ValueError(f"{split} evaluation source must have exactly 240 unique problems")
+        if len(rows) != 106 or len(problem_ids) != 106:
+            raise ValueError(f"{split} evaluation source must have exactly 106 unique problems")
         if {str(row["split"]) for row in rows} != {split}:
             raise ValueError(f"{split} evaluation label drift")
         eval_problem_ids[split] = problem_ids
         eval_sources.append(
             {
-                "path": f"data/eval/{split}_240.jsonl",
+                "path": f"data/eval/{split}_106.jsonl",
                 "rows": len(rows),
                 "sha256": sha256_file(path),
                 "split": split,
@@ -297,9 +297,9 @@ def main() -> None:
         )
     if (
         eval_problem_ids["held_in"] & eval_problem_ids["held_out"]
-        or len(eval_problem_ids["held_in"] | eval_problem_ids["held_out"]) != 480
+        or len(eval_problem_ids["held_in"] | eval_problem_ids["held_out"]) != 212
     ):
-        raise ValueError("evaluation problem sets are not disjoint and exhaustive")
+        raise ValueError("evaluation problem sets are not a disjoint exhaustive mixed-only partition")
     scorer = args.repo_root / "examples/qwen2_5_7b_aime_generalization_incorrect_sft/eval/aime_scorer.py"
     atomic_json(
         eval_contract_path,
@@ -327,7 +327,7 @@ def main() -> None:
                 "sha256": sha256_file(scorer),
                 "version": "aime_last_boxed_integer_scorer_v1",
             },
-            "split_counts": {"held_in": 240, "held_out": 240},
+            "split_counts": {"held_in": 106, "held_out": 106},
         },
     )
     atomic_text(eval_readme_path, render_eval_handoff())
@@ -358,8 +358,8 @@ def main() -> None:
     )
     lightweight = [
         "TRAINING_STATUS.json",
-        "data/eval/held_in_240.jsonl",
-        "data/eval/held_out_240.jsonl",
+        "data/eval/held_in_106.jsonl",
+        "data/eval/held_out_106.jsonl",
         "data/schedule_audit.json",
         "data/selection_and_tokenization_stats.json",
         "data/source_artifacts.json",

@@ -11,8 +11,8 @@
   },
   "evaluation_handoff": {
     "comparisons": [
-      "every trained checkpoint and the base on held_in_240",
-      "every trained checkpoint and the base on held_out_240"
+      "every trained checkpoint and the base on held_in_106_mixed",
+      "every trained checkpoint and the base on held_out_106_mixed"
     ],
     "evaluation_code_location": "Hyak_later",
     "prompt_policy": "exact transferred prompt as one user message with no system message",
@@ -28,48 +28,56 @@
     "uses_apply_chat_template": false
   },
   "selection": {
-    "balanced_expansion": "For observed N source traces, give each floor(6000/N) physical copies, choose exactly 6000 mod N distinct traces by seeded SHA-256 priority for one extra copy, then deterministically shuffle.",
-    "correct_control": "Within each 240-problem split, let N be all scorer-incorrect traces and K their unique-problem count. Seeded rejection-sample K correct-capable problems with capacity for N distinct correct traces, select one seeded anchor trace per problem, then seed-rank the remaining correct traces and fill to N. This matches N and K but deliberately does not require the same problem-ID set.",
-    "epochs": "The fixed 6000-row expanded dataset is shuffled and presented for exactly three epochs; the 64-wide update schedule consumes 18048 presentations, including 48 deterministic wrap presentations.",
-    "held_in": "Seed-rank all 480 problem IDs by SHA-256 and take the first 240.",
-    "held_out": "The complementary 240 problem IDs.",
+    "balanced_expansion": "Give each of the 508 distinct selected source traces 11 physical copies, choose exactly 412 distinct traces by seeded SHA-256 priority for a twelfth copy, then deterministically shuffle to 6000 rows.",
+    "common_source_trace_count": 508,
+    "correct_control": "For each fixed 106-problem mixed-only split, select one seeded correct anchor trace per problem, then seed-rank the remaining unused correct traces and fill without replacement to exactly 508. Correct and incorrect conditions use the exact same problem-ID set.",
+    "epochs": "The fixed 6000-row expanded dataset is shuffled and presented for exactly two epochs; the 64-wide update schedule consumes 12032 presentations, including 32 deterministic wrap presentations.",
+    "held_in": "Seed-rank all 212 mixed-outcome problem IDs by SHA-256 domain mixed-problem-split-v1 and take the first 106.",
+    "held_out": "The complementary 106 mixed-outcome problem IDs.",
+    "incorrect_control": "Held-in retains all 508 incorrect traces. Held-out selects one seeded incorrect anchor trace per problem, then seed-ranks unused incorrect traces and fills without replacement from its 591-trace pool to exactly 508.",
     "length_policy": "No source trace is filtered or truncated by length. The 32896 hard training ceiling is capacity only and is validated to contain every fully rendered pinned source trace.",
+    "mixed_outcome_policy": "Training and evaluation use only the 212 problems with at least one correct and one incorrect generation among the 16 pinned source generations; 241 all-correct and 27 all-incorrect problems are excluded.",
     "realized_source_audit": {
       "dataset_sha256": {
-        "held_in_correct_6000": "ed863762bba51f31ad914f36ffa7990c25165a0a3cef32785c02c61000b05f49",
-        "held_in_incorrect_6000": "d1ac7379fad85d0e708364a7811c1ae24aa1b353f24aa9da542d38b49c73f981",
-        "held_out_correct_6000": "d7b64d02034b8d1e37dbc10312614295dbfe6c94bbbfb8e87bb158c9c3c9a865",
-        "held_out_incorrect_6000": "1a470f753f9052b8de4fc55eb00d6bc7bbb40368ef583f38e8aa5b114d0fd391"
+        "held_in_correct_6000": "1897083e942bcd21ae6d778645af3504b37e38fc9f98b6f49da061f61d04ab9c",
+        "held_in_incorrect_6000": "e0c41270b9342f30a7eae37e1be8aeee2b815878353fb8caccdbcbdbc5ddeb89",
+        "held_out_correct_6000": "8269a41ccbdec1e4cbe99ed155a4341ed88fdb9cef9d9a3522f586022c6790ad",
+        "held_out_incorrect_6000": "74c60b0b639a2b633e4806b3eceeb79d82697ad88e5389a9a502250615ea16c1"
       },
       "eval_sha256": {
-        "held_in": "578110d56c57b8c6d383cca07b1942d89156c2e506bebdca636a6479aec35173",
-        "held_out": "6bafeb3a9592926b84466734f0264d19aef30d9f331e955573e21baf9ad0f89d"
+        "held_in": "44f0ed73482564e0f59343c913fad6b6e526bef5287f6216a495cba00b013333",
+        "held_out": "4e1b724926f7a50b4ee6e05710c18dd750e9d196dd4596e2aad2c36521e6fefa"
       },
       "held_in": {
-        "correct_problem_count": 123,
-        "correct_problem_ids_sha256": "dd7ab210bcf9b80e6944444da2d6489840d9ccdb3323b28af197f244e748cdbf",
-        "correct_rows": 717,
-        "correct_trace_ids_sha256": "0d10be8c2de72c65f6b910de37461c2949303a918adad78310a5d8f5513af13c",
-        "held_problem_ids_sha256": "ca98f07570c90dfb6edf814ba3438cedf14a4053551266c6d4a04730da5a55ed",
-        "incorrect_problem_count": 123,
-        "incorrect_problem_ids_sha256": "926a108427ae459111b3e155d88fcba8f63e5fab16c1be9d7b381adfd8bb3030",
-        "incorrect_rows": 717,
-        "incorrect_trace_ids_sha256": "2740a16ea046cc00a4e948420c671d7a056ca52cc611b2a4a28091c08a10a7b6"
+        "correct_problem_count": 106,
+        "correct_problem_ids_sha256": "c7b292cfe00d975f51bc07e7bb5aad5cfaae768b31723b3a6796d8669aab9ecf",
+        "correct_rows": 508,
+        "correct_trace_ids_sha256": "5ec85d294f8c43d5baed6c2acc8afeba82dc9717bf9a05ab0199fca7e7982b64",
+        "held_problem_ids_sha256": "c7b292cfe00d975f51bc07e7bb5aad5cfaae768b31723b3a6796d8669aab9ecf",
+        "incorrect_problem_count": 106,
+        "incorrect_problem_ids_sha256": "c7b292cfe00d975f51bc07e7bb5aad5cfaae768b31723b3a6796d8669aab9ecf",
+        "incorrect_rows": 508,
+        "incorrect_trace_ids_sha256": "1a363f8fda3d01b0fa46ecc1523e9c1ca54c4c1fb01183a11b778af3a087ae58",
+        "source_correct_pool_rows": 1188,
+        "source_incorrect_pool_rows": 508
       },
       "held_out": {
-        "correct_problem_count": 116,
-        "correct_problem_ids_sha256": "b22e93c1e1e5cde4c2a64117ef47debff8e3673919ebb57f082e92a3e726c689",
-        "correct_rows": 814,
-        "correct_trace_ids_sha256": "a68d4d0ca25a7e4b401f837e022485249ee066a6fb2fb7fcae95137b8f3e4db3",
-        "held_problem_ids_sha256": "248c4f785239e5de9726f3d227815407f8835769f53c0d5d33a7b6564d585bde",
-        "incorrect_problem_count": 116,
-        "incorrect_problem_ids_sha256": "e8b90596814dcdc1bdc4d94aa4c7277e7f96403842bc8b10746dbdceb0742509",
-        "incorrect_rows": 814,
-        "incorrect_trace_ids_sha256": "8003b87ffdff201e6fdb4d6f9609c0894d0bb778d61a3720f345adfc1b3d0567"
+        "correct_problem_count": 106,
+        "correct_problem_ids_sha256": "6ca64196bb8cf32453310ceaff6c44ec2eac64665b28531f1f7fc1faab45a023",
+        "correct_rows": 508,
+        "correct_trace_ids_sha256": "14c64ca9d14bd0d98d881f36fbb9a69bda020a69e6b318fd324c443f649f693e",
+        "held_problem_ids_sha256": "6ca64196bb8cf32453310ceaff6c44ec2eac64665b28531f1f7fc1faab45a023",
+        "incorrect_problem_count": 106,
+        "incorrect_problem_ids_sha256": "6ca64196bb8cf32453310ceaff6c44ec2eac64665b28531f1f7fc1faab45a023",
+        "incorrect_rows": 508,
+        "incorrect_trace_ids_sha256": "32bd4b0af91d239003417ca11f51e43b9cb34b74b8cbc29ed44ea5b38e3d9d2d",
+        "source_correct_pool_rows": 1105,
+        "source_incorrect_pool_rows": 591
       },
       "maximum_fully_rendered_tokens": 32774
     },
     "seed": 42,
+    "split_problem_count": 106,
     "training_rows_per_variant": 6000
   },
   "source_dataset": {
@@ -118,9 +126,9 @@
     "bf16": true,
     "context_parallel_size": 1,
     "data_parallel_size": 1,
-    "effective_presentations": 18048,
-    "epochs": 3,
-    "final_iteration": 281,
+    "effective_presentations": 12032,
+    "epochs": 2,
+    "final_iteration": 187,
     "full_parameter_sft": true,
     "global_batch_size": 64,
     "gradient_clip_norm": 1.0,
@@ -133,7 +141,7 @@
     "optimizer": "AdamW",
     "optimizer_checkpoint_interval_updates": 24,
     "optimizer_cpu_offload": true,
-    "optimizer_updates": 282,
+    "optimizer_updates": 188,
     "pipeline_parallel_size": 1,
     "recompute_loss_function": true,
     "rollout_batch_size": 64,

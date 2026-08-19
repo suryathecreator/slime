@@ -11,7 +11,9 @@ from typing import Any
 
 from examples.qwen2_5_7b_aime_2009_2024_split_sft_6k.data_utils import (
     PROMPT_TEMPLATE,
+    SOURCE_TRACE_COUNT,
     SPLITS,
+    SPLIT_PROBLEM_COUNT,
     VARIANTS,
     atomic_json,
     atomic_jsonl,
@@ -19,8 +21,8 @@ from examples.qwen2_5_7b_aime_2009_2024_split_sft_6k.data_utils import (
     expand_balanced,
     length_summary,
     ordered_values_sha256,
-    partition_problem_ids,
-    select_correct_control,
+    partition_mixed_problem_ids,
+    select_covered_traces,
     sha256_file,
     sha256_text,
     tokenizer_control_inventory,
@@ -227,7 +229,29 @@ def main() -> None:
     tokenizer = load_tokenizer(args.model, contract)
     rows, problems = load_source(args.source_dir, contract, tokenizer)
     seed = int(contract["selection"]["seed"])
-    held_in, held_out = partition_problem_ids(problems, held_in_count=240, seed=seed)
+    outcome_counts: dict[str, Counter[str]] = defaultdict(Counter)
+    for row in rows:
+        problem_id = str(row["metadata"]["problem_id"])
+        outcome = "correct" if bool(row["metadata"]["is_correct"]) else "incorrect"
+        outcome_counts[problem_id][outcome] += 1
+    mixed_problem_ids = {
+        problem_id
+        for problem_id, counts in outcome_counts.items()
+        if counts["correct"] > 0 and counts["incorrect"] > 0
+    }
+    all_correct_problem_ids = {
+        problem_id for problem_id, counts in outcome_counts.items() if counts["correct"] == 16
+    }
+    all_incorrect_problem_ids = {
+        problem_id for problem_id, counts in outcome_counts.items() if counts["incorrect"] == 16
+    }
+    if (len(mixed_problem_ids), len(all_correct_problem_ids), len(all_incorrect_problem_ids)) != (212, 241, 27):
+        raise ValueError("mixed/all-correct/all-incorrect source problem audit drift")
+    if mixed_problem_ids | all_correct_problem_ids | all_incorrect_problem_ids != set(problems):
+        raise AssertionError("source outcome classes are not exhaustive")
+    if (mixed_problem_ids & all_correct_problem_ids) or (mixed_problem_ids & all_incorrect_problem_ids):
+        raise AssertionError("source outcome classes overlap")
+    held_in, held_out = partition_mixed_problem_ids(mixed_problem_ids, seed=seed)
     split_problem_ids = {"held_in": held_in, "held_out": held_out}
     args.data_root.mkdir(parents=True, exist_ok=True)
     (args.data_root / "datasets").mkdir()
@@ -238,20 +262,33 @@ def main() -> None:
     for split in SPLITS:
         problem_ids = split_problem_ids[split]
         split_rows = [row for row in rows if str(row["metadata"]["problem_id"]) in problem_ids]
-        incorrect = [row for row in split_rows if not bool(row["metadata"]["is_correct"])]
-        incorrect_problem_ids = {str(row["metadata"]["problem_id"]) for row in incorrect}
+        incorrect_pool = [row for row in split_rows if not bool(row["metadata"]["is_correct"])]
         correct_pool = [row for row in split_rows if bool(row["metadata"]["is_correct"])]
-        selected_correct, correct_report = select_correct_control(
-            correct_pool,
-            target_rows=len(incorrect),
-            target_problem_count=len(incorrect_problem_ids),
+        selected_incorrect, incorrect_report = select_covered_traces(
+            incorrect_pool,
+            problem_ids=problem_ids,
+            target_rows=SOURCE_TRACE_COUNT,
             seed=seed,
             split=split,
+            outcome="incorrect",
         )
-        incorrect.sort(key=lambda row: str(row["metadata"]["base_trace_id"]))
+        selected_correct, correct_report = select_covered_traces(
+            correct_pool,
+            problem_ids=problem_ids,
+            target_rows=SOURCE_TRACE_COUNT,
+            seed=seed,
+            split=split,
+            outcome="correct",
+        )
         correct_problem_ids = {str(row["metadata"]["problem_id"]) for row in selected_correct}
-        if len(selected_correct) != len(incorrect) or len(correct_problem_ids) != len(incorrect_problem_ids):
-            raise AssertionError(f"{split} trace-count/problem-count control drift")
+        incorrect_problem_ids = {str(row["metadata"]["problem_id"]) for row in selected_incorrect}
+        if (
+            len(selected_correct) != SOURCE_TRACE_COUNT
+            or len(selected_incorrect) != SOURCE_TRACE_COUNT
+            or correct_problem_ids != problem_ids
+            or incorrect_problem_ids != problem_ids
+        ):
+            raise AssertionError(f"{split} exact mixed-problem control drift")
         split_stats[split] = {
             "correct_control": correct_report,
             "correct_problem_count": len(correct_problem_ids),
@@ -260,16 +297,16 @@ def main() -> None:
             "held_problem_count": len(problem_ids),
             "held_problem_ids": sorted(problem_ids),
             "held_problem_ids_sha256": ordered_values_sha256(sorted(problem_ids)),
+            "incorrect_control": incorrect_report,
             "incorrect_problem_count": len(incorrect_problem_ids),
             "incorrect_problem_ids_sha256": ordered_values_sha256(sorted(incorrect_problem_ids)),
-            "incorrect_rows": len(incorrect),
-            "incorrect_trace_ids_sha256": ordered_values_sha256(
-                str(row["metadata"]["base_trace_id"]) for row in incorrect
-            ),
+            "incorrect_rows": len(selected_incorrect),
+            "incorrect_trace_ids_sha256": incorrect_report["selected_trace_ids_sha256"],
             "source_correct_pool_rows": len(correct_pool),
+            "source_incorrect_pool_rows": len(incorrect_pool),
             "source_rows": len(split_rows),
         }
-        for label, selected in (("correct", selected_correct), ("incorrect", incorrect)):
+        for label, selected in (("correct", selected_correct), ("incorrect", selected_incorrect)):
             variant = f"{split}_{label}_6000"
             expanded, expansion = expand_balanced(selected, variant=variant, seed=seed)
             path = args.data_root / "datasets" / f"{variant}.jsonl"
@@ -302,7 +339,7 @@ def main() -> None:
                     "year": problem["year"],
                 }
             )
-        atomic_jsonl(args.data_root / "eval" / f"{split}_240.jsonl", eval_rows)
+        atomic_jsonl(args.data_root / "eval" / f"{split}_{SPLIT_PROBLEM_COUNT}.jsonl", eval_rows)
     if tuple(output_paths) != VARIANTS:
         raise AssertionError(f"variant output order drift: {tuple(output_paths)}")
     source_length_stats = length_summary(rows)
@@ -320,10 +357,12 @@ def main() -> None:
             "incorrect_problem_ids_sha256": split_stats[split]["incorrect_problem_ids_sha256"],
             "incorrect_rows": split_stats[split]["incorrect_rows"],
             "incorrect_trace_ids_sha256": split_stats[split]["incorrect_trace_ids_sha256"],
+            "source_correct_pool_rows": split_stats[split]["source_correct_pool_rows"],
+            "source_incorrect_pool_rows": split_stats[split]["source_incorrect_pool_rows"],
         }
         if observed != expected_audit[split]:
             raise ValueError(f"{split} selection differs from the pinned source-backed audit")
-        eval_hash = sha256_file(args.data_root / "eval" / f"{split}_240.jsonl")
+        eval_hash = sha256_file(args.data_root / "eval" / f"{split}_{SPLIT_PROBLEM_COUNT}.jsonl")
         if eval_hash != expected_audit["eval_sha256"][split]:
             raise ValueError(f"{split} eval JSONL differs from the pinned source-backed audit")
     for variant in VARIANTS:
@@ -338,21 +377,30 @@ def main() -> None:
             "artifact_schema_version": 1,
             "expansion": expansion_stats,
             "invariants": {
-                "all_source_traces_retained_before_condition_selection": True,
+                "all_selected_source_trace_ids_unique_before_expansion": True,
                 "correct_and_incorrect_problem_counts_match_within_each_split": True,
-                "correct_and_incorrect_problem_identity_sets_may_differ": True,
+                "correct_and_incorrect_problem_identity_sets_match_within_each_split": True,
                 "correct_and_incorrect_source_trace_counts_match_within_each_split": True,
-                "held_in_held_out_disjoint_exhaustive_240_each": True,
+                "held_in_held_out_disjoint_exhaustive_mixed_106_each": True,
                 "no_length_filter_or_truncation": True,
                 "no_system_message": True,
                 "prompt_and_response_bytes_preserved": True,
                 "terminal_im_end_weight_one_newline_weight_zero": True,
+                "training_and_evaluation_use_only_mixed_outcome_problems": True,
             },
             "source": {
+                "all_correct_problem_count": len(all_correct_problem_ids),
+                "all_incorrect_problem_count": len(all_incorrect_problem_ids),
                 "correct_rows": sum(bool(row["metadata"]["is_correct"]) for row in rows),
                 "incorrect_rows": sum(not bool(row["metadata"]["is_correct"]) for row in rows),
                 "length_stats": source_length_stats,
+                "mixed_correct_rows": sum(outcome_counts[problem_id]["correct"] for problem_id in mixed_problem_ids),
+                "mixed_incorrect_rows": sum(
+                    outcome_counts[problem_id]["incorrect"] for problem_id in mixed_problem_ids
+                ),
+                "mixed_problem_count": len(mixed_problem_ids),
                 "problem_count": len(problems),
+                "pure_outcome_problem_count": len(all_correct_problem_ids | all_incorrect_problem_ids),
                 "rows": len(rows),
             },
             "splits": split_stats,
@@ -370,9 +418,11 @@ def main() -> None:
             },
             "eval": {
                 split: {
-                    "path": str(args.data_root / "eval" / f"{split}_240.jsonl"),
-                    "rows": 240,
-                    "sha256": sha256_file(args.data_root / "eval" / f"{split}_240.jsonl"),
+                    "path": str(args.data_root / "eval" / f"{split}_{SPLIT_PROBLEM_COUNT}.jsonl"),
+                    "rows": SPLIT_PROBLEM_COUNT,
+                    "sha256": sha256_file(
+                        args.data_root / "eval" / f"{split}_{SPLIT_PROBLEM_COUNT}.jsonl"
+                    ),
                 }
                 for split in SPLITS
             },

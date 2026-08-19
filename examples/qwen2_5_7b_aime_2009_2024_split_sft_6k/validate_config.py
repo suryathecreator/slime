@@ -41,9 +41,9 @@ def validate_contract(contract: dict[str, Any]) -> None:
         "bf16": True,
         "context_parallel_size": 1,
         "data_parallel_size": 1,
-        "effective_presentations": 18048,
-        "epochs": 3,
-        "final_iteration": 281,
+        "effective_presentations": 12032,
+        "epochs": 2,
+        "final_iteration": 187,
         "global_batch_size": 64,
         "gradient_clip_norm": 1.0,
         "learning_rate": 5e-6,
@@ -54,7 +54,7 @@ def validate_contract(contract: dict[str, Any]) -> None:
         "min_learning_rate": 1e-6,
         "optimizer": "AdamW",
         "optimizer_checkpoint_interval_updates": 24,
-        "optimizer_updates": 282,
+        "optimizer_updates": 188,
         "pipeline_parallel_size": 1,
         "rollout_batch_size": 64,
         "tensor_parallel_size": 4,
@@ -70,15 +70,24 @@ def validate_contract(contract: dict[str, Any]) -> None:
     selection = contract["selection"]
     require(selection["training_rows_per_variant"] == 6000, "6K expansion drift")
     require(selection["seed"] == 42, "selection seed drift")
+    require(selection["split_problem_count"] == 106, "mixed split problem-count drift")
+    require(selection["common_source_trace_count"] == 508, "common source trace-count drift")
     require("No source trace is filtered or truncated" in selection["length_policy"], "length policy drift")
-    require("matches N and K" in selection["correct_control"], "matched-control policy drift")
+    require("exact same problem-ID set" in selection["correct_control"], "matched-control policy drift")
+    require("only the 212 problems" in selection["mixed_outcome_policy"], "mixed-only policy drift")
     audit = selection["realized_source_audit"]
     require(audit["maximum_fully_rendered_tokens"] == 32774, "realized maximum-length audit drift")
-    for split, rows, problems in (("held_in", 717, 123), ("held_out", 814, 116)):
-        require(audit[split]["correct_rows"] == rows, f"{split} correct-row audit drift")
-        require(audit[split]["incorrect_rows"] == rows, f"{split} incorrect-row audit drift")
-        require(audit[split]["correct_problem_count"] == problems, f"{split} correct-problem audit drift")
-        require(audit[split]["incorrect_problem_count"] == problems, f"{split} incorrect-problem audit drift")
+    for split, correct_pool, incorrect_pool in (("held_in", 1188, 508), ("held_out", 1105, 591)):
+        require(audit[split]["correct_rows"] == 508, f"{split} correct-row audit drift")
+        require(audit[split]["incorrect_rows"] == 508, f"{split} incorrect-row audit drift")
+        require(audit[split]["correct_problem_count"] == 106, f"{split} correct-problem audit drift")
+        require(audit[split]["incorrect_problem_count"] == 106, f"{split} incorrect-problem audit drift")
+        require(audit[split]["source_correct_pool_rows"] == correct_pool, f"{split} correct-pool drift")
+        require(audit[split]["source_incorrect_pool_rows"] == incorrect_pool, f"{split} incorrect-pool drift")
+        require(
+            audit[split]["correct_problem_ids_sha256"] == audit[split]["incorrect_problem_ids_sha256"],
+            f"{split} exact problem identity drift",
+        )
     require(set(audit["dataset_sha256"]) == set(VARIANTS), "realized dataset hashes missing")
     require(set(audit["eval_sha256"]) == {"held_in", "held_out"}, "realized eval hashes missing")
     require(contract["formatting"]["system"] is None, "training system-message drift")
@@ -126,7 +135,7 @@ def validate_static(package: Path, repo_root: Path) -> None:
     for relative, walltime, gpu in (
         ("01_prepare_data.sbatch", "02:00:00", "h200:1"),
         ("02_canary.sbatch", "02:00:00", "h200:4"),
-        ("03_train.sbatch", "08:00:00", "h200:4"),
+        ("03_train.sbatch", "06:00:00", "h200:4"),
         ("05_finalize.sbatch", "02:00:00", "h200:1"),
     ):
         text = (package / relative).read_text(encoding="utf-8")

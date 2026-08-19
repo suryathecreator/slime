@@ -60,12 +60,12 @@ export PREP_STATS_JSON="${DATA_ROOT}/selection_and_tokenization_stats.json"
 export TOKENIZER_INVENTORY_JSON="${DATA_ROOT}/tokenizer_control_inventory.json"
 export SOURCE_ARTIFACTS_JSON="${DATA_ROOT}/source_artifacts.json"
 export SCHEDULE_AUDIT_JSON="${DATA_ROOT}/schedule_audit.json"
-export HELD_IN_EVAL_JSONL="${DATA_ROOT}/eval/held_in_240.jsonl"
-export HELD_OUT_EVAL_JSONL="${DATA_ROOT}/eval/held_out_240.jsonl"
+export HELD_IN_EVAL_JSONL="${DATA_ROOT}/eval/held_in_106.jsonl"
+export HELD_OUT_EVAL_JSONL="${DATA_ROOT}/eval/held_out_106.jsonl"
 
-export SFT_NUM_EPOCH=3
-export AIME_SPLIT_6K_OPTIMIZER_UPDATES=282
-export AIME_SPLIT_6K_FINAL_ITERATION=281
+export SFT_NUM_EPOCH=2
+export AIME_SPLIT_6K_OPTIMIZER_UPDATES=188
+export AIME_SPLIT_6K_FINAL_ITERATION=187
 export SFT_ROLLOUT_BATCH_SIZE=64
 export SFT_GLOBAL_BATCH_SIZE=64
 export SFT_ACTOR_GPUS=4

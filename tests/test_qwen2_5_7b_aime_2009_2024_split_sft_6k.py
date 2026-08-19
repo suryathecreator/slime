@@ -9,12 +9,14 @@ import pytest
 from examples.qwen2_5_7b_aime_2009_2024_split_sft_6k.data_utils import (
     DATASET_ROWS,
     RUNTIME_PRESENTATIONS,
+    SOURCE_TRACE_COUNT,
+    SPLIT_PROBLEM_COUNT,
     UPDATES,
     VARIANTS,
     expand_balanced,
-    partition_problem_ids,
+    partition_mixed_problem_ids,
     rendered_user_prefix,
-    select_correct_control,
+    select_covered_traces,
 )
 from examples.qwen2_5_7b_aime_2009_2024_split_sft_6k.finalize import parse_metrics
 
@@ -37,36 +39,44 @@ def source_record(index: int, problem_id: str, correct: bool = True) -> dict:
     }
 
 
-def test_problem_partition_is_deterministic_disjoint_and_exhaustive() -> None:
-    problem_ids = [f"problem-{index:03d}" for index in range(480)]
-    first_in, first_out = partition_problem_ids(problem_ids, held_in_count=240, seed=42)
-    second_in, second_out = partition_problem_ids(reversed(problem_ids), held_in_count=240, seed=42)
+def test_mixed_problem_partition_is_deterministic_disjoint_and_exhaustive() -> None:
+    problem_ids = [f"problem-{index:03d}" for index in range(212)]
+    first_in, first_out = partition_mixed_problem_ids(problem_ids, seed=42)
+    second_in, second_out = partition_mixed_problem_ids(reversed(problem_ids), seed=42)
     assert first_in == second_in
     assert first_out == second_out
-    assert len(first_in) == len(first_out) == 240
+    assert len(first_in) == len(first_out) == SPLIT_PROBLEM_COUNT == 106
     assert not first_in & first_out
     assert first_in | first_out == set(problem_ids)
 
 
-def test_correct_control_matches_trace_and_problem_counts() -> None:
-    records = [source_record(problem * 20 + draw, f"p{problem}") for problem in range(12) for draw in range(20)]
-    selected, report = select_correct_control(
+def test_covered_selection_matches_exact_problem_set_and_trace_count() -> None:
+    problem_ids = {f"p{problem}" for problem in range(SPLIT_PROBLEM_COUNT)}
+    records = [
+        source_record(problem * 6 + draw, f"p{problem}")
+        for problem in range(SPLIT_PROBLEM_COUNT)
+        for draw in range(6)
+    ]
+    selected, report = select_covered_traces(
         records,
-        target_rows=70,
-        target_problem_count=7,
+        problem_ids=problem_ids,
+        target_rows=SOURCE_TRACE_COUNT,
         seed=42,
         split="held_in",
+        outcome="correct",
     )
-    assert len(selected) == 70
-    assert len({row["metadata"]["problem_id"] for row in selected}) == 7
-    assert report["selected_rows"] == 70
-    assert report["selected_problem_count"] == 7
-    repeated, repeated_report = select_correct_control(
+    assert len(selected) == SOURCE_TRACE_COUNT == 508
+    assert {row["metadata"]["problem_id"] for row in selected} == problem_ids
+    assert len({row["metadata"]["base_trace_id"] for row in selected}) == SOURCE_TRACE_COUNT
+    assert report["anchor_rows"] == SPLIT_PROBLEM_COUNT
+    assert report["fill_rows"] == SOURCE_TRACE_COUNT - SPLIT_PROBLEM_COUNT
+    repeated, repeated_report = select_covered_traces(
         list(reversed(records)),
-        target_rows=70,
-        target_problem_count=7,
+        problem_ids=problem_ids,
+        target_rows=SOURCE_TRACE_COUNT,
         seed=42,
         split="held_in",
+        outcome="correct",
     )
     assert [row["metadata"]["base_trace_id"] for row in repeated] == [
         row["metadata"]["base_trace_id"] for row in selected
@@ -74,25 +84,40 @@ def test_correct_control_matches_trace_and_problem_counts() -> None:
     assert repeated_report == report
 
 
+def test_covered_selection_rejects_a_missing_problem() -> None:
+    problem_ids = {f"p{problem}" for problem in range(SPLIT_PROBLEM_COUNT)}
+    records = [source_record(problem, f"p{problem}") for problem in range(SPLIT_PROBLEM_COUNT - 1)]
+    with pytest.raises(ValueError, match="exact selected problem set"):
+        select_covered_traces(
+            records,
+            problem_ids=problem_ids,
+            target_rows=SPLIT_PROBLEM_COUNT,
+            seed=42,
+            split="held_out",
+            outcome="incorrect",
+        )
+
+
 def test_balanced_expansion_gives_every_trace_nearly_equal_exposure() -> None:
-    records = [source_record(index, f"p{index % 31}") for index in range(731)]
+    records = [source_record(index, f"p{index % SPLIT_PROBLEM_COUNT}") for index in range(SOURCE_TRACE_COUNT)]
     expanded, report = expand_balanced(records, variant=VARIANTS[0], seed=42)
     assert len(expanded) == DATASET_ROWS
     exposure = Counter(row["metadata"]["base_trace_id"] for row in expanded)
     assert max(exposure.values()) - min(exposure.values()) == 1
     assert report["dataset_rows"] == 6000
-    assert report["three_full_epochs_presentations"] == 18000
-    assert report["effective_runtime_presentations"] == 18048
-    assert report["wrap_presentations"] == 48
+    assert Counter(exposure.values()) == Counter({12: 412, 11: 96})
+    assert report["full_epochs_presentations"] == 12000
+    assert report["effective_runtime_presentations"] == 12032
+    assert report["wrap_presentations"] == 32
 
 
-def test_contract_pins_three_epoch_recipe_and_unfiltered_source() -> None:
+def test_contract_pins_two_epoch_mixed_only_recipe_and_unfiltered_source() -> None:
     assert tuple(CONTRACT["variants"]) == VARIANTS
     training = CONTRACT["training"]
-    assert training["epochs"] == 3
-    assert training["optimizer_updates"] == UPDATES == 282
-    assert training["final_iteration"] == 281
-    assert training["effective_presentations"] == RUNTIME_PRESENTATIONS == 18048
+    assert training["epochs"] == 2
+    assert training["optimizer_updates"] == UPDATES == 188
+    assert training["final_iteration"] == 187
+    assert training["effective_presentations"] == RUNTIME_PRESENTATIONS == 12032
     assert training["max_sequence_length"] == 32896
     assert training["global_batch_size"] == 64
     assert training["learning_rate"] == 5e-6
@@ -102,10 +127,14 @@ def test_contract_pins_three_epoch_recipe_and_unfiltered_source() -> None:
     assert training["adam_epsilon"] == 1e-8
     assert training["weight_decay"] == 1e-4
     assert "No source trace is filtered or truncated" in CONTRACT["selection"]["length_policy"]
+    assert "only the 212 problems" in CONTRACT["selection"]["mixed_outcome_policy"]
+    assert CONTRACT["selection"]["common_source_trace_count"] == SOURCE_TRACE_COUNT
+    assert CONTRACT["selection"]["split_problem_count"] == SPLIT_PROBLEM_COUNT
     audit = CONTRACT["selection"]["realized_source_audit"]
     assert audit["maximum_fully_rendered_tokens"] == 32774
-    assert (audit["held_in"]["incorrect_rows"], audit["held_in"]["incorrect_problem_count"]) == (717, 123)
-    assert (audit["held_out"]["incorrect_rows"], audit["held_out"]["incorrect_problem_count"]) == (814, 116)
+    for split in ("held_in", "held_out"):
+        assert (audit[split]["incorrect_rows"], audit[split]["incorrect_problem_count"]) == (508, 106)
+        assert audit[split]["correct_problem_ids_sha256"] == audit[split]["incorrect_problem_ids_sha256"]
 
 
 def test_exact_prompt_has_one_user_turn_and_no_system() -> None:
@@ -116,7 +145,7 @@ def test_exact_prompt_has_one_user_turn_and_no_system() -> None:
     readme = (PACKAGE / "README.md").read_text()
     assert "no system message" in readme.lower()
     assert "{SOURCE_RESPONSE_VERBATIM}<|im_end|>" in readme
-    assert "need not use the exact same" in readme
+    assert "use exactly the same problem IDs" in readme
 
 
 def test_dag_is_ten_serial_jobs_and_uses_immutable_worktree() -> None:
@@ -135,13 +164,13 @@ def test_sbatch_resources_and_independent_base_initialization() -> None:
     env = (PACKAGE / "env.sh").read_text()
     assert "unset SFT_INITIAL_HF_DIR" in env
     assert "SFT_SEQ_LENGTH=32896" in env
-    assert "SFT_NUM_EPOCH=3" in env
-    assert "AIME_SPLIT_6K_OPTIMIZER_UPDATES=282" in env
+    assert "SFT_NUM_EPOCH=2" in env
+    assert "AIME_SPLIT_6K_OPTIMIZER_UPDATES=188" in env
     assert "SFT_SAVE_INTERVAL=24" in env
     for filename, walltime, gpu_count in (
         ("01_prepare_data.sbatch", "02:00:00", 1),
         ("02_canary.sbatch", "02:00:00", 4),
-        ("03_train.sbatch", "08:00:00", 4),
+        ("03_train.sbatch", "06:00:00", 4),
         ("05_finalize.sbatch", "02:00:00", 1),
     ):
         text = (PACKAGE / filename).read_text()
@@ -152,8 +181,8 @@ def test_sbatch_resources_and_independent_base_initialization() -> None:
 def test_handoff_excludes_training_data_and_defers_eval_sampling() -> None:
     finalizer = (PACKAGE / "finalize.py").read_text()
     assert '"sampling": "deferred_to_Hyak_and_must_be_recorded"' in finalizer
-    assert "data/eval/held_in_240.jsonl" in finalizer
-    assert "data/eval/held_out_240.jsonl" in finalizer
+    assert "data/eval/held_in_106.jsonl" in finalizer
+    assert "data/eval/held_out_106.jsonl" in finalizer
     assert "data/datasets" not in finalizer
     rsync = (PACKAGE / "rsync_to_klone.sh").read_text()
     assert "training_jsonl=0 optimizer_state=0" in rsync

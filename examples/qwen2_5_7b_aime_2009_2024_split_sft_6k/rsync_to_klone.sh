@@ -40,8 +40,8 @@ mapfile -t records < <(
 compact_records=(
   "${EXPERIMENT_ROOT}/TRAINING_STATUS.json|TRAINING_STATUS.json"
   "${CONTRACT_FILE}|config/experiment_contract.json"
-  "${HELD_IN_EVAL_JSONL}|data/eval/held_in_240.jsonl"
-  "${HELD_OUT_EVAL_JSONL}|data/eval/held_out_240.jsonl"
+  "${HELD_IN_EVAL_JSONL}|data/eval/held_in_106.jsonl"
+  "${HELD_OUT_EVAL_JSONL}|data/eval/held_out_106.jsonl"
   "${SCHEDULE_AUDIT_JSON}|data/schedule_audit.json"
   "${PREP_STATS_JSON}|data/selection_and_tokenization_stats.json"
   "${SOURCE_ARTIFACTS_JSON}|data/source_artifacts.json"

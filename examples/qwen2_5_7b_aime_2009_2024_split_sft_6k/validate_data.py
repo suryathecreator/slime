@@ -13,11 +13,15 @@ from typing import Any
 
 from examples.qwen2_5_7b_aime_2009_2024_split_sft_6k.data_utils import (
     DATASET_ROWS,
+    EPOCHS,
     GLOBAL_BATCH_SIZE,
     RUNTIME_PRESENTATIONS,
+    SOURCE_TRACE_COUNT,
     SPLITS,
+    SPLIT_PROBLEM_COUNT,
     UPDATES,
     VARIANTS,
+    WRAP_PRESENTATIONS,
     assert_record,
     atomic_json,
     normalize_token_ids,
@@ -112,9 +116,11 @@ def validate_schedule(rows: list[dict[str, Any]], *, seed: int, max_tokens_per_g
         if sorted(placed) != list(range(GLOBAL_BATCH_SIZE)):
             raise ValueError(f"dynamic schedule lost or duplicated a row at update {update}")
         over_cap_exposures += sum(length > max_tokens_per_gpu for length in batch_lengths)
-    expected_row_exposures = Counter({3: DATASET_ROWS - 48, 4: 48})
+    expected_row_exposures = Counter(
+        {EPOCHS: DATASET_ROWS - WRAP_PRESENTATIONS, EPOCHS + 1: WRAP_PRESENTATIONS}
+    )
     if Counter(row_exposures) != expected_row_exposures:
-        raise ValueError(f"282-update row exposure drift: {Counter(row_exposures)}")
+        raise ValueError(f"{UPDATES}-update row exposure drift: {Counter(row_exposures)}")
     if over_cap_singletons != over_cap_exposures:
         raise ValueError("samples over the soft 16K bin cap were not scheduled alone")
     source_exposures: Counter[str] = Counter()
@@ -153,7 +159,7 @@ def main() -> None:
     training = contract["training"]
     expected_training = {
         "effective_presentations": RUNTIME_PRESENTATIONS,
-        "epochs": 3,
+        "epochs": EPOCHS,
         "final_iteration": UPDATES - 1,
         "global_batch_size": GLOBAL_BATCH_SIZE,
         "max_sequence_length": 32896,
@@ -224,8 +230,12 @@ def main() -> None:
         incorrect_problems = incorrect_summary["problem_ids"]
         if len(correct_base) != len(incorrect_base):
             raise ValueError(f"{split} condition source-trace counts differ")
-        if len(correct_problems) != len(incorrect_problems):
-            raise ValueError(f"{split} condition problem counts differ")
+        if len(correct_base) != SOURCE_TRACE_COUNT or len(incorrect_base) != SOURCE_TRACE_COUNT:
+            raise ValueError(f"{split} source-trace count is not exactly {SOURCE_TRACE_COUNT}")
+        if correct_problems != incorrect_problems:
+            raise ValueError(f"{split} correct/incorrect problem identities differ")
+        if len(correct_problems) != SPLIT_PROBLEM_COUNT:
+            raise ValueError(f"{split} problem count is not exactly {SPLIT_PROBLEM_COUNT}")
         split_stats = stats["splits"][split]
         if len(correct_base) != split_stats["correct_rows"] or len(incorrect_base) != split_stats["incorrect_rows"]:
             raise ValueError(f"{split} selected source-trace stats drift")
@@ -236,14 +246,18 @@ def main() -> None:
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True, local_files_only=True)
     eval_by_split: dict[str, list[dict[str, Any]]] = {}
     for split in SPLITS:
-        eval_path = args.data_root / "eval" / f"{split}_240.jsonl"
+        eval_path = args.data_root / "eval" / f"{split}_{SPLIT_PROBLEM_COUNT}.jsonl"
         eval_rows = read_jsonl(eval_path)
-        if len(eval_rows) != 240 or len({str(row["problem_id"]) for row in eval_rows}) != 240:
-            raise ValueError(f"{split} eval is not exactly 240 unique problems")
+        if len(eval_rows) != SPLIT_PROBLEM_COUNT or len(
+            {str(row["problem_id"]) for row in eval_rows}
+        ) != SPLIT_PROBLEM_COUNT:
+            raise ValueError(f"{split} eval is not exactly {SPLIT_PROBLEM_COUNT} unique problems")
         if {str(row["split"]) for row in eval_rows} != {split}:
             raise ValueError(f"{split} eval split label drift")
         eval_by_split[split] = eval_rows
         eval_by_problem = {str(row["problem_id"]): row for row in eval_rows}
+        if eval_by_problem.keys() != variant_summaries[f"{split}_correct_6000"]["problem_ids"]:
+            raise ValueError(f"{split} training/eval problem identity drift")
         for row in eval_rows:
             if row["prompt_sha256"] != sha256_text(row["prompt"]):
                 raise ValueError(f"eval prompt hash drift: {row['problem_id']}")
@@ -258,14 +272,22 @@ def main() -> None:
                     raise ValueError(f"training/eval prompt token drift: {split}/{problem_id}/{correctness}")
     held_in_ids = {str(row["problem_id"]) for row in eval_by_split["held_in"]}
     held_out_ids = {str(row["problem_id"]) for row in eval_by_split["held_out"]}
-    if held_in_ids & held_out_ids or len(held_in_ids | held_out_ids) != 480:
-        raise ValueError("held-in/held-out eval problem sets are not disjoint and exhaustive")
+    if held_in_ids & held_out_ids or len(held_in_ids | held_out_ids) != 2 * SPLIT_PROBLEM_COUNT:
+        raise ValueError("held-in/held-out eval problem sets are not a disjoint mixed-only partition")
     if int(stats["source"]["rows"]) != 7680 or int(stats["source"]["problem_count"]) != 480:
         raise ValueError("source audit shape drift")
+    if (
+        int(stats["source"]["mixed_problem_count"]),
+        int(stats["source"]["all_correct_problem_count"]),
+        int(stats["source"]["all_incorrect_problem_count"]),
+    ) != (212, 241, 27):
+        raise ValueError("source outcome-class audit drift")
     if int(stats["source"]["length_stats"]["total_tokens"]["max"]) > max_length:
         raise ValueError("a source trace exceeds the hard sequence capacity")
     if not stats["invariants"]["no_length_filter_or_truncation"]:
         raise ValueError("no-length-filter invariant missing")
+    if not stats["invariants"]["training_and_evaluation_use_only_mixed_outcome_problems"]:
+        raise ValueError("mixed-only training/evaluation invariant missing")
     schedule = {
         "artifact_schema_version": 1,
         "global_batch_size": GLOBAL_BATCH_SIZE,
